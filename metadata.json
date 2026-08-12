@@ -1,0 +1,6 @@
+{
+  "name": "Rigorset",
+  "description": "Next-gen Windows 11 PC Optimization suite with AI health diagnostics, 1-click safe maintenance, driver update radar, risk filter for dangerous tweaks, real-time background telemetry, and cloud syncing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

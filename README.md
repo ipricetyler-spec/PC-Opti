@@ -1,11 +1,52 @@
-<div align="center">
+# Rigorset Owner Edition — Windows 11 PC Optimization Platform
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+**Rigorset** is an owner-first, evidence-driven Windows 11 performance engineering platform designed for gaming optimization, frame-time consistency, system responsiveness, and low-level diagnostic management.
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 🚀 How to Build the Native Standalone Desktop Application (.exe)
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Rigorset includes a full **Electron** wrapper so you can compile it directly into an installed Windows 11 `.exe` installer.
 
-</div>
+### Prerequisites
+- [Node.js (v18 or higher)](https://nodejs.org/)
+- Windows 11 PC (Build 22H2 / 23H2 / 24H2)
+
+### Steps to Build `Rigorset Owner Edition Setup 2.4.0.exe`
+
+1. **Clone or Download** this repository onto your Windows 11 PC.
+2. Open **Command Prompt** or **PowerShell** inside the extracted project folder.
+3. Install dependencies:
+   ```cmd
+   npm install
+   ```
+4. Build the Electron NSIS Desktop Application:
+   ```cmd
+   npm run electron:build
+   ```
+5. Once compilation finishes, navigate to the newly created `dist-electron` folder:
+   ```
+   dist-electron\Rigorset Owner Edition Setup 2.4.0.exe
+   ```
+6. Double-click the installer to install Rigorset natively onto your Windows Start Menu & Desktop!
+
+---
+
+## ⚡ Alternative Direct PowerShell Care Engine (.ps1)
+
+If you prefer to run low-level maintenance routines without compiling the desktop application:
+
+1. Open **PowerShell as Administrator**.
+2. Run the included safe deployment script:
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
+   & ".\Rigorset_Win11_Care.ps1"
+   ```
+
+---
+
+## 🛡️ Core Capabilities & Principles
+- **Evidence-Driven Recommendation Engine**: Evaluates Windows configuration with strict maturity levels and risk scoring.
+- **Competitive Gaming Safety Engine**: 100% compliant with Riot Vanguard, EAC, BattlEye, and COD Ricochet. Zero DLL memory injection.
+- **Deterministic Rollback**: Comprehensive change journal with single-click restoration of initial system states.
+- **Unrestricted Owner Build**: Zero locks, zero paywalls, zero simulated features.

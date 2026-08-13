@@ -2,7 +2,9 @@
 
 PC-Opti is a local-first Windows 10/11 diagnostics and maintenance utility built around verifiable system telemetry, explicit actions, and deterministic rollback.
 
-The current source is distributed in [pc-optimizer (1).zip](./pc-optimizer%20(1).zip). Extract it, then run the app from the `pc-optimizer` directory.
+![PC-Opti dashboard](docs/images/pc-opti-dashboard.png)
+
+The source is tracked directly in this repository so changes can be reviewed, tested, and contributed to normally.
 
 ## Safe feature set
 
@@ -15,10 +17,13 @@ The current source is distributed in [pc-optimizer (1).zip](./pc-optimizer%20(1)
 
 PC-Opti intentionally does not provide registry cleaners, generic driver updaters, RAM flushers, process termination, forced service disabling, or destructive debloat scripts.
 
+See the [architecture and safety model](docs/ARCHITECTURE.md), [security policy](SECURITY.md), [contributor guide](CONTRIBUTING.md), and [roadmap](ROADMAP.md).
+
 ## Build
 
 ```powershell
 npm install
+npm test
 npm run lint
 npm run electron:build
 ```
@@ -28,6 +33,11 @@ The packaged Electron app may request administrator rights for supported Windows
 ## Development
 
 ```powershell
+npm test
 npm run build
 npm run electron:dev
 ```
+
+## License
+
+PC-Opti is licensed under the [MIT License](LICENSE).

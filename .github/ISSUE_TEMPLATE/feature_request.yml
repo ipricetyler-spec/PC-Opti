@@ -1,0 +1,30 @@
+name: Safety-first feature request
+description: Propose a focused, verifiable improvement to PC-Opti.
+title: "feature: "
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PC-Opti does not accept registry cleaners, RAM flushers, generic driver updating, process termination, or destructive debloat proposals.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user outcome
+      description: Describe the observable problem this feature would solve.
+    validations:
+      required: true
+  - type: textarea
+    id: windows-mechanism
+    attributes:
+      label: Windows mechanism and evidence
+      description: Name the documented Windows API, policy, or telemetry source. Explain why it is safe and measurable.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Failure and rollback behavior
+      description: Explain the pre-action state, failure handling, and deterministic rollback strategy.
+    validations:
+      required: true

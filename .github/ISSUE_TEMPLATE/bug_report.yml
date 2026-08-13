@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible PC-Opti defect.
+title: "bug: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, full audit journals, machine identifiers, or personal paths. Redact sensitive values before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: PC-Opti version or commit
+      placeholder: "2.4.0 or a commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and build
+      placeholder: "Windows 11 24H2, build 26100.x"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include the selected PC-Opti action and what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Observed outcome
+      description: Include a redacted error message or audit result if available.
+    validations:
+      required: true

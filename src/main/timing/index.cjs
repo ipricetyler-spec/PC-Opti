@@ -6,6 +6,8 @@ const { runPowerShell } = require('../scanner/index.cjs');
 const TIMING_ACTIONS = Object.freeze({
   RESTORE_AUTOMATIC_CLOCK_SOURCE: 'timing:restore-automatic-clock-source',
   DISABLE_DYNAMIC_TICK: 'timing:disable-dynamic-tick',
+  // Removes a disabledynamictick value that another tool set, so Windows uses its default.
+  RESTORE_DEFAULT_DYNAMIC_TICK: 'timing:restore-default-dynamic-tick',
 });
 
 const MICROSOFT_SOURCES = Object.freeze({
@@ -71,7 +73,7 @@ function timingTargetStateEquals(actionId, left, right) {
   if (actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE) {
     return left.usePlatformClock === right.usePlatformClock;
   }
-  if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) {
+  if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK || actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) {
     return left.disableDynamicTick === right.disableDynamicTick;
   }
   throw new Error('This timing experiment action is not recognized.');
@@ -84,6 +86,9 @@ function timingActionReachedIntendedState(actionId, state) {
   }
   if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) {
     return state.disableDynamicTick === 'YES';
+  }
+  if (actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) {
+    return state.disableDynamicTick === null;
   }
   throw new Error('This timing experiment action is not recognized.');
 }
@@ -102,6 +107,12 @@ function assertTimingActionApplicable(actionId, state) {
     }
     return true;
   }
+  if (actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) {
+    if (state.disableDynamicTick === null) {
+      throw new Error('Dynamic tick already uses the Windows default on the current boot entry.');
+    }
+    return true;
+  }
   throw new Error('This timing experiment action is not recognized.');
 }
 
@@ -115,6 +126,8 @@ function timingExperimentsForState(state, unavailableReason = null) {
   if (stateAvailable) assertBootTimingState(state);
   const clockApplicable = stateAvailable && state.usePlatformClock !== null;
   const tickApplicable = stateAvailable && state.disableDynamicTick !== 'YES';
+  // A value is present but Dialed did not necessarily set it: offer the Windows default.
+  const tickResettable = stateAvailable && state.disableDynamicTick !== null;
 
   return [
     {
@@ -146,6 +159,7 @@ function timingExperimentsForState(state, unavailableReason = null) {
       availability: !stateAvailable ? 'UNAVAILABLE' : tickApplicable ? 'APPLICABLE' : 'ALREADY_CONFIGURED',
       actionId: tickApplicable ? TIMING_ACTIONS.DISABLE_DYNAMIC_TICK : null,
       actionLabel: !stateAvailable ? 'Unavailable' : tickApplicable ? 'Configure experiment' : 'Already configured',
+      restoreDefaultActionId: tickResettable ? TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK : null,
       risk: 'Medium',
       requiresElevation: true,
       requiresReboot: true,
@@ -307,6 +321,9 @@ async function applyBootTimingAction(actionId) {
   if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) {
     return runFixedBcdCommand("/set '{current}' disabledynamictick yes");
   }
+  if (actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) {
+    return runFixedBcdCommand("/deletevalue '{current}' disabledynamictick");
+  }
   throw new Error('This timing experiment action is not recognized.');
 }
 
@@ -317,6 +334,10 @@ async function restoreBootTimingAction(preAction) {
   if (actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE) {
     if (!state.usePlatformClock) throw new Error('The captured useplatformclock value is not restorable.');
     return runFixedBcdCommand(`/set '{current}' useplatformclock ${state.usePlatformClock.toLowerCase()}`);
+  }
+  if (actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) {
+    if (!state.disableDynamicTick) throw new Error('The captured disabledynamictick value is not restorable.');
+    return runFixedBcdCommand(`/set '{current}' disabledynamictick ${state.disableDynamicTick.toLowerCase()}`);
   }
   if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) {
     if (state.disableDynamicTick === null) {

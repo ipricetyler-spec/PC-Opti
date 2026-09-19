@@ -46,6 +46,19 @@ export interface TweakDefinition {
   oneWay?: boolean;
 }
 
+/**
+ * Whether a tweak matches a search. Short searches (1-2 letters) match the start of a word
+ * in the title, so "se" finds "USB selective suspend" but not "Mouse acceleration"; longer
+ * ones match anywhere in the title or summary.
+ */
+export function tweakMatches(definition: Pick<TweakDefinition, 'title' | 'summary'>, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const title = definition.title.toLowerCase();
+  if (title.split(/[^a-z0-9]+/).some((word) => word.startsWith(needle))) return true;
+  return needle.length >= 3 && `${title} ${definition.summary.toLowerCase()}`.includes(needle);
+}
+
 export const TWEAKS: TweakDefinition[] = [
   {
     id: 'power-plan', group: 'Power', title: 'Power plan', capabilityIds: ['power:switch-plan'], perItem: false,
@@ -210,7 +223,7 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: false, destination: { tab: 'game-settings', view: 'profiles' }, actionLabel: 'Open game profiles',
   },
   {
-    id: 'dynamic-tick', group: 'Experiments', title: 'Dynamic tick', capabilityIds: ['timing:disable-dynamic-tick'], perItem: false,
+    id: 'dynamic-tick', group: 'Experiments', title: 'Dynamic tick', capabilityIds: ['timing:disable-dynamic-tick', 'timing:restore-default-dynamic-tick'], perItem: false,
     summary: 'A boot setting that changes how Windows schedules its timer.',
     whatChanges: 'Sets the boot option that turns off dynamic tick, so the system timer keeps a regular rhythm. Needs a restart.',
     whenItHelps: 'Some systems report steadier frame pacing. Many see no difference, and power use rises slightly.',

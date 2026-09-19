@@ -89,6 +89,10 @@ const EXECUTION_AUTHORITY_BY_CAPABILITY = Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs requires a fresh current-process Administrator check before apply and rollback.',
   }),
+  'timing:restore-default-dynamic-tick': Object.freeze({
+    mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
+    enforcement: 'src/main/journal/index.cjs requires a fresh current-process Administrator check before apply and rollback.',
+  }),
   'power:switch-plan': Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.OS_PERMISSION,
     enforcement: 'powercfg /setactive runs with the current session rights; Windows policy can refuse the change and the readback fails closed.',
@@ -616,6 +620,37 @@ const CAPABILITIES = Object.freeze([
     gamingConsiderations: 'A configured value is not proof of lower input latency or improved FPS.',
     securityImplications: 'Privileged boot configuration change with a pre-write export and a fresh administrator check.',
     unavailableReason: 'Not elevated, already configured, backup failure, changed state, unsupported value, or BCDEdit error',
+    profiles: ['public', 'owner'],
+    publicAvailability: 'ENABLED',
+  },
+  {
+    id: 'timing:restore-default-dynamic-tick',
+    actionPattern: 'timing:restore-default-dynamic-tick',
+    title: 'Return dynamic tick to the Windows default',
+    category: 'Windows timing',
+    description: 'Removes an explicit disabledynamictick value from the current boot entry, for example one set by another tool, so Windows uses its default.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['Dialed running as administrator', 'Verified bounded BCD export', 'An explicit disabledynamictick value is present'],
+    detectionMethod: 'Fresh current-entry BCDEdit read',
+    currentStateMethod: 'Fresh exact-value read immediately before mutation',
+    recommendedStateMethod: 'Windows default unless your own matched measurements show the explicit value helps',
+    expectedBenefit: 'Returns the timer to Windows\' default power-saving behaviour. Any performance effect depends on the hardware and must be measured.',
+    evidenceLevel: 'Observed BCD value and Microsoft BCDEdit documentation',
+    confidence: 'High for configured state; low for performance impact until measured',
+    riskLevel: 'Medium',
+    safetyClass: 'S3',
+    privilegeRequirement: 'Administrator; Dialed requests administrator rights at launch and rechecks them before each change',
+    persistence: 'Current boot entry until restored or changed',
+    rebootRequirement: 'Required',
+    mutationScope: 'Only disabledynamictick on {current}',
+    rollbackMethod: 'Set the captured yes/no value again',
+    rollbackLimitations: 'Rollback is refused if the current entry no longer matches the state Dialed applied.',
+    verificationMethod: 'Re-read disabledynamictick after apply or restore; assess frame time, power, and thermals after reboot',
+    measurableSuccessCriteria: 'The value is absent after apply and the captured value is observed after rollback',
+    knownConflicts: ['Boot configuration changed by another tool', 'Pending reboot'],
+    gamingConsiderations: 'Removing the value is not proof of better or worse input latency or FPS.',
+    securityImplications: 'Privileged boot configuration change with a pre-write export and a fresh administrator check.',
+    unavailableReason: 'Not elevated, already default, backup failure, changed state, or BCDEdit error',
     profiles: ['public', 'owner'],
     publicAvailability: 'ENABLED',
   },
@@ -1801,6 +1836,7 @@ function capabilityForAction(actionId) {
   if (id === 'policy:disable-windows-consumer-features') return capabilityById('policy:disable-windows-consumer-features');
   if (id === 'timing:restore-automatic-clock-source') return capabilityById('timing:restore-automatic-clock-source');
   if (id === 'timing:disable-dynamic-tick') return capabilityById('timing:disable-dynamic-tick');
+  if (id === 'timing:restore-default-dynamic-tick') return capabilityById('timing:restore-default-dynamic-tick');
   if (id === 'clear-temp-files') return capabilityById('maintenance:clear-temp-files');
   if (id === 'clear-shader-caches') return capabilityById('maintenance:clear-shader-caches');
   if (id === 'clear-crash-dumps') return capabilityById('maintenance:clear-crash-dumps');

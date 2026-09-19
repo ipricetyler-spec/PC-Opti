@@ -474,6 +474,7 @@ test('every privileged capability has an explicit authority contract wired to it
     'timing:disable-dynamic-tick',
     'timing:global-timer-resolution',
     'timing:restore-automatic-clock-source',
+    'timing:restore-default-dynamic-tick',
   ]);
 
   for (const capability of capabilities.filter((item) => /administrator|elevated|\bUAC\b/i.test(item.privilegeRequirement))) {
@@ -492,7 +493,7 @@ test('every privileged capability has an explicit authority contract wired to it
   for (const capabilityId of ['policy:disable-windows-consumer-features', 'startup:disable-machine-run']) {
     assert.ok([...journalSource.matchAll(new RegExp(`'${capabilityId}'`, 'g'))].length >= 2, capabilityId);
   }
-  for (const capabilityId of ['timing:disable-dynamic-tick', 'timing:restore-automatic-clock-source']) {
+  for (const capabilityId of ['timing:disable-dynamic-tick', 'timing:restore-automatic-clock-source', 'timing:restore-default-dynamic-tick']) {
     assert.match(journalSource, new RegExp(`'${capabilityId}'`), capabilityId);
   }
   // Machine-scope Windows settings: every one is an administrator capability, and both the

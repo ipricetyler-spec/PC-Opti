@@ -255,6 +255,28 @@ async function blockingPolicyReason(settingId, run = runPowerShell) {
   return parsed?.value === policy.blockedValue ? policy.reason : null;
 }
 
+// Windows Home has no Microsoft-documented setting that reliably keeps drivers out of
+// Windows Update. What Microsoft does document: drivers offered as optional updates are not
+// installed automatically. Shown instead of offering a switch that may do nothing.
+const HOME_DRIVER_UPDATE_NOTE = 'Windows Home has no setting Microsoft documents for keeping drivers out of Windows Update, so Dialed does not offer one. Drivers listed under Windows Update › Advanced options › Optional updates are not installed automatically. If Windows replaces a driver you rely on, reinstall it from the maker\'s website.';
+
+/** Why a setting is not offered on this edition, with any extra guidance for it. */
+function unsupportedReasonFor(settingId, family, baseReason) {
+  if (settingId === 'exclude-driver-updates' && family === 'home') return `${baseReason} ${HOME_DRIVER_UPDATE_NOTE}`;
+  return baseReason;
+}
+
+/**
+ * True when the read value differs from what Windows does with no value at all. Settings
+ * whose default depends on the driver (absentMeans null) are never flagged.
+ */
+function differsFromWindowsDefault(settingId, state) {
+  const setting = userSetting(settingId);
+  if (!state?.exists || setting.absentMeans === null) return false;
+  const enabled = effectiveEnabled(settingId, state);
+  return enabled !== null && enabled !== setting.absentMeans;
+}
+
 /** Journal action id: scope is part of the id so machine-wide changes are easy to spot. */
 function userSettingActionId(settingId) {
   return `settings:${userSetting(settingId).scope}:${settingId}`;
@@ -264,6 +286,8 @@ module.exports = {
   USER_SETTINGS,
   applyUserSettingValue,
   blockingPolicyReason,
+  differsFromWindowsDefault,
+  unsupportedReasonFor,
   editionFamily,
   editionSupport,
   readWindowsEdition,

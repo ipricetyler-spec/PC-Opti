@@ -54,7 +54,7 @@ const {
   readBenchmarks,
 } = require('../src/main/benchmarks/index.cjs');
 const { listPowerPlans } = require('../src/main/power-plans/index.cjs');
-const { USER_SETTINGS, blockingPolicyReason, editionSupport, readUserSetting, readWindowsEdition } = require('../src/main/user-settings/index.cjs');
+const { USER_SETTINGS, blockingPolicyReason, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
 
 // Microsoft documents the consumer-experience policy for Enterprise and Education only.
 const CONSUMER_FEATURES_EDITIONS = Object.freeze(['enterprise', 'education']);
@@ -643,7 +643,7 @@ ipcMain.handle('pc-opti:list-timing-experiments', async () => {
 });
 
 ipcMain.handle('pc-opti:execute-timing-experiment', async (_event, actionId) => {
-  assertShortString(actionId, 'Timing experiment action id', /^timing:(restore-automatic-clock-source|disable-dynamic-tick)$/);
+  assertShortString(actionId, 'Timing experiment action id', /^timing:(restore-automatic-clock-source|disable-dynamic-tick|restore-default-dynamic-tick)$/);
   const capability = capabilityForAction(actionId);
   if (!capability) throw new Error('Timing experiment action is not registered.');
   assertCapabilityAvailable(capability.id);
@@ -852,12 +852,17 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
   for (const [settingId, setting] of Object.entries(USER_SETTINGS)) {
     if (!isCapabilityAvailable(setting.capabilityId, resolveRuntimeProfileForApp())) continue;
     const support = editionSupport(setting.editions, family);
-    if (!support.supported) { states[settingId] = { enabled: null, manageable: false, unsupported: support.reason }; continue; }
+    if (!support.supported) {
+      // A value this edition ignores may still be present (set by another tool); it can be removed.
+      const leftover = await readUserSetting(settingId).then((state) => state.exists && (state.kind === 'DWord')).catch(() => false);
+      states[settingId] = { enabled: null, manageable: false, unsupported: unsupportedReasonFor(settingId, family, support.reason), leftover };
+      continue;
+    }
     const blocked = await blockingPolicyReason(settingId).catch(() => null);
     if (blocked) { states[settingId] = { enabled: null, manageable: false, unsupported: blocked }; continue; }
     try {
       const state = await readUserSetting(settingId);
-      states[settingId] = { enabled: state.enabled, manageable: !state.exists || state.kind === 'DWord' };
+      states[settingId] = { enabled: state.enabled, manageable: !state.exists || state.kind === 'DWord', windowsDefault: setting.absentMeans, differsFromDefault: differsFromWindowsDefault(settingId, state) };
     } catch {
       states[settingId] = { enabled: null, manageable: false };
     }

@@ -306,6 +306,8 @@ export interface TimingExperiment {
   currentState: string;
   availability: 'APPLICABLE' | 'ALREADY_DEFAULT' | 'ALREADY_CONFIGURED' | 'RESEARCH_ONLY' | 'UNAVAILABLE';
   actionId: 'timing:restore-automatic-clock-source' | 'timing:disable-dynamic-tick' | null;
+  /** Present when an explicit value exists that can be returned to the Windows default. */
+  restoreDefaultActionId?: 'timing:restore-default-dynamic-tick' | null;
   actionLabel: string;
   risk: 'Medium' | 'Research';
   requiresElevation: boolean;

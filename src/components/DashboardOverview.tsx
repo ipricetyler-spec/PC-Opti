@@ -18,6 +18,8 @@ interface DashboardOverviewProps {
   onNavigateRecommendation: (target: LocalRecommendation['targetPanel']) => void;
   driftReport?: DriftReport | null;
   onOpenChanges?: () => void;
+  onOpenStartup?: () => void;
+  onOpenTempFiles?: () => void;
 }
 
 function formatBytes(bytes: number) {
@@ -42,6 +44,8 @@ export function DashboardOverview({
   onNavigateRecommendation,
   driftReport = null,
   onOpenChanges,
+  onOpenStartup,
+  onOpenTempFiles,
 }: DashboardOverviewProps) {
   if (!snapshot) {
     return (
@@ -95,8 +99,8 @@ export function DashboardOverview({
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric icon={<Cpu className="h-4 w-4 text-cyan-400" />} label="Processor" value={cpu?.name ?? snapshot.metrics.cpu.status.replaceAll('_', ' ')} detail={snapshot.metrics.cpu.status === 'AVAILABLE' ? `${snapshot.metrics.cpu.value.cores} cores · ${snapshot.metrics.cpu.value.logicalProcessors} logical processors` : snapshot.metrics.cpu.reason} />
         <Metric icon={<Database className="h-4 w-4 text-emerald-400" />} label="Memory" value={memory ? `${memory.loadPercentage}% in use` : snapshot.metrics.memory.status.replaceAll('_', ' ')} detail={snapshot.metrics.memory.status === 'AVAILABLE' && memoryUsed !== null ? `${formatBytes(memoryUsed)} used of ${formatBytes(snapshot.metrics.memory.value.totalBytes)}` : snapshot.metrics.memory.status !== 'AVAILABLE' ? snapshot.metrics.memory.reason : 'Memory use was not calculated.'} />
-        <Metric icon={<HardDrive className="h-4 w-4 text-violet-400" />} label="Startup items" value={`${snapshot.metrics.startupItems.length} detected`} detail="Programs set to start with Windows" />
-        <Metric icon={<Database className="h-4 w-4 text-amber-400" />} label="Temporary files" value={formatBytes(snapshot.metrics.tempFiles.totalSizeBytes)} detail={`${snapshot.metrics.tempFiles.pathCount.toLocaleString()} files in Windows temp locations`} />
+        <Metric icon={<HardDrive className="h-4 w-4 text-violet-400" />} label="Startup items" value={`${snapshot.metrics.startupItems.length} detected`} detail="Programs set to start with Windows" onOpen={onOpenStartup} openLabel="Review startup apps" />
+        <Metric icon={<Database className="h-4 w-4 text-amber-400" />} label="Temporary files" value={formatBytes(snapshot.metrics.tempFiles.totalSizeBytes)} detail={`${snapshot.metrics.tempFiles.pathCount.toLocaleString()} files in Windows temp locations`} onOpen={onOpenTempFiles} openLabel="Review temporary files" />
       </section>
 
       <section className={`rounded-2xl border p-5 ${memoryPressure === 'critical' ? 'border-rose-500/30 bg-rose-950/20' : memoryPressure === 'normal' ? 'border-emerald-500/20 bg-emerald-950/10' : 'border-amber-500/30 bg-amber-950/20'}`}>
@@ -151,8 +155,12 @@ function ChangesSinceBaseline({ report, onOpenChanges }: { report: DriftReport |
   </section>;
 }
 
-function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string; value: string; detail: string }) {
-  return <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"><div className="flex items-center gap-2 text-xs font-medium text-slate-400">{icon}{label}</div><div className="mt-3 truncate text-base font-bold text-slate-100" title={value}>{value}</div><p data-technical-detail className="mt-1 text-[11px] text-slate-500">{detail}</p></div>;
+function Metric({ icon, label, value, detail, onOpen, openLabel }: { icon: ReactNode; label: string; value: string; detail: string; onOpen?: () => void; openLabel?: string }) {
+  const body = <><div className="flex items-center gap-2 text-xs font-medium text-slate-400">{icon}{label}</div><div className="mt-3 truncate text-base font-bold text-slate-100" title={value}>{value}</div><p data-technical-detail className="mt-1 text-[11px] text-slate-500">{detail}</p>{onOpen && <p className="mt-2 text-[11px] font-semibold text-cyan-300">{openLabel} →</p>}</>;
+  // A card with somewhere to go is a button, so it works with the keyboard too.
+  return onOpen
+    ? <button type="button" onClick={onOpen} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-left transition hover:border-slate-600">{body}</button>
+    : <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">{body}</div>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

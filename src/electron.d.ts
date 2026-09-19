@@ -41,7 +41,7 @@ declare global {
       confirmConsumerFeaturesPolicy: (throttleToken: string) => Promise<PolicyMutationResult>;
       openExternalLink: (url: string) => Promise<{ opened: boolean }>;
       listTimingExperiments: () => Promise<{ items: TimingExperiment[]; errors: Array<{ component: string; message: string }> }>;
-      executeTimingExperiment: (actionId: NonNullable<TimingExperiment['actionId']>) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
+      executeTimingExperiment: (actionId: NonNullable<TimingExperiment['actionId']> | 'timing:restore-default-dynamic-tick') => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
       listGameSettingsGuides: () => Promise<GameSettingsGuide[]>;
       readDisplayInventory: () => Promise<ReportedDisplayInventory>;
       readBiosPlan: () => Promise<import('./types').BiosGuidancePlan>;

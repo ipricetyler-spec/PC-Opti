@@ -1,12 +1,30 @@
 import { ErrorText } from './ErrorText';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, FlaskConical, RotateCcw } from 'lucide-react';
 import type { AuditJournalEntry } from '../types';
-import { TWEAK_GROUPS, changedLabel, type TweakCardState, type TweakDestination } from '../lib/tweaks';
+import { TWEAK_GROUPS, changedLabel, tweakMatches, type TweakCardState, type TweakDestination } from '../lib/tweaks';
 
-export interface UserSettingState { enabled: boolean | null; manageable: boolean; detail?: string; unsupported?: string }
+export interface UserSettingState {
+  enabled: boolean | null;
+  manageable: boolean;
+  detail?: string;
+  unsupported?: string;
+  /** What Windows does with no value (null when it depends on the driver). */
+  windowsDefault?: boolean | null;
+  /** The current value differs from that default. */
+  differsFromDefault?: boolean;
+  /** Set on this PC although this Windows edition ignores it. */
+  leftover?: boolean;
+}
 
-function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest }: {
+/** A setting changed from the Windows default by something other than Dialed. */
+export interface OutsideChange {
+  onReturnToDefault: () => void;
+}
+
+function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest, focused, outside }: {
+  focused?: boolean;
+  outside?: OutsideChange;
   card: TweakCardState;
   restoringId: string | null;
   busy: boolean;
@@ -24,7 +42,9 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
   const detailsId = `tweak-${definition.id}-details`;
   const [open, setOpen] = useState(false);
   const tone = changed ? 'tweak-card-changed' : definition.measureFirst ? 'tweak-card-experiment' : '';
-  return <article className={`tweak-card ${tone} min-w-0 rounded-lg p-4`}>
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => { if (focused) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [focused]);
+  return <article ref={ref} id={`tweak-${definition.id}`} className={`tweak-card ${tone} min-w-0 rounded-lg p-4 ${focused ? 'ring-2 ring-cyan-400/70' : ''}`}>
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <h4 className="text-sm font-semibold text-white">{definition.title}</h4>
@@ -37,10 +57,13 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
     {(definition.requiresAdmin || definition.requiresRestart) && <p className="mt-1 text-[11px] text-slate-500">{[definition.requiresAdmin && 'Needs administrator rights', definition.requiresRestart && 'needs a restart'].filter(Boolean).join(' · ')}</p>}
     <div className="tweak-actions mt-3 flex flex-wrap items-center gap-2">
       {unsupported && <p className="w-full text-xs text-amber-200">{unsupported}</p>}
+      {unsupported && userSetting?.leftover && <><p className="w-full text-xs text-slate-300">This policy is still set on this PC (Dialed did not set it), but Windows ignores it here. Removing it changes nothing about how Windows behaves; it only clears the leftover. You can undo the removal in Restore.</p><button type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, false)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : 'Remove leftover'}</button></>}
+      {outside && <p className="w-full text-xs text-sky-200">Set outside Dialed: another tool or an administrator changed this from the Windows default. Try <strong>Test it</strong> to see whether it helps on your PC, or return it to the Windows default. Either way you can undo it.</p>}
+      {outside && <button type="button" disabled={busy || restoringId !== null} onClick={outside.onReturnToDefault} className="rounded-md border border-sky-400/40 px-3 py-1.5 text-xs font-semibold text-sky-100 hover:border-sky-300 disabled:opacity-50">{busy ? 'Working…' : 'Return to Windows default'}</button>}
       {!unsupported && definition.destination && <button type="button" onClick={() => onOpen(definition.destination!)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500">{definition.actionLabel}</button>}
       {definition.oneWay && userSetting?.enabled === false && userSetting.manageable && <button type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, true)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : definition.actionLabel}</button>}
       {!definition.oneWay && definition.userSettingId && userSetting && userSetting.enabled === null && userSetting.manageable && (['on', 'off'] as const).map((target) => <button key={target} type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, target === 'on')} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : `Turn ${target}`}</button>)}
-      {!definition.oneWay && definition.userSettingId && userSetting && userSetting.enabled !== null && userSetting.manageable && <button type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, !userSetting.enabled)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : userSetting.enabled ? 'Turn off' : 'Turn on'}</button>}
+      {!outside && !definition.oneWay && definition.userSettingId && userSetting && userSetting.enabled !== null && userSetting.manageable && <button type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, !userSetting.enabled)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : userSetting.enabled ? 'Turn off' : 'Turn on'}</button>}
       {definition.userSettingId && userSetting && !userSetting.manageable && !unsupported && <span className="text-xs text-amber-200">Stored in a form Dialed will not overwrite. Change it in Windows Settings.</span>}
       {undoEntry && <button type="button" disabled={restoringId !== null} onClick={() => onUndo(undoEntry)} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />{restoringId === undoEntry.id ? 'Undoing…' : 'Undo'}</button>}
       {!undoEntry && card.changes.length > 0 && <button type="button" onClick={onReviewChanges} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />Undo in Restore</button>}
@@ -55,7 +78,7 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
   </article>;
 }
 
-export function TweaksOverview({ heading, cards, restoringId, userSettings, busySettingId, error, onOpen, onUndo, onReviewChanges, onToggle, testableIds, onTest }: {
+export function TweaksOverview({ heading, cards, restoringId, userSettings, busySettingId, error, onOpen, onUndo, onReviewChanges, onToggle, testableIds, onTest, focusId, outsideChanges }: {
   /** Title and introduction; the Tweaks page wording by default. */
   heading?: { title: string; intro: string };
   cards: TweakCardState[];
@@ -69,28 +92,38 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
   onToggle: (card: TweakCardState, enable: boolean) => void;
   testableIds?: Set<string>;
   onTest?: (tweakId: string) => void;
+  /** A tweak opened from search: scrolled to and outlined. */
+  focusId?: string | null;
+  /** Cards whose setting was changed from the Windows default outside Dialed. */
+  outsideChanges?: Partial<Record<string, OutsideChange>>;
 }) {
+  const [query, setQuery] = useState('');
+  // Opening a tweak from search clears any filter that would hide it.
+  useEffect(() => { if (focusId) setQuery(''); }, [focusId]);
+  const shown = cards.filter((card) => tweakMatches(card.definition, query));
   const changedCount = cards.filter((card) => card.changes.length).length;
   return <div className="space-y-8">
     <section>
       <h2 className="text-2xl font-bold text-white">{heading?.title ?? 'Tweaks'}</h2>
       <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">{heading?.intro ?? 'Every setting Dialed can change or guide, with what it does and when to leave it alone. Nothing here changes on its own: each change is previewed, confirmed, checked afterwards and can be undone.'}</p>
+      {cards.length > 4 && <div className="mt-3 flex flex-wrap items-center gap-2"><label className="sr-only" htmlFor="tweak-filter">Find a tweak</label><input id="tweak-filter" type="search" maxLength={60} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setQuery(''); }} placeholder="Find a tweak…" className="w-64 max-w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />{query.trim() && <span role="status" className="text-xs text-slate-400">{shown.length ? `${shown.length} match${shown.length === 1 ? '' : 'es'}` : 'No tweak matches that.'}</span>}</div>}
       {error && <p role="alert" className="mt-2 text-xs text-amber-200"><ErrorText text={error} /></p>}
       <p role="status" className="mt-2 text-xs text-slate-500">{changedCount ? `${changedCount} setting${changedCount === 1 ? ' has' : 's have'} a change made by Dialed, marked with a border.` : 'Dialed has not changed any of these settings.'}</p>
     </section>
     {TWEAK_GROUPS.map((group) => {
-      const inGroup = cards.filter((card) => card.definition.group === group);
+      const inGroup = shown.filter((card) => card.definition.group === group);
       if (!inGroup.length) return null;
       return <section key={group} aria-labelledby={`tweak-group-${group.replace(/\W+/g, '-')}`}>
         <h3 id={`tweak-group-${group.replace(/\W+/g, '-')}`} className="tweak-group-label mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{group}</h3>
-        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} />)}</div>
+        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} focused={focusId === card.definition.id} outside={outsideChanges?.[card.definition.id]} />)}</div>
       </section>;
     })}
   </div>;
 }
 
 /** Reads the active power plan name for the Power plan card. Read-only. */
-export function usePowerPlanName(enabled: boolean): string | null {
+/** The active plan's name. It reloads whenever refreshKey changes, e.g. after any recorded change. */
+export function usePowerPlanName(enabled: boolean, refreshKey?: unknown): string | null {
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
     if (!enabled || !window.pcOptiNative) return;

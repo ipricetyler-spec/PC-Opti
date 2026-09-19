@@ -1,5 +1,6 @@
 import { BarChart3, Cpu, Gamepad2, History, Radar, Settings, SlidersHorizontal, Usb } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TWEAKS, tweakMatches } from '../lib/tweaks';
 
 export type AppTab = 'readiness' | 'overview' | 'startup' | 'game-settings' | 'gpu' | 'network-quality' | 'input-devices' | 'performance-lab' | 'drift' | 'workload-profiles';
 
@@ -8,6 +9,10 @@ interface SidebarProps {
   availableTabs: AppTab[];
   onChange: (tab: AppTab) => void;
   profile: 'public' | 'consumer-premium' | 'owner';
+  /** Opens one tweak card. When given, search also lists matching tweaks. */
+  onOpenTweak?: (tweakId: string) => void;
+  /** Tweak ids available in this profile. */
+  tweakIds?: Set<string>;
 }
 
 interface NavItem {
@@ -44,13 +49,14 @@ function searchTarget(item: NavItem, query: string): AppTab | null {
   return item.includes?.find((view) => view.keywords.includes(query))?.id ?? null;
 }
 
-export function Sidebar({ activeTab, availableTabs, onChange, profile }: SidebarProps) {
+export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTweak, tweakIds }: SidebarProps) {
   const [query, setQuery] = useState('');
   const needle = query.trim().toLowerCase();
   const matches = navItems
     .filter((item) => availableTabs.includes(item.id))
     .map((item) => ({ item, target: searchTarget(item, needle) }))
     .filter((match): match is { item: NavItem; target: AppTab } => match.target !== null && availableTabs.includes(match.target));
+  const tweakMatchesFound = onOpenTweak && needle ? TWEAKS.filter((tweak) => (!tweakIds || tweakIds.has(tweak.id)) && tweakMatches(tweak, needle)).slice(0, 8) : [];
   const activeSection = sectionFor(activeTab);
   const navRef = useRef<HTMLElement>(null);
   const [overflowEdges, setOverflowEdges] = useState({ left: false, right: false });
@@ -71,6 +77,7 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile }: Sidebar
   }, [availableTabs, query, updateOverflowEdges]);
 
   const go = (tab: AppTab) => { onChange(tab); setQuery(''); };
+  const openTweak = (tweakId: string) => { onOpenTweak?.(tweakId); setQuery(''); };
 
   return (
     <aside className="app-sidebar w-full border-b border-slate-800 lg:min-h-screen lg:w-60 lg:border-b-0 lg:border-r">
@@ -82,8 +89,13 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile }: Sidebar
       </div>
       <div className="px-3 pb-3">
         <label className="sr-only" htmlFor="workspace-search">Find a section</label>
-        <input id="workspace-search" type="search" maxLength={80} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Escape') setQuery(''); if (event.key === 'Enter' && matches.length === 1) go(matches[0].target); }} placeholder="Search: controller, backups…" className="w-full min-w-0 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />
-        {query.trim() && <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-400"><span role="status">{matches.length} matching section{matches.length === 1 ? '' : 's'}</span><button type="button" onClick={() => setQuery('')} className="rounded border border-slate-700 px-2 py-1">Clear search</button></div>}
+        <input id="workspace-search" type="search" maxLength={80} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Escape') setQuery(''); if (event.key === 'Enter' && tweakMatchesFound.length === 1 && matches.length === 0) openTweak(tweakMatchesFound[0].id); else if (event.key === 'Enter' && matches.length === 1 && tweakMatchesFound.length === 0) go(matches[0].target); }} placeholder="Search: suspend, controller…" className="w-full min-w-0 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />
+        {query.trim() && <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-400"><span role="status">{matches.length} section{matches.length === 1 ? '' : 's'}{onOpenTweak ? `, ${tweakMatchesFound.length} tweak${tweakMatchesFound.length === 1 ? '' : 's'}` : ''}</span><button type="button" onClick={() => setQuery('')} className="rounded border border-slate-700 px-2 py-1">Clear search</button></div>}
+        {tweakMatchesFound.length > 0 && <div className="mt-2">
+          <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tweaks</p>
+          <ul aria-label="Matching tweaks" className="mt-1 space-y-0.5">{tweakMatchesFound.map((tweak) => <li key={tweak.id}><button type="button" onClick={() => openTweak(tweak.id)} className="w-full rounded-md px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-800"><span className="block truncate">{tweak.title}</span><span className="block text-[11px] text-slate-500">{tweak.group}</span></button></li>)}</ul>
+        </div>}
+        {query.trim() && matches.length > 0 && onOpenTweak && <p className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sections</p>}
       </div>
       <div className="relative">
         <nav ref={navRef} onScroll={updateOverflowEdges} aria-label="Primary navigation" className="flex gap-1 overflow-x-auto px-3 pb-3 lg:block lg:space-y-0.5">

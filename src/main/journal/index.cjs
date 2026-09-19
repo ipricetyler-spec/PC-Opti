@@ -451,6 +451,7 @@ function normalizedActionFamily(actionId) {
   if (id.startsWith('timing:restore:')) return 'timing:restore';
   if (id === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE) return id;
   if (id === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) return id;
+  if (id === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) return id;
   if (/^retrim-drive:[A-Z]$/i.test(id)) return 'maintenance:retrim-drive';
   if (id === 'clear-temp-files') return 'maintenance:clear-temp-files';
   if (id === 'policy:disable-windows-consumer-features') return id;
@@ -465,6 +466,14 @@ function normalizedActionFamily(actionId) {
   if (id.startsWith('graphics:restore-fullscreen-optimizations:')) return 'graphics:restore-fullscreen-optimizations';
   if (id.startsWith('power:restore-usb-selective-suspend:')) return 'power:restore-usb-selective-suspend';
   return 'unknown';
+}
+
+/** The administrator capability each boot timing action is checked against, named explicitly. */
+function timingCapabilityFor(actionId) {
+  if (actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE) return 'timing:restore-automatic-clock-source';
+  if (actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) return 'timing:disable-dynamic-tick';
+  if (actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK) return 'timing:restore-default-dynamic-tick';
+  throw new Error('This timing experiment action is not recognized.');
 }
 
 function safeIsoTimestamp(value) {
@@ -1355,7 +1364,7 @@ async function executeTimingAction(userDataPath, actionId, adapters = {}) {
   const applyAction = adapters.applyBootTimingAction || applyBootTimingAction;
 
   assertCurrentProcessAdministrator(
-    actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE ? 'timing:restore-automatic-clock-source' : 'timing:disable-dynamic-tick',
+    timingCapabilityFor(actionId),
     await readElevation(),
     'Boot timing experiments require Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.'
   );
@@ -1368,7 +1377,9 @@ async function executeTimingAction(userDataPath, actionId, adapters = {}) {
 
   const title = actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE
     ? 'Restore automatic clock-source selection'
-    : 'Configure consistent tick experiment';
+    : actionId === TIMING_ACTIONS.RESTORE_DEFAULT_DYNAMIC_TICK
+      ? 'Return dynamic tick to the Windows default'
+      : 'Configure consistent tick experiment';
   const entry = createEntry(
     actionId,
     title,
@@ -1489,7 +1500,7 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
         continue;
       }
 
-      if (entry.actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE || entry.actionId === TIMING_ACTIONS.DISABLE_DYNAMIC_TICK) {
+      if (Object.values(TIMING_ACTIONS).includes(entry.actionId)) {
         const actual = await readTiming();
         if (timingActionReachedIntendedState(entry.actionId, actual)) {
           setReconciliation(
@@ -1643,7 +1654,7 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
       throw new Error('This audit entry does not identify a supported timing experiment.');
     }
     assertCurrentProcessAdministrator(
-      original.actionId === TIMING_ACTIONS.RESTORE_AUTOMATIC_CLOCK_SOURCE ? 'timing:restore-automatic-clock-source' : 'timing:disable-dynamic-tick',
+      timingCapabilityFor(original.actionId),
       await readElevation(),
       'Boot timing restore requires Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.'
     );
@@ -2461,7 +2472,7 @@ async function executeMaintenanceAction(userDataPath, actionId, adapters = {}) {
     const readElevation = adapters.isCurrentProcessElevated || isCurrentProcessElevated;
     const elevated = await readElevation();
     if (elevated !== true) {
-      throw new Error('ReTRIM requires Dialed to be running as administrator. No disk operation was started and Local Audit History was not changed.');
+      throw new Error('ReTRIM needs Dialed running as administrator. Reopen Dialed as administrator and try again. Nothing was changed.');
     }
     const driveLetter = match[1].toUpperCase();
     const inventory = await readStorageVolumes();

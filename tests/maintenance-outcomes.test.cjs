@@ -42,7 +42,7 @@ test('ReTRIM refuses with readable privilege guidance before inventory, dispatch
       isCurrentProcessElevated: async () => false,
       listStorageVolumes: async () => { inventoryCalled = true; return { errors: [], items: [] }; },
       retrimDrive: async () => { retrimCalled = true; return { exitCode: 0, output: {} }; },
-    }), /running as administrator.*Local Audit History was not changed/i);
+    }), /needs Dialed running as administrator. Reopen Dialed as administrator and try again. Nothing was changed./);
     assert.equal(inventoryCalled, false);
     assert.equal(retrimCalled, false);
     assert.deepEqual(journal.readJournal(directory), []);

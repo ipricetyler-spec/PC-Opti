@@ -1,7 +1,7 @@
-# Input devices: a general release policy (design, not built)
+# Input devices: a general release policy (schema 2)
 
-Status: proposed. Nothing here is implemented or signed. It is written now so the
-policy can be built as soon as the gating questions below are answered.
+Status: built and tested, not signed. The helper, the app and the signing tool all
+understand schema 2; no release policy has been signed yet.
 
 ## Why
 
@@ -37,14 +37,23 @@ Rules the helper enforces for every device, whatever the policy says:
 The same RSA key and PSS signature check are used. `VALIDATION_ONLY` policies keep
 working unchanged.
 
-## What must happen first
+## What must happen before signing one
 
-1. **HIDUSBF redistribution rights.** A release policy only matters if the driver can
-   be shipped. The rights review is kept with the owner's private notes.
+1. **HIDUSBF redistribution rights: decided (2026-09-19).** The maintainer's statement
+   covers unchanged files with credit; the owner accepted it as sufficient.
 2. **Code signing and the installer**, with the owner's approval of the exact artifacts.
 3. **A hardware matrix**: several mice, keyboards and controllers, receivers, and at
    least two USB controller vendors, including undo and recovery on each.
 
-Only then is schema 2 built in `native/hidusbf-helper/ReleasePolicy.cs` and
-`src/main/input-driver-lifecycle/release-policy-contract.cjs`, with tests for every
-refusal, and a release policy signed.
+## Where it lives
+
+- `native/hidusbf-helper/ReleasePolicy.cs`: `VerifyGeneralRelease` and
+  `DeviceAllowedByClass`; the helper passes each device's observed classes, speed and
+  VID:PID (`WindowsMachine.cs`).
+- `src/main/input-driver-lifecycle/release-policy-contract.cjs`: `parseGeneralPolicy`,
+  the JavaScript twin. `tests/general-release-policy.test.cjs` checks that both agree on
+  every accepted and refused policy.
+- `scripts/native-release-policy.cjs`: `prepare-release`, `sign-release` and
+  `verify-release`, separate from the validation commands, which still refuse releases.
+
+A general release lasts at most 400 days, so it must be renewed.

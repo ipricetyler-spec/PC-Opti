@@ -259,6 +259,52 @@ class Program {
       Refuse(() => ReleasePolicy.Verify(bytes, signature, rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow.AddDays(2)));
       bytes[10] ^= 1;
       Refuse(() => ReleasePolicy.Verify(bytes, signature, rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow));
+
+      // Schema 2: the general release authorizes device and speed classes, not listed devices.
+      string pem = rsa.ExportSubjectPublicKeyInfoPem();
+      byte[] General(Action<System.Collections.Generic.Dictionary<string, object>> change = null) {
+        var fields = new System.Collections.Generic.Dictionary<string, object> {
+          ["SchemaVersion"] = 2, ["ExpiresAt"] = DateTimeOffset.UtcNow.AddDays(90).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+          ["BrokerSha256"] = new string('a', 64), ["HelperSha256"] = new string('b', 64), ["PublisherThumbprint"] = new string('C', 40),
+          ["Purpose"] = "ACCEPTED_RELEASE", ["DeviceClasses"] = new[] { "MOUSE", "KEYBOARD", "GAMEPAD" }, ["SpeedClasses"] = new[] { "FULL", "HIGH" },
+          ["MinimumWindowsBuild"] = 19045, ["DeniedDevices"] = new[] { "1234:ABCD" },
+        };
+        change?.Invoke(fields);
+        return System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(fields);
+      }
+      ReleasePolicyData Signed(byte[] data) => ReleasePolicy.Verify(data, rsa.SignData(data, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss), pem, DateTimeOffset.UtcNow);
+      var general = Signed(General());
+      Assert(general.SchemaVersion == 2 && general.DeviceClasses.Length == 3 && general.MinimumWindowsBuild == 19045);
+      foreach (var bad in new Action<System.Collections.Generic.Dictionary<string, object>>[] {
+        f => f["Purpose"] = "VALIDATION_ONLY",
+        f => f["DeviceClasses"] = new[] { "MOUSE", "PRINTER" },
+        f => f["DeviceClasses"] = new string[0],
+        f => f["DeviceClasses"] = new[] { "MOUSE", "MOUSE" },
+        f => f["SpeedClasses"] = new[] { "LOW" },
+        f => f["MinimumWindowsBuild"] = 1,
+        f => f["MinimumWindowsBuild"] = 19045.5,
+        f => f["DeniedDevices"] = new[] { "not-an-id" },
+        f => f["ExpiresAt"] = DateTimeOffset.UtcNow.AddDays(500).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+        f => f["ExpiresAt"] = DateTimeOffset.UtcNow.AddDays(-1).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+        f => f["AuthorizedDeviceDigests"] = new[] { new string('e', 64) },
+        f => f.Remove("DeniedDevices"),
+        f => f["Extra"] = true,
+      }) Refuse(() => Signed(General(bad)));
+      byte[] tampered = General(); byte[] tamperedSignature = rsa.SignData(tampered, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss);
+      tampered[tampered.Length - 3] ^= 1;
+      Refuse(() => ReleasePolicy.Verify(tampered, tamperedSignature, pem, DateTimeOffset.UtcNow));
+
+      DeviceFacts Mouse(string id = @"USB\VID_046D&PID_C547\5&1", string speed = "HIGH", params string[] kinds) => new DeviceFacts(new string('f', 64), id, speed, kinds.Length == 0 ? new[] { "MOUSE" } : kinds);
+      Assert(ReleasePolicy.DeviceAllowedByClass(general, Mouse()));
+      Assert(ReleasePolicy.DeviceAllowedByClass(general, Mouse(kinds: new[] { "MOUSE", "KEYBOARD" })));
+      Assert(ReleasePolicy.DeviceAllowedByClass(general, Mouse(speed: "FULL")));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, Mouse(speed: "LOW")));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, Mouse(speed: "UNKNOWN")));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, Mouse(kinds: new[] { "MOUSE", "JOYSTICK" })));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, new DeviceFacts(new string('f', 64), @"USB\VID_046D&PID_C547\5&1", "HIGH", new string[0])));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, Mouse(id: @"USB\VID_1234&PID_abcd\7&2")));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(general, Mouse(id: @"HID\VID_046D&PID_C547\5&1")));
+      Assert(!ReleasePolicy.DeviceAllowedByClass(policy, Mouse()));
     }
     Console.WriteLine("closed-native-protocol-pass:" + checks);
   }

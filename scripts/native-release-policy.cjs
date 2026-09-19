@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { parsePolicy, FIELDS } = require('../src/main/input-driver-lifecycle/release-policy-contract.cjs');
+const { parsePolicy, parseGeneralPolicy, isGeneralRelease, FIELDS, GENERAL_FIELDS } = require('../src/main/input-driver-lifecycle/release-policy-contract.cjs');
 const { verifyPolicy } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 const ROOT = path.resolve(__dirname, '..');
 const CS_ANCHOR = 'native/hidusbf-helper/ReleasePolicy.cs';
@@ -109,6 +109,31 @@ function preparePolicy(reviewBytes, candidate, now = Date.now()) {
 function signPolicy(bytes, identity, privateKeyPath, forbidden = [ROOT]) {
   const policy = parsePolicy(bytes);
   if (policy.Purpose !== 'VALIDATION_ONLY' || Date.parse(policy.ExpiresAt) > Date.now() + 7 * 24 * 60 * 60 * 1000) throw new Error('Only bounded VALIDATION_ONLY policy bytes may be signed.');
+  return signBytes(bytes, identity, privateKeyPath, forbidden);
+}
+// Schema 2, the general release. Separate commands, so the validation workflow above can
+// never sign a release by accident. Lifetime is bounded by the contract (400 days).
+function prepareGeneralPolicy(reviewBytes, candidate, now = Date.now()) {
+  if (!isGeneralRelease(reviewBytes)) throw new Error('This command only prepares schema 2 general release policies.');
+  const policy = parseGeneralPolicy(reviewBytes, now);
+  checkHashes(policy, candidate);
+  const canonical = Object.fromEntries(GENERAL_FIELDS.map(field => [field, policy[field]]));
+  canonical.ExpiresAt = new Date(policy.ExpiresAt).toISOString();
+  canonical.PublisherThumbprint = policy.PublisherThumbprint.toUpperCase();
+  for (const field of ['DeviceClasses', 'SpeedClasses', 'DeniedDevices']) canonical[field] = [...policy[field]].sort();
+  return Buffer.from(JSON.stringify(canonical) + '\n', 'utf8');
+}
+function signGeneralPolicy(bytes, identity, privateKeyPath, forbidden = [ROOT]) {
+  if (!isGeneralRelease(bytes)) throw new Error('Only schema 2 general release policy bytes may be signed here.');
+  parseGeneralPolicy(bytes);
+  return signBytes(bytes, identity, privateKeyPath, forbidden);
+}
+function verifyPreparedGeneral(bytes, signature, identity, reviewBytes, candidate, now = Date.now()) {
+  const expected = prepareGeneralPolicy(reviewBytes, candidate, now);
+  if (!bytes.equals(expected)) throw new Error('Signed bytes differ from the canonical reviewed policy.');
+  return verifyPolicy(bytes, signature, identity.pem, now);
+}
+function signBytes(bytes, identity, privateKeyPath, forbidden) {
   // Keep secret bytes in process memory only; never pass them to a child process,
   // stringify an error from the crypto provider, or write them to any output.
   const secret = readBounded(privateKeyPath, 32768, { secret: true, forbidden: [ROOT, ...forbidden] });
@@ -168,8 +193,11 @@ function argumentsFor(argv) {
     prepare: ['review', 'candidate', 'public-key', 'fingerprint', 'output'],
     sign: ['review', 'candidate', 'public-key', 'fingerprint', 'private-key', 'output', 'signed-fixture'],
     verify: ['review', 'candidate', 'public-key', 'fingerprint', 'policy-dir', 'signed-fixture'],
+    'prepare-release': ['review', 'candidate', 'public-key', 'fingerprint', 'output'],
+    'sign-release': ['review', 'candidate', 'public-key', 'fingerprint', 'private-key', 'output', 'signed-fixture'],
+    'verify-release': ['review', 'candidate', 'public-key', 'fingerprint', 'policy-dir', 'signed-fixture'],
   }[command];
-  if (!allowed) throw new Error('Use anchors, prepare, sign or verify; see docs/NATIVE_RELEASE_POLICY_WORKFLOW.md.');
+  if (!allowed) throw new Error('Use anchors, prepare, sign, verify, prepare-release, sign-release or verify-release; see docs/NATIVE_RELEASE_POLICY_WORKFLOW.md.');
   const options = {};
   for (let index = 0; index < rest.length; index++) {
     const name = rest[index].startsWith('--') ? rest[index].slice(2) : '';
@@ -195,31 +223,35 @@ function main(argv) {
   checkAnchors(ROOT, identity);
   const review = readBounded(o.review, 65536);
   const candidate = safePath(o.candidate);
-  const bytes = preparePolicy(review, candidate);
-  if (command === 'verify') {
+  const general = command.endsWith('-release');
+  const prepare = general ? prepareGeneralPolicy : preparePolicy;
+  const check = general ? verifyPreparedGeneral : verifyPrepared;
+  const bytes = prepare(review, candidate);
+  if (command === 'verify' || command === 'verify-release') {
     const directory = safePath(o['policy-dir']);
-    verifyPrepared(readBounded(path.join(directory, 'release-policy.json'), 65536), readBounded(path.join(directory, 'release-policy.sig'), 1024), identity, review, candidate);
+    check(readBounded(path.join(directory, 'release-policy.json'), 65536), readBounded(path.join(directory, 'release-policy.sig'), 1024), identity, review, candidate);
     verifyCSharp(directory, o['public-key'], o['signed-fixture']);
-    verifyPrepared(readBounded(path.join(directory, 'release-policy.json'), 65536), readBounded(path.join(directory, 'release-policy.sig'), 1024), identity, review, candidate);
+    check(readBounded(path.join(directory, 'release-policy.json'), 65536), readBounded(path.join(directory, 'release-policy.sig'), 1024), identity, review, candidate);
   } else {
     const output = safePath(o.output, { missing: true });
     if (fs.existsSync(output) || inside(output, candidate)) throw new Error('Output must be a new directory outside the candidate ancestry.');
     // No file is created until schema, scope, hashes and external key all pass.
-    const signature = command === 'sign' ? signPolicy(bytes, identity, o['private-key'], [ROOT, candidate, output]) : null;
-    if (signature) verifyPrepared(bytes, signature, identity, review, candidate);
+    const signature = command === 'sign' ? signPolicy(bytes, identity, o['private-key'], [ROOT, candidate, output])
+      : command === 'sign-release' ? signGeneralPolicy(bytes, identity, o['private-key'], [ROOT, candidate, output]) : null;
+    if (signature) check(bytes, signature, identity, review, candidate);
     fs.mkdirSync(output); // Parent must already exist; never overwrite a prior policy.
     fs.writeFileSync(path.join(output, 'release-policy.json'), bytes, { flag: 'wx' });
     if (signature) {
       fs.writeFileSync(path.join(output, 'release-policy.sig'), signature, { flag: 'wx' });
       verifyCSharp(output, o['public-key'], o['signed-fixture']);
-      verifyPrepared(readBounded(path.join(output, 'release-policy.json'), 65536), readBounded(path.join(output, 'release-policy.sig'), 1024), identity, review, candidate);
+      check(readBounded(path.join(output, 'release-policy.json'), 65536), readBounded(path.join(output, 'release-policy.sig'), 1024), identity, review, candidate);
     }
   }
   checkAnchors(ROOT, identity);
-  console.log(JSON.stringify({ status: command === 'prepare' ? 'UNSIGNED_POLICY_PREPARED' : 'VALIDATION_POLICY_CONTRACT_VERIFIED', fingerprint: identity.fingerprint, authenticodeVerified: false, executed: false, physicalAcceptance: false }));
+  console.log(JSON.stringify({ status: command === 'prepare' || command === 'prepare-release' ? 'UNSIGNED_POLICY_PREPARED' : general ? 'GENERAL_RELEASE_POLICY_CONTRACT_VERIFIED' : 'VALIDATION_POLICY_CONTRACT_VERIFIED', fingerprint: identity.fingerprint, authenticodeVerified: false, executed: false, physicalAcceptance: false }));
 }
 if (require.main === module) {
   try { main(process.argv.slice(2)); }
   catch { console.error('Native release-policy operation refused. Check the reviewed inputs and workflow; no secret details are logged.'); process.exitCode = 1; }
 }
-module.exports = { publicIdentity, anchorValues, checkAnchors, compileAnchors, preparePolicy, signPolicy, verifyPrepared, readBounded, safePath, argumentsFor, signedFixture, main };
+module.exports = { publicIdentity, anchorValues, checkAnchors, compileAnchors, preparePolicy, signPolicy, verifyPrepared, prepareGeneralPolicy, signGeneralPolicy, verifyPreparedGeneral, readBounded, safePath, argumentsFor, signedFixture, main };

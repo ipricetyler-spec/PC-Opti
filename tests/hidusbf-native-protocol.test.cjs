@@ -43,7 +43,7 @@ test('native framing, preview refusals, scope construction and journal survive c
   const file = path.join(directory, 'corpus.json');
   fs.writeFileSync(file, JSON.stringify(corpus), { flag: 'wx' });
   const output = execFileSync('dotnet', ['run', '--project', path.resolve(__dirname, '../native/hidusbf-helper-fixture/Dialed.HidusbfProtocolFixture.csproj'), '--configuration', 'Release', '--verbosity', 'quiet', '--', '--digest-corpus', file], { encoding: 'utf8', windowsHide: true, timeout: 60000 });
-  assert.match(output, /closed-native-protocol-pass:115\b/);
+  assert.match(output, /closed-native-protocol-pass:140\b/);
   assert.match(output, /closed-boot-recovery-pass:61/);
   assert.match(output, /closed-boot-session-pass:\d+/);
   assert.match(output, /closed-preview-transport-pass:55/);

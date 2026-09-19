@@ -14,8 +14,8 @@ namespace Dialed.HidusbfHelper {
   // peer checks. No method is invoked by the closed fixture executable.
   public sealed class WindowsMachine : ILifecycleMachine, IDeviceReconnectMachine {
     readonly string bundle;
-    readonly Func<string, bool> acceptedPlatform;
-    readonly Func<string, bool> acceptedDevice;
+    readonly Func<PlatformFacts, bool> acceptedPlatform;
+    readonly Func<DeviceFacts, bool> acceptedDevice;
     readonly NativeDiagnostics diagnostics;
     readonly Dictionary<string, string> instanceIds = new Dictionary<string, string>();
     readonly Dictionary<string, string> interfaceIds = new Dictionary<string, string>();
@@ -32,7 +32,7 @@ namespace Dialed.HidusbfHelper {
     [DllImport("advapi32.dll", SetLastError = true)] static extern bool DeleteService(IntPtr service);
     [DllImport("advapi32.dll")] static extern bool CloseServiceHandle(IntPtr service);
 
-    public WindowsMachine(string verifiedBundleDirectory, Func<string, bool> acceptedPlatform, Func<string, bool> acceptedDevice, NativeDiagnostics diagnostics = null) {
+    public WindowsMachine(string verifiedBundleDirectory, Func<PlatformFacts, bool> acceptedPlatform, Func<DeviceFacts, bool> acceptedDevice, NativeDiagnostics diagnostics = null) {
       bundle = Path.GetFullPath(verifiedBundleDirectory);
       RefuseLinks(bundle);
       this.acceptedPlatform = acceptedPlatform ?? throw new ArgumentNullException(nameof(acceptedPlatform));
@@ -112,7 +112,8 @@ namespace Dialed.HidusbfHelper {
           foreach (string child in children) scope.Add(child);
         }
         var inputMembers = ScopeDigests.InputMembers(device.InstanceId, details.Values.Select(x => new KeyValuePair<string, string>(x.id, x.parent)));
-        bool inputScope = details.Values.Any(x => inputMembers.Contains(x.id) && new[] { "MOUSE", "GAMEPAD", "JOYSTICK", "KEYBOARD" }.Contains(x.inputKind));
+        var inputKinds = details.Values.Where(x => inputMembers.Contains(x.id) && new[] { "MOUSE", "GAMEPAD", "JOYSTICK", "KEYBOARD" }.Contains(x.inputKind)).Select(x => x.inputKind).Distinct().ToArray();
+        bool inputScope = inputKinds.Length > 0;
         bool eligible = physicalUsb && inputScope && detail != null && detail.present && detail.problem == 0 && (detail.speed == 1 || detail.speed == 2);
         string speed = detail?.speed == 1 ? "FULL" : detail?.speed == 2 ? "HIGH" : "UNKNOWN";
         var interval = physicalUsb ? diagnostics.At("OBSERVE_INTERVAL", () => ReadInterval(device.InstanceId)) : new IntervalSnapshot(new DwordValue(false, null), "Hardware", null);
@@ -120,7 +121,7 @@ namespace Dialed.HidusbfHelper {
         // interfaces; platform acceptance must review that whole scope.
         string interfaceDigest = ScopeDigests.Device(device.InstanceId, detail?.parent, detail?.location, speed, scope);
         interfaceIds[id] = interfaceDigest;
-        states.Add(new DeviceSetting(id, interfaceDigest, device.Present, speed, eligible, device.LowerFilters, interval.Value, interval.Location, (detail?.name ?? "USB scope") + " · " + device.InstanceId, acceptedDevice(interfaceDigest),
+        states.Add(new DeviceSetting(id, interfaceDigest, device.Present, speed, eligible, device.LowerFilters, interval.Value, interval.Location, (detail?.name ?? "USB scope") + " · " + device.InstanceId, acceptedDevice(new DeviceFacts(interfaceDigest, device.InstanceId, speed, inputKinds)),
           interval.Coordinate, IntervalBinding.IsExclusive(interval.Coordinate, driverOwners)));
       }
       var ci = new CiInformation { Length = 8 };
@@ -132,7 +133,7 @@ namespace Dialed.HidusbfHelper {
       string platform = ScopeDigests.Platform(Environment.OSVersion.Version.ToString(), ci.Options, secureBootValue,
         HashSystemDriver("USBXHCI.SYS"), HashSystemDriver("USBPORT.SYS"),
         states.Where(x => x.Eligible).Select(x => x.InterfaceDigest));
-      return new LifecycleObservation(diagnostics.At("OBSERVE_BOOT", BootIdentity), securityKnown && acceptedPlatform(platform), (ci.Options & 0x400) != 0,
+      return new LifecycleObservation(diagnostics.At("OBSERVE_BOOT", BootIdentity), securityKnown && acceptedPlatform(new PlatformFacts(platform, Environment.OSVersion.Version.Build)), (ci.Options & 0x400) != 0,
         diagnostics.At("OBSERVE_SERVICE", ServiceInventory.Read), states.ToArray(), platform);
     }
     static string HashSystemDriver(string name) {

@@ -2,14 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
-const { parsePolicy } = require('./release-policy-contract.cjs');
+const { parsePolicy, parseGeneralPolicy, isGeneralRelease } = require('./release-policy-contract.cjs');
 // Release-only trust anchor. Requests and environment variables cannot configure it.
 const RELEASE_PUBLIC_KEY = '';
 function verifyPolicy(bytes, signature, publicKey, now = Date.now()) {
   if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 65536 || !Buffer.isBuffer(signature) || signature.length < 1 || signature.length > 1024) throw new Error('Native release policy exceeds bounds.');
   const key = crypto.createPublicKey(publicKey);
   if (key.asymmetricKeyType !== 'rsa' || key.asymmetricKeyDetails.modulusLength < 3072 || !crypto.verify('sha256', bytes, { key, padding: crypto.constants.RSA_PKCS1_PSS_PADDING, saltLength: 32 }, signature)) throw new Error('Native release policy signature failed.');
-  return parsePolicy(bytes, now);
+  // Schema 2 is the general release; schema 1 lists exact platforms and devices.
+  return isGeneralRelease(bytes) ? parseGeneralPolicy(bytes, now) : parsePolicy(bytes, now);
 }
 function readFile(file, maximum) {
   for (let current = path.resolve(file); ; current = path.dirname(current)) {

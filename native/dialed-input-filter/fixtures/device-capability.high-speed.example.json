@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "1.0.0",
+  "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+  "status": "UNVERIFIED",
+  "deviceMatch": {
+    "vendorId": "FFFE",
+    "productId": "0001",
+    "bcdDevice": "0100",
+    "firmwareVersion": null,
+    "compositeScope": "SINGLE_INTERFACE",
+    "interfaces": [
+      {
+        "number": 0,
+        "classCode": "03",
+        "subclassCode": "00",
+        "protocolCode": "00"
+      }
+    ],
+    "endpoints": [
+      {
+        "key": "if0-ep81",
+        "interfaceNumber": 0,
+        "address": "81",
+        "transferType": "INTERRUPT",
+        "direction": "IN",
+        "bInterval": 1,
+        "maximumPacketBytes": 64
+      }
+    ]
+  },
+  "windowsScope": {
+    "architecture": "x64",
+    "minimumBuild": 26200,
+    "maximumBuild": 28000,
+    "editions": ["HOME", "PRO", "ENTERPRISE"],
+    "documentedInterfacesOnly": true,
+    "secureBoot": "REQUIRED_ENABLED",
+    "memoryIntegrity": "REQUIRED_ENABLED",
+    "defender": "REQUIRED_ENABLED",
+    "driverSignatureEnforcement": "REQUIRED_ENABLED"
+  },
+  "topology": {
+    "negotiatedSpeed": "HIGH",
+    "maximumHubDepth": 1,
+    "directConnectionRequired": false,
+    "allowedControllerFamilies": ["SYNTHETIC_FIXTURE_ONLY"]
+  },
+  "rateCapabilities": [
+    {
+      "requestedHz": 1000,
+      "result": "UNVERIFIED",
+      "blockReason": null,
+      "scheduleMechanism": "UNRESOLVED",
+      "scheduleMechanismRefs": [],
+      "requiredEndpointKeys": ["if0-ep81"],
+      "requiresReconnect": true,
+      "requiresRestart": false,
+      "configuredEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "driverSessionEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "windowsDeliveryEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "usbBusEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "latencyEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null }
+    },
+    {
+      "requestedHz": 8000,
+      "result": "UNVERIFIED",
+      "blockReason": null,
+      "scheduleMechanism": "UNRESOLVED",
+      "scheduleMechanismRefs": [],
+      "requiredEndpointKeys": ["if0-ep81"],
+      "requiresReconnect": true,
+      "requiresRestart": true,
+      "configuredEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "driverSessionEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "windowsDeliveryEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "usbBusEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null },
+      "latencyEvidence": { "status": "NOT_MEASURED", "method": "Synthetic fixture only", "artifactSha256": null }
+    }
+  ],
+  "provenanceRefs": ["P-001", "P-002", "P-008", "P-010", "P-011"],
+  "materialChangeTriggers": [
+    "DEVICE_FIRMWARE",
+    "DEVICE_HARDWARE_REVISION",
+    "FILTER_VERSION",
+    "HELPER_VERSION",
+    "WINDOWS_BUILD",
+    "USB_CONTROLLER_OR_DRIVER",
+    "WDK_OR_KMDF_VERSION",
+    "MEASUREMENT_METHOD"
+  ],
+  "claimLimits": {
+    "windowsDeliveryIsUsbProof": false,
+    "usbCadenceIsLatencyProof": false,
+    "anyDeviceClaimAllowed": false
+  }
+}

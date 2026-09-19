@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dialed.local/schemas/input-driver-package-manifest-2.0.0.json",
+  "title": "Dialed input driver package manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "version", "architecture", "upstream", "redistributionPermission", "publisher", "driverPackage", "signingPolicy", "compatibility", "polling", "upgradePredecessors", "files"],
+  "$defs": {
+    "thumbprint": { "type": "string", "pattern": "^[A-Fa-f0-9]{40,128}$" },
+    "ekuOids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^\\d+(?:\\.\\d+){2,15}$" }
+    },
+    "signerPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "thumbprint", "requiredEkuOids"],
+      "properties": {
+        "subject": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "thumbprint": { "$ref": "#/$defs/thumbprint" },
+        "requiredEkuOids": { "$ref": "#/$defs/ekuOids" }
+      }
+    },
+    "packageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "version", "manifestSha256", "publisherSubject", "publisherThumbprint"],
+      "properties": {
+        "packageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,79}$" },
+        "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$" },
+        "manifestSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "publisherSubject": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "publisherThumbprint": { "$ref": "#/$defs/thumbprint" }
+      }
+    }
+  },
+  "properties": {
+    "schemaVersion": { "const": "2.0.0" },
+    "packageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,79}$" },
+    "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$" },
+    "architecture": { "const": "x64" },
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sourceUrl", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sourceUrl": { "type": "string", "pattern": "^https://" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "redistributionPermission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageRoute", "evidence", "attribution", "grants"],
+      "properties": {
+        "packageRoute": { "enum": ["UNMODIFIED_RIGHTS_HOLDER", "AUTHORIZED_DERIVATIVE"] },
+        "evidence": { "type": "string", "pattern": "^(?:https://[^\\s]+|sha256:[A-Fa-f0-9]{64})$" },
+        "attribution": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "grants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commercialRedistribution", "bundling", "automation", "modification"],
+          "properties": {
+            "commercialRedistribution": { "const": true },
+            "bundling": { "const": true },
+            "automation": { "const": true },
+            "modification": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "publisher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "thumbprint"],
+      "properties": {
+        "subject": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "thumbprint": { "$ref": "#/$defs/thumbprint" }
+      }
+    },
+    "driverPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inf"],
+      "properties": {
+        "inf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "class", "classGuid", "catalogName", "driverVersion", "installModel", "service"],
+          "properties": {
+            "provider": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "class": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._ -]{0,79}$" },
+            "classGuid": { "type": "string", "pattern": "^\\{[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}\\}$" },
+            "catalogName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\\.cat$" },
+            "driverVersion": { "type": "string", "pattern": "^(0[1-9]|1[0-2])/(0[1-9]|[12]\\d|3[01])/(19|20)\\d{2},\\d{1,5}(?:\\.\\d{1,5}){3}$" },
+            "installModel": { "const": "PNP_FILTER" },
+            "service": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "startType", "imagePath"],
+              "properties": {
+                "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,79}$" },
+                "startType": { "const": "DEMAND_START" },
+                "imagePath": { "type": "string", "pattern": "^\\\\SystemRoot\\\\System32\\\\drivers\\\\[A-Za-z0-9][A-Za-z0-9._-]{0,119}\\.sys$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "signingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalogRequiredEkuOids", "systemBinary", "helper", "application", "revocation"],
+      "properties": {
+        "catalogRequiredEkuOids": { "$ref": "#/$defs/ekuOids" },
+        "systemBinary": { "$ref": "#/$defs/signerPolicy" },
+        "helper": { "$ref": "#/$defs/signerPolicy" },
+        "application": { "$ref": "#/$defs/signerPolicy" },
+        "revocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "failClosed", "maximumEvidenceAgeHours", "requireTimestamp"],
+          "properties": {
+            "mode": { "const": "ONLINE_REQUIRED" },
+            "failClosed": { "const": true },
+            "maximumEvidenceAgeHours": { "type": "integer", "minimum": 1, "maximum": 168 },
+            "requireTimestamp": { "const": true }
+          }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["windows", "memoryIntegrity", "secureBoot"],
+      "properties": {
+        "windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimumBuild", "maximumBuild"],
+          "properties": {
+            "minimumBuild": { "type": "integer", "minimum": 17763 },
+            "maximumBuild": { "oneOf": [{ "type": "integer", "minimum": 17763 }, { "type": "null" }] }
+          }
+        },
+        "memoryIntegrity": { "const": "SUPPORTED" },
+        "secureBoot": { "const": "SUPPORTED" }
+      }
+    },
+    "polling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestsHz", "maximumRequestHz"],
+      "properties": {
+        "requestsHz": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": [125, 250, 500, 1000, 2000, 4000, 8000] } },
+        "maximumRequestHz": { "enum": [125, 250, 500, 1000, 2000, 4000, 8000] }
+      }
+    },
+    "upgradePredecessors": { "type": "array", "maxItems": 24, "uniqueItems": true, "items": { "$ref": "#/$defs/packageIdentity" } },
+    "files": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "bytes", "sha256", "catalogMembership"],
+        "properties": {
+          "role": { "enum": ["INF", "SYS", "CAT", "HELPER"] },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "allOf": [
+              { "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*[/\\\\]$)(?!.*[/\\\\]{2})(?!.*[\\u0000-\\u001f\\u007f]).+$" },
+              { "not": { "pattern": "(^|[/\\\\])\\.{1,2}([/\\\\]|$)" } }
+            ]
+          },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "catalogMembership": { "enum": ["REQUIRED", "NOT_APPLICABLE"] }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "role": { "enum": ["INF", "SYS"] } }, "required": ["role"] },
+            "then": { "properties": { "catalogMembership": { "const": "REQUIRED" } } }
+          },
+          {
+            "if": { "properties": { "role": { "enum": ["CAT", "HELPER"] } }, "required": ["role"] },
+            "then": { "properties": { "catalogMembership": { "const": "NOT_APPLICABLE" } } }
+          }
+        ]
+      },
+      "allOf": [
+        { "contains": { "type": "object", "properties": { "role": { "const": "INF" } }, "required": ["role"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "role": { "const": "SYS" } }, "required": ["role"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "role": { "const": "CAT" } }, "required": ["role"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "role": { "const": "HELPER" } }, "required": ["role"] }, "minContains": 1, "maxContains": 1 }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "redistributionPermission": {
+            "properties": { "packageRoute": { "const": "AUTHORIZED_DERIVATIVE" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "redistributionPermission": {
+            "properties": {
+              "grants": { "properties": { "modification": { "const": true } } }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

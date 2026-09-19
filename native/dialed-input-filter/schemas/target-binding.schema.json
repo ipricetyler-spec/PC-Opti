@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dialed.local/schemas/native-input-target-binding-1.0.0.json",
+  "title": "Dialed native input filter target binding and lifecycle step",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bindingId",
+    "recordKind",
+    "operation",
+    "lifecycle",
+    "selectedTarget",
+    "inventory",
+    "recovery",
+    "declaredDelta",
+    "schedule",
+    "claimLimits"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "endpointKey": {
+      "type": "string",
+      "pattern": "^if[0-9]{1,3}-ep[0-9A-F]{2}$"
+    },
+    "lifecycleState": {
+      "enum": [
+        "UNAVAILABLE",
+        "READY_FOR_PREFLIGHT",
+        "PREVIEW_ISSUED",
+        "PACKAGE_INSTALLED",
+        "FILTER_ATTACHED",
+        "RESTART_REQUIRED",
+        "DETACH_VERIFIED",
+        "PACKAGE_REMOVED",
+        "NOT_APPLIED",
+        "NEEDS_REVIEW"
+      ]
+    }
+  },
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "bindingId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{7,119}$"
+    },
+    "recordKind": {
+      "const": "TARGET_BINDING"
+    },
+    "operation": {
+      "enum": [
+        "OBSERVE_STATE",
+        "PREVIEW",
+        "RECONCILE_AFTER_RESTART",
+        "INSTALL_PACKAGE",
+        "ATTACH_SELECTED_DEVICE",
+        "DETACH_SELECTED_DEVICE",
+        "REPAIR_EXACT_PACKAGE",
+        "UPGRADE_EXACT_PREDECESSOR",
+        "REMOVE_DETACHED_PACKAGE"
+      ]
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "previousState",
+        "state",
+        "pnpPowerState",
+        "bootSessionDigest",
+        "driverSessionDigest"
+      ],
+      "properties": {
+        "previousState": {
+          "$ref": "#/$defs/lifecycleState"
+        },
+        "state": {
+          "$ref": "#/$defs/lifecycleState"
+        },
+        "pnpPowerState": {
+          "enum": [
+            "D0_STARTED",
+            "D3_SUSPENDED",
+            "QUERY_REMOVE_PENDING",
+            "SURPRISE_REMOVAL",
+            "REMOVED",
+            "RESTART_PENDING_FAST_STARTUP"
+          ]
+        },
+        "bootSessionDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "driverSessionDigest": {
+          "$ref": "#/$defs/nullableSha256"
+        }
+      }
+    },
+    "selectedTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physicalDeviceDigest",
+        "containerIdDigest",
+        "deviceInstanceIdDigest",
+        "interfaceNumber",
+        "hardwareIds",
+        "compatibilityClassId",
+        "compositeScope",
+        "endpointKeys"
+      ],
+      "properties": {
+        "physicalDeviceDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "containerIdDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "deviceInstanceIdDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "interfaceNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "hardwareIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 200
+          }
+        },
+        "compatibilityClassId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]{7,119}$"
+        },
+        "compositeScope": {
+          "enum": [
+            "SINGLE_INTERFACE",
+            "MULTI_INTERFACE",
+            "WHOLE_PHYSICAL_DEVICE"
+          ]
+        },
+        "endpointKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/endpointKey"
+          }
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "completeness",
+        "entries"
+      ],
+      "properties": {
+        "completeness": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE"
+          ]
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "deviceInstanceIdDigest",
+              "containerIdDigest",
+              "presence",
+              "dialedManaged",
+              "filterAttached",
+              "selected",
+              "inSelectedScope"
+            ],
+            "properties": {
+              "deviceInstanceIdDigest": {
+                "$ref": "#/$defs/sha256"
+              },
+              "containerIdDigest": {
+                "$ref": "#/$defs/sha256"
+              },
+              "presence": {
+                "enum": [
+                  "PRESENT",
+                  "NOT_PRESENT",
+                  "PHANTOM"
+                ]
+              },
+              "dialedManaged": {
+                "type": "boolean"
+              },
+              "filterAttached": {
+                "type": "boolean"
+              },
+              "selected": {
+                "type": "boolean"
+              },
+              "inSelectedScope": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpointIndex",
+        "checkpointDigest",
+        "previousCheckpointDigest",
+        "preimageStateDigest",
+        "observedStateDigest",
+        "sealed"
+      ],
+      "properties": {
+        "checkpointIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "checkpointDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "previousCheckpointDigest": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "preimageStateDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observedStateDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sealed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "declaredDelta": {
+      "enum": [
+        "NONE",
+        "PACKAGE_INSTALLED",
+        "PACKAGE_REPAIRED",
+        "PACKAGE_UPGRADED",
+        "PACKAGE_REMOVED",
+        "SELECTED_ATTACHMENT_ADDED",
+        "SELECTED_ATTACHMENT_REMOVED"
+      ]
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "mechanism",
+        "mechanismRefs",
+        "requestedHz"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+            "DOCUMENTED_MECHANISM_APPROVED"
+          ]
+        },
+        "mechanism": {
+          "enum": [
+            "UNRESOLVED",
+            "DOCUMENTED_WDF",
+            "DOCUMENTED_DEVICE_VENDOR"
+          ]
+        },
+        "mechanismRefs": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^P-[0-9]{3}$"
+          }
+        },
+        "requestedHz": {
+          "oneOf": [
+            {
+              "enum": [
+                125,
+                250,
+                500,
+                1000,
+                2000,
+                4000,
+                8000
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "claimLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuredIsUsbProof",
+        "attachmentIsScheduleProof",
+        "anyDeviceClaimAllowed"
+      ],
+      "properties": {
+        "configuredIsUsbProof": {
+          "const": false
+        },
+        "attachmentIsScheduleProof": {
+          "const": false
+        },
+        "anyDeviceClaimAllowed": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "BLOCKED_PENDING_DOCUMENTED_INTERFACE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "schedule"
+        ]
+      },
+      "then": {
+        "properties": {
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "mechanism": {
+                "const": "UNRESOLVED"
+              },
+              "mechanismRefs": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "requestedHz": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "DOCUMENTED_MECHANISM_APPROVED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "schedule"
+        ]
+      },
+      "then": {
+        "properties": {
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "mechanism": {
+                "enum": [
+                  "DOCUMENTED_WDF",
+                  "DOCUMENTED_DEVICE_VENDOR"
+                ]
+              },
+              "mechanismRefs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "requestedHz": {
+                "enum": [
+                  125,
+                  250,
+                  500,
+                  1000,
+                  2000,
+                  4000,
+                  8000
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

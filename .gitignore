@@ -1,8 +1,30 @@
 node_modules/
-build/
+build/*
+!build/dialed-icon.svg
 dist/
+dist-electron/
+dist-electron-current-source/
+.codex-remote-attachments/
 coverage/
+tmp/
+.playwright-cli/
+output/
 .DS_Store
 *.log
 .env*
 !.env.example
+native/hidusbf-helper/bin/
+native/hidusbf-helper/obj/
+native/hidusbf-helper-fixture/bin/
+native/hidusbf-helper-fixture/obj/
+native/hidusbf-host/bin/
+native/hidusbf-host/obj/
+native/hidusbf-broker/bin/
+native/hidusbf-broker/obj/
+
+# Private working notes (owner-only, never committed)
+/private-notes/
+
+# .NET build output
+**/bin/
+**/obj/

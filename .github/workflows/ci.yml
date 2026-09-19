@@ -14,10 +14,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-      - run: npm install
-      - run: npm test
-      - run: npm run lint
-      - run: npm run build
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run check:clean-room-parity
+      - run: bun test
+      - run: bun run lint
+      - run: bun run build
+      - run: bun run test:ui:fixtures
+      - run: bun scripts/check-electron-runtime.cjs
+      - run: bun run sbom
+      - run: bun run license:inventory
+      - run: bun audit --audit-level=high

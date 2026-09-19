@@ -1,0 +1,970 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dialed.local/schemas/native-input-device-capability-1.0.0.json",
+  "title": "Dialed native input device compatibility class",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "compatibilityClassId",
+    "status",
+    "deviceMatch",
+    "windowsScope",
+    "topology",
+    "rateCapabilities",
+    "provenanceRefs",
+    "materialChangeTriggers",
+    "claimLimits"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidenceStatus": {
+      "enum": [
+        "NOT_MEASURED",
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "method",
+        "artifactSha256"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "artifactSha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NOT_MEASURED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "artifactSha256": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifactSha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "compatibilityClassId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{7,119}$"
+    },
+    "status": {
+      "enum": [
+        "UNVERIFIED",
+        "SUPPORTED",
+        "UNSUPPORTED",
+        "BLOCKED"
+      ]
+    },
+    "deviceMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendorId",
+        "productId",
+        "bcdDevice",
+        "firmwareVersion",
+        "compositeScope",
+        "interfaces",
+        "endpoints"
+      ],
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "pattern": "^[A-F0-9]{4}$"
+        },
+        "productId": {
+          "type": "string",
+          "pattern": "^[A-F0-9]{4}$"
+        },
+        "bcdDevice": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-F0-9]{4}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "firmwareVersion": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compositeScope": {
+          "enum": [
+            "SINGLE_INTERFACE",
+            "MULTI_INTERFACE",
+            "WHOLE_PHYSICAL_DEVICE"
+          ]
+        },
+        "interfaces": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "number",
+              "classCode",
+              "subclassCode",
+              "protocolCode"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "classCode": {
+                "type": "string",
+                "pattern": "^[A-F0-9]{2}$"
+              },
+              "subclassCode": {
+                "type": "string",
+                "pattern": "^[A-F0-9]{2}$"
+              },
+              "protocolCode": {
+                "type": "string",
+                "pattern": "^[A-F0-9]{2}$"
+              }
+            }
+          }
+        },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "interfaceNumber",
+              "address",
+              "transferType",
+              "direction",
+              "bInterval",
+              "maximumPacketBytes"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^if[0-9]{1,3}-ep[0-9A-F]{2}$"
+              },
+              "interfaceNumber": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "address": {
+                "type": "string",
+                "pattern": "^(?:0[1-9A-F]|8[1-9A-F])$"
+              },
+              "transferType": {
+                "const": "INTERRUPT"
+              },
+              "direction": {
+                "enum": [
+                  "IN",
+                  "OUT"
+                ]
+              },
+              "bInterval": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 255
+              },
+              "maximumPacketBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 49152
+              }
+            }
+          }
+        }
+      }
+    },
+    "windowsScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "minimumBuild",
+        "maximumBuild",
+        "editions",
+        "documentedInterfacesOnly",
+        "secureBoot",
+        "memoryIntegrity",
+        "defender",
+        "driverSignatureEnforcement"
+      ],
+      "properties": {
+        "architecture": {
+          "const": "x64"
+        },
+        "minimumBuild": {
+          "type": "integer",
+          "minimum": 22000
+        },
+        "maximumBuild": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 22000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "editions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "HOME",
+              "PRO",
+              "PRO_EDUCATION",
+              "PRO_WORKSTATIONS",
+              "ENTERPRISE",
+              "EDUCATION"
+            ]
+          }
+        },
+        "documentedInterfacesOnly": {
+          "const": true
+        },
+        "secureBoot": {
+          "const": "REQUIRED_ENABLED"
+        },
+        "memoryIntegrity": {
+          "const": "REQUIRED_ENABLED"
+        },
+        "defender": {
+          "const": "REQUIRED_ENABLED"
+        },
+        "driverSignatureEnforcement": {
+          "const": "REQUIRED_ENABLED"
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "negotiatedSpeed",
+        "maximumHubDepth",
+        "directConnectionRequired",
+        "allowedControllerFamilies"
+      ],
+      "properties": {
+        "negotiatedSpeed": {
+          "description": "Low-speed devices are deliberately out of scope. Microsoft documents their polling period as 8, 16 or 32 frames (125 Hz at best), which cannot reach any offered rate above 125 Hz, so LOW is excluded rather than recorded as unsupported. See P-010 and P-024.",
+          "enum": [
+            "FULL",
+            "HIGH",
+            "SUPER",
+            "SUPER_PLUS"
+          ]
+        },
+        "maximumHubDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "directConnectionRequired": {
+          "type": "boolean"
+        },
+        "allowedControllerFamilies": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "rateCapabilities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 125
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 250
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 500
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 1000
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 2000
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 4000
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "requestedHz": {
+                "const": 8000
+              }
+            },
+            "required": [
+              "requestedHz"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestedHz",
+          "result",
+          "blockReason",
+          "scheduleMechanism",
+          "scheduleMechanismRefs",
+          "requiredEndpointKeys",
+          "requiresReconnect",
+          "requiresRestart",
+          "configuredEvidence",
+          "driverSessionEvidence",
+          "windowsDeliveryEvidence",
+          "usbBusEvidence",
+          "latencyEvidence"
+        ],
+        "properties": {
+          "requestedHz": {
+            "enum": [
+              125,
+              250,
+              500,
+              1000,
+              2000,
+              4000,
+              8000
+            ]
+          },
+          "result": {
+            "enum": [
+              "UNVERIFIED",
+              "SUPPORTED",
+              "UNSUPPORTED",
+              "BLOCKED"
+            ]
+          },
+          "blockReason": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduleMechanism": {
+            "enum": [
+              "UNRESOLVED",
+              "DOCUMENTED_WDF",
+              "DOCUMENTED_DEVICE_VENDOR"
+            ]
+          },
+          "scheduleMechanismRefs": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^P-[0-9]{3}$"
+            }
+          },
+          "requiredEndpointKeys": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^if[0-9]{1,3}-ep[0-9A-F]{2}$"
+            }
+          },
+          "requiresReconnect": {
+            "type": "boolean"
+          },
+          "requiresRestart": {
+            "type": "boolean"
+          },
+          "configuredEvidence": {
+            "$ref": "#/$defs/evidence"
+          },
+          "driverSessionEvidence": {
+            "$ref": "#/$defs/evidence"
+          },
+          "windowsDeliveryEvidence": {
+            "$ref": "#/$defs/evidence"
+          },
+          "usbBusEvidence": {
+            "$ref": "#/$defs/evidence"
+          },
+          "latencyEvidence": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "SUPPORTED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blockReason": {
+                  "type": "null"
+                },
+                "scheduleMechanism": {
+                  "enum": [
+                    "DOCUMENTED_WDF",
+                    "DOCUMENTED_DEVICE_VENDOR"
+                  ]
+                },
+                "scheduleMechanismRefs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "configuredEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "PASS"
+                    }
+                  }
+                },
+                "driverSessionEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "PASS"
+                    }
+                  }
+                },
+                "usbBusEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "PASS"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "BLOCKED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blockReason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "UNVERIFIED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blockReason": {
+                  "type": "null"
+                },
+                "scheduleMechanism": {
+                  "const": "UNRESOLVED"
+                },
+                "scheduleMechanismRefs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "configuredEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "NOT_MEASURED"
+                    }
+                  }
+                },
+                "driverSessionEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "NOT_MEASURED"
+                    }
+                  }
+                },
+                "windowsDeliveryEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "NOT_MEASURED"
+                    }
+                  }
+                },
+                "usbBusEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "NOT_MEASURED"
+                    }
+                  }
+                },
+                "latencyEvidence": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "NOT_MEASURED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "UNSUPPORTED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blockReason": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "provenanceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^P-[0-9]{3}$"
+      }
+    },
+    "materialChangeTriggers": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "DEVICE_FIRMWARE",
+          "DEVICE_HARDWARE_REVISION",
+          "FILTER_VERSION",
+          "HELPER_VERSION",
+          "WINDOWS_BUILD",
+          "USB_CONTROLLER_OR_DRIVER",
+          "WDK_OR_KMDF_VERSION",
+          "MEASUREMENT_METHOD"
+        ]
+      }
+    },
+    "claimLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "windowsDeliveryIsUsbProof",
+        "usbCadenceIsLatencyProof",
+        "anyDeviceClaimAllowed"
+      ],
+      "properties": {
+        "windowsDeliveryIsUsbProof": {
+          "const": false
+        },
+        "usbCadenceIsLatencyProof": {
+          "const": false
+        },
+        "anyDeviceClaimAllowed": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "SUPPORTED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rateCapabilities": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "const": "SUPPORTED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNVERIFIED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rateCapabilities": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "const": "UNVERIFIED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "not": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "const": "SUPPORTED"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "BLOCKED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rateCapabilities": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "const": "BLOCKED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            },
+            "not": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "SUPPORTED",
+                      "UNVERIFIED"
+                    ]
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNSUPPORTED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rateCapabilities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "const": "UNSUPPORTED"
+                }
+              },
+              "required": [
+                "result"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "topology": {
+            "type": "object",
+            "properties": {
+              "negotiatedSpeed": {
+                "enum": [
+                  "HIGH",
+                  "SUPER",
+                  "SUPER_PLUS"
+                ]
+              }
+            },
+            "required": [
+              "negotiatedSpeed"
+            ]
+          }
+        },
+        "required": [
+          "topology"
+        ]
+      },
+      "then": {
+        "properties": {
+          "deviceMatch": {
+            "type": "object",
+            "properties": {
+              "endpoints": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "bInterval": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16
+                    }
+                  },
+                  "required": [
+                    "bInterval"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

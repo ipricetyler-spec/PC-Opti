@@ -1,0 +1,48 @@
+name: Build unsigned Windows artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-artifacts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: bun test
+      - run: bun run lint
+      - run: bun run electron:build
+      - name: Verify release artifact manifest and checksums
+        env:
+          DIALED_ENABLE_SIGNING: ${{ vars.DIALED_ENABLE_SIGNING || vars.PC_OPTI_ENABLE_SIGNING || '1' }}
+          DIALED_SIGNING_REQUIRED: ${{ vars.DIALED_SIGNING_REQUIRED || vars.PC_OPTI_SIGNING_REQUIRED || '0' }}
+          DIALED_CODESIGN_PFX_PATH: ${{ secrets.DIALED_CODESIGN_PFX_PATH || secrets.PC_OPTI_CODESIGN_PFX_PATH || '' }}
+          DIALED_CODESIGN_PFX_PASSWORD: ${{ secrets.DIALED_CODESIGN_PFX_PASSWORD || secrets.PC_OPTI_CODESIGN_PFX_PASSWORD || '' }}
+          DIALED_CODESIGN_TOOL_PATH: ${{ vars.DIALED_CODESIGN_TOOL_PATH || vars.PC_OPTI_CODESIGN_TOOL_PATH || '' }}
+          DIALED_CODESIGN_TIMESTAMP_URL: ${{ vars.DIALED_CODESIGN_TIMESTAMP_URL || vars.PC_OPTI_CODESIGN_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
+        run: bun run release:verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dialed-release-${{ github.sha }}
+          path: |
+            dist-electron/*.exe
+            dist-electron/SHA256SUMS.txt
+            dist-electron/RELEASE_MANIFEST.json
+            dist-electron/CODESIGN_REPORT.json
+            dist-electron/*.msi
+            dist/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14
+
+# This workflow deliberately does not publish a release. When signing is approved,
+# provide electron-builder's signing credentials through protected repository secrets
+# and keep public publication behind a separate reviewed release step.

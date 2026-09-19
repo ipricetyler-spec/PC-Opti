@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible PC-Opti defect.
+description: Report a reproducible Dialed defect.
 title: "bug: "
 labels: [bug, needs-triage]
 body:
@@ -10,8 +10,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: PC-Opti version or commit
-      placeholder: "2.4.0 or a commit SHA"
+      label: Dialed version or commit
+      placeholder: "2.6.0 or a commit SHA"
     validations:
       required: true
   - type: input
@@ -25,7 +25,7 @@ body:
     id: reproduction
     attributes:
       label: Reproduction steps
-      description: Include the selected PC-Opti action and what you expected to happen.
+      description: Include the selected Dialed action and what you expected to happen.
     validations:
       required: true
   - type: textarea

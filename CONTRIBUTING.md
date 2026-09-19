@@ -1,19 +1,24 @@
-# Contributing to PC-Opti
+# Contributing to Dialed
 
 Thanks for helping make Windows performance management more transparent and reliable.
 
 ## Local setup
 
-Use Node.js 20 or newer on Windows. Install dependencies, then run the full local quality gate:
+Use Bun 1.3.14 or the repository-pinned CI version on Windows. Install dependencies, then run the full local quality gate:
 
 ```powershell
-npm install
-npm test
-npm run lint
-npm run build
+bun install --frozen-lockfile
+bun run check:clean-room-parity
+bun test
+bun run lint
+bun run build
+bun run test:ui:fixtures
+bun run sbom
+bun run license:inventory
+bun audit --audit-level=high
 ```
 
-Use `npm run electron:dev` when you need to exercise Electron-only native telemetry or Windows actions.
+Use `bun run electron:dev` when you need to exercise Electron-only native telemetry. Automated development remains non-mutating. Exercise approved real Windows/device mutations only on the dedicated physical test PC defined by the owner acceptance procedure; do not create or use a VM for Dialed acceptance.
 
 ## Contribution principles
 

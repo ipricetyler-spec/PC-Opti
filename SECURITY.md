@@ -2,7 +2,7 @@
 
 ## Supported scope
 
-Security reports are welcome for the current `main` branch and the latest released version of PC-Opti.
+Security reports are welcome for the current `main` branch and the latest released version of Dialed.
 
 The highest-priority reports involve privilege escalation, unsafe Windows configuration changes, process-management scope escapes, command injection, local data exposure, or rollback failures.
 
@@ -20,6 +20,6 @@ We will acknowledge receipt, investigate privately, and coordinate a fix before 
 
 ## Security boundaries
 
-PC-Opti deliberately limits its native actions. It does not terminate processes, modify core Windows services, remove system packages, clean the Registry, or retrieve drivers. Privileged operations must validate their targets, capture rollback state where applicable, and create an audit-journal entry.
+Dialed deliberately limits its native actions. It does not terminate processes, modify core Windows services, remove system packages, clean the Registry, or retrieve drivers. Privileged operations must validate their targets, capture rollback state where applicable, create a `PENDING` audit entry, and re-read the resulting state. The packaged app runs as the invoking user and does not auto-elevate. A future elevated helper must expose typed actions rather than a command bridge.
 
-The optional AI audit is separate from native maintenance. It is requested only from the UI and is unavailable unless the local service has a configured API key; never put API keys in commits or issue reports.
+The optional AI audit is separate from native maintenance. It is requested only from the UI, previews a minimized payload, and is unavailable unless the main process has a configured API key; never put API keys in commits or issue reports. The AI has no action-execution authority.

@@ -1,0 +1,12 @@
+#pragma once
+
+#include <ntddk.h>
+#include <wdf.h>
+
+DRIVER_INITIALIZE DriverEntry;
+EVT_WDF_DRIVER_DEVICE_ADD DialedInputFilterEvtDeviceAdd;
+EVT_WDF_DEVICE_PREPARE_HARDWARE DialedInputFilterEvtPrepareHardware;
+EVT_WDF_DEVICE_RELEASE_HARDWARE DialedInputFilterEvtReleaseHardware;
+EVT_WDF_DEVICE_D0_ENTRY DialedInputFilterEvtD0Entry;
+EVT_WDF_DEVICE_D0_EXIT DialedInputFilterEvtD0Exit;
+

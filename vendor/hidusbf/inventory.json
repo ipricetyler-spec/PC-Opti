@@ -1,0 +1,489 @@
+{
+  "schemaVersion": 1,
+  "commit": "994259a8de31b35d2d44dc800368d9418dd3eb04",
+  "reviewedAt": "2026-09-05",
+  "credit": "HIDUSBF created by SweetLow, maintained by LordOfMice. Dialed UI and helper are independently authored.",
+  "source": "https://github.com/LordOfMice/hidusbf",
+  "installModel": "LEGACY_DEFAULTINSTALL_SERVICE_CANDIDATE",
+  "productionActivation": "UNCONFIGURED",
+  "architecture": "x64",
+  "files": [
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/1kHz.cmd",
+      "bytes": 255,
+      "sha256": "4153a509905f2ae92eee1578e7e2d0ec8fc734c24a6b6f7ed07f6dfe142724c3",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/2kHz-4kHz.cmd",
+      "bytes": 277,
+      "sha256": "766954a41c08e210fd5b7a31968cc3f6cd3d86227d0c35a1f1cc2fecf89b233a",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/4kHz-8kHz.cmd",
+      "bytes": 275,
+      "sha256": "dd10a3b4c46002869c3ea9d8ba2494c410599abe96dd542ea074f91e72972d92",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/98ME/hidusbf.sys",
+      "bytes": 3648,
+      "sha256": "b14d9d4946a70259038e9b284fd9e9423e95d2cc048d46665e090b4bfb5c73f5",
+      "signatureStatus": "NotSigned",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64_AS/1khz/hidusbf.sys",
+      "bytes": 21376,
+      "sha256": "81f649b34978fe9f74ce5c7c04ba24d5238faec6c70018f14da9423a46e6e04d",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64_AS/2khz-4khz/hidusbf.sys",
+      "bytes": 21376,
+      "sha256": "e2c9fc626bb92d2219fbef3458014c198a3c90c563f948c9a433826e64d77e90",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64_AS/4khz-8khz/hidusbf.sys",
+      "bytes": 21376,
+      "sha256": "db73a8c259e16a0d02f138650497c1bdec81add66d928f3cf3ff39fad4eb421b",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64_AS/hidusbf.sys",
+      "bytes": 21376,
+      "sha256": "81f649b34978fe9f74ce5c7c04ba24d5238faec6c70018f14da9423a46e6e04d",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64_AS/NoPatch/hidusbf.sys",
+      "bytes": 40672,
+      "sha256": "2f82cdeb36bdaa42ea1933a9b11f3b8e1bdb28e6d3e3da7e65b4631b3375412d",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64/1khz/hidusbf.sys",
+      "bytes": 25288,
+      "sha256": "ec97d9c203b6fc47605027de2e65891c63c8088230f5f8b59e705f40e0bd860a",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64/2khz-4khz/hidusbf.sys",
+      "bytes": 25288,
+      "sha256": "841d8ec5b070d068b0bf97c8ea255cd3ae9360fca4be2fb61149411419dbe755",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64/4khz-8khz/hidusbf.sys",
+      "bytes": 25288,
+      "sha256": "889241e792a3e58673eb98d4d1815c8073a6bcfa0abc6c3af060c5c6e7b94302",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64/hidusbf.sys",
+      "bytes": 25288,
+      "sha256": "ec97d9c203b6fc47605027de2e65891c63c8088230f5f8b59e705f40e0bd860a",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/AMD64/nopatch/hidusbf.sys",
+      "bytes": 23368,
+      "sha256": "6a85df7738f2a04ba9576a7690d1ad67d385d0f6957adf16027b804f485eef04",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/HIDUSBF_AS.INF",
+      "bytes": 1520,
+      "sha256": "48c3a0055070b9a66c239ffc3d068b39aafe7a14554984268acc6da1492759e6",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/HIDUSBF.INF",
+      "bytes": 1514,
+      "sha256": "9f98870ba3cbf2b992c848bc7447685b70c0a06d2dd31975cbd8ce3e8235e5a5",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/HIDUSBFU.INF",
+      "bytes": 1078,
+      "sha256": "1a259212d637a4d72a023c3cbb78577e8336bdea4711c23f57a78e7230c0b1bf",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/nopatch.cmd",
+      "bytes": 267,
+      "sha256": "c270e8d582b4de1327d1fddfce08932673286f23727b257365c76ced1a6f8a78",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTx86_AS/1khz/hidusbf.sys",
+      "bytes": 18304,
+      "sha256": "4f546340e7cecbc88f7a04e9b2c92947eaf5e399e66441df9d9807bf1e4739b8",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTx86_AS/2khz-4khz/hidusbf.sys",
+      "bytes": 18312,
+      "sha256": "2f1079706a4146dd66b32cc09be2c96f558ad2ff76e3dd88ad153861d64b4aa2",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTx86_AS/4khz-8khz/hidusbf.sys",
+      "bytes": 18312,
+      "sha256": "f4de301dacbf80b76621b2255c8a7f8c838af2df7888a0f96e1a39cf2f24825d",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTx86_AS/hidusbf.sys",
+      "bytes": 18304,
+      "sha256": "4f546340e7cecbc88f7a04e9b2c92947eaf5e399e66441df9d9807bf1e4739b8",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTx86_AS/NoPatch/hidusbf.sys",
+      "bytes": 15752,
+      "sha256": "4477d7c6d776165344d17e67758548925199389a6ef40c99f57bd32797fe8fd0",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTX86/1khz/hidusbf.sys",
+      "bytes": 23368,
+      "sha256": "e753bf75d6d8af04e409d6797dddddd287a952070a3779c6d6354623e71a2eec",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTX86/2khz-4khz/hidusbf.sys",
+      "bytes": 23496,
+      "sha256": "3273a052e5a54f0270168cee156b7b27b22b59e122b94922a801dd7cdb8bf6b5",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTX86/4khz-8khz/hidusbf.sys",
+      "bytes": 23496,
+      "sha256": "377d2bbc879759260a66d937d3c80e2c2b4bad08d6ed36a0cf93873b7b38a9ce",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTX86/hidusbf.sys",
+      "bytes": 23368,
+      "sha256": "e753bf75d6d8af04e409d6797dddddd287a952070a3779c6d6354623e71a2eec",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/NTX86/nopatch/hidusbf.sys",
+      "bytes": 21216,
+      "sha256": "a3cba51dc28b10f7be1a232be0d6cec6d734b6753ab7054169a04ce22335f7d8",
+      "signatureStatus": "Valid",
+      "signerSubject": "CN=Jeshua Starr Scully, O=Jeshua Starr Scully, L=Madison, S=Wisconsin, C=US",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/Setup.exe",
+      "bytes": 575992,
+      "sha256": "5ec3662c723b1b385162631f158340de02acc6a164c927a02f48a6b2edbaa972",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "DRIVER/sx64.exe",
+      "bytes": 51384,
+      "sha256": "b0df95c336a135b3f0d61dfb4914fad4c0288ea4527d71f514fe7016ed331053",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "README.2kHz-8kHz.ENG.TXT",
+      "bytes": 927,
+      "sha256": "8a014b4b21f58d0a902fd6861bea2145ce09c2111e2c6a33f1ef2d6e9d5b3d4b",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "README.ENG.TXT",
+      "bytes": 16258,
+      "sha256": "702caebd6ecfb1a93f14ecf949f05642834c7400a914d0f1dab1a016895363ca",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "README.RUS.TXT",
+      "bytes": 17564,
+      "sha256": "1ecd2a7b781b19a2339e3036630029cc724b469514feb255ac9c09bed7c6f655",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": true
+    },
+    {
+      "archive": "hidusbf.zip",
+      "path": "SweetLow.CER",
+      "bytes": 911,
+      "sha256": "03efff5808a28e873f6ce6b425e1036210a867c9544d66adbdcfd19d27f1838a",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Intel USB Drivers on Win7 (IUSB3XHC)/DRIVER (for Test Mode on x64)/AMD64/hidusbf.sys",
+      "bytes": 11832,
+      "sha256": "7a32a4151f92e3c1a569b05a942ce39d0f8e546b0449d18b8ab810c97efecc2b",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Intel USB Drivers on Win7 (IUSB3XHC)/DRIVER (for Test Mode on x64)/NTx86/hidusbf.sys",
+      "bytes": 9784,
+      "sha256": "d76bf47d8d9888ea115af3dd957902e5fc60659132b14566cf117e486e3bd2d6",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Intel USB Drivers on Win7 (IUSB3XHC)/PATCH (for atsiv on x64)/AMD64/hidusbfp.sys",
+      "bytes": 13848,
+      "sha256": "baca648d78b5d42726c736dd981a21e55932621356d974c2218bead6e687bbe1",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Intel USB Drivers on Win7 (IUSB3XHC)/PATCH (for atsiv on x64)/NTx86/hidusbfp.sys",
+      "bytes": 8120,
+      "sha256": "b93617a6d78c5001082dacdfc511711307091998292976f86116c90859e74b83",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/AMD64/1khz/hidusbf.sys",
+      "bytes": 10128,
+      "sha256": "026cb927ed9b2f5e0c6cd64530658885a16d92773a1c0919085774f385c8a00f",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/AMD64/2khz-4khz/hidusbf.sys",
+      "bytes": 10256,
+      "sha256": "11bd7ade3d650b0f79325c9c8633d59baebc2006031a4407c2aa8cc5eb828ba2",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/AMD64/4khz-8khz/hidusbf.sys",
+      "bytes": 10256,
+      "sha256": "953066f7dd5ce190824081d2170684c7b628c9d264c2896e72cf5f86169275e6",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/NTx86/1khz/hidusbf.sys",
+      "bytes": 7568,
+      "sha256": "2f0104790764f4923c9134fd4de618257996c7c6579bd62410273f3e726641ec",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/NTx86/2khz-4khz/hidusbf.sys",
+      "bytes": 7568,
+      "sha256": "7c079d3fdfc28a4bbd94d9ec940e811bafd362f613a11585a7bca8d4ba18c297",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/DRIVER (for Test Mode on x64)/NTx86/4khz-8khz/hidusbf.sys",
+      "bytes": 7568,
+      "sha256": "9458d1d30f9fd40540766c48893e0a7b30697a55482bbae63266ad7b2aa884b8",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/AMD64/1khz/hidusbfp.sys",
+      "bytes": 6672,
+      "sha256": "392b44710dff53771357ffb2e75db725ce74951e89c8e9331d30a1f9342f6a8d",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/AMD64/2khz-4khz/hidusbfp.sys",
+      "bytes": 6800,
+      "sha256": "0c90d70ae63e0ac0636921ecab0b57fc82602488b6ba128220e21de270d2dd32",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/AMD64/4khz-8khz/hidusbfp.sys",
+      "bytes": 6800,
+      "sha256": "acb71528d08b187699ea33e3b731cf822fc6f1df6d289e0d0385759a7a77770d",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/NTx86/1khz/hidusbfp.sys",
+      "bytes": 5776,
+      "sha256": "b76f522db90c01d08d8a549f643a87550a13e2da364132993a9214458e031575",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/NTx86/2khz-4khz/hidusbfp.sys",
+      "bytes": 5904,
+      "sha256": "b80991e4a6c0a443ebf3c892513e6271d4bbcf2417fc3091ab4aefb9757d29b2",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "Microsoft USB Drivers on Win8+ (USBPORT, USBXHCI)/PATCH (for atsiv on x64)/NTx86/4khz-8khz/hidusbfp.sys",
+      "bytes": 5904,
+      "sha256": "7f330dfd894f494cac4d593281dc486d2e506db0f069f76011d6fd7cb8e032b1",
+      "signatureStatus": "UnknownError",
+      "signerSubject": "CN=SweetLow, E=sweetlow@tut.by",
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "readme.eng.txt",
+      "bytes": 2391,
+      "sha256": "0b946818df68effa756d35b232a20c7b6f461438db5abf3f939594b252210832",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "restart_umap.cmd",
+      "bytes": 219,
+      "sha256": "845f09c9139c4b1b6baddd271989c617c28a5baba6957104bc18443a272d5f6f",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    },
+    {
+      "archive": "hidusbfn.zip",
+      "path": "restart.cmd",
+      "bytes": 263,
+      "sha256": "6d7e32ff7e2239e2f53a874e1fabca945e1251bf28ffbf83efadf1812c3fd82b",
+      "signatureStatus": "NOT_APPLICABLE",
+      "signerSubject": null,
+      "selected": false
+    }
+  ]
+}

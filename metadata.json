@@ -1,6 +1,6 @@
 {
-  "name": "Rigorset",
-  "description": "Next-gen Windows 11 PC Optimization suite with AI health diagnostics, 1-click safe maintenance, driver update radar, risk filter for dangerous tweaks, real-time background telemetry, and cloud syncing.",
+  "name": "Dialed",
+  "description": "Your PC, dialed in. Local-first Windows performance optimization with visible actions, verified outcomes, and supported rollback.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["WINDOWS_NATIVE_DIAGNOSTICS", "SEQUENTIAL_OPTIMIZATION", "LOCAL_AUDIT_HISTORY", "SUPPORTED_ROLLBACK", "GAME_SETTINGS_GUIDANCE"]
 }

@@ -1,12 +1,12 @@
 name: Safety-first feature request
-description: Propose a focused, verifiable improvement to PC-Opti.
+description: Propose a focused, verifiable improvement to Dialed.
 title: "feature: "
 labels: [enhancement, needs-triage]
 body:
   - type: markdown
     attributes:
       value: |
-        PC-Opti does not accept registry cleaners, RAM flushers, generic driver updating, process termination, or destructive debloat proposals.
+        Dialed does not accept registry cleaners, RAM flushers, generic driver updating, process termination, or destructive debloat proposals.
   - type: textarea
     id: problem
     attributes:

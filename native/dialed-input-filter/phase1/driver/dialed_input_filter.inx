@@ -1,0 +1,61 @@
+; Offline template only. The unresolved tokens deliberately prevent installation.
+; The ExtensionId is also blocked until Dialed ownership evidence is approved.
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Extension
+ClassGuid={e2f84ce7-8efa-411c-aa69-97454ca4cb57}
+ExtensionId={97169AAC-36F0-46A3-8B47-B728E7D0A8F9}
+Provider=%Dialed%
+DriverVer=$DIALED_DRIVER_DATE$,$DIALED_DRIVER_VERSION$
+CatalogFile=dialed_input_filter.cat
+PnpLockdown=1
+
+[Manufacturer]
+%Dialed%=DialedModels,NTamd64.10.0...22000
+
+[DialedModels.NTamd64.10.0...22000]
+%DialedInputFilter.DeviceDesc%=DialedInputFilter_Install,$DIALED_APPROVED_HARDWARE_ID$
+
+[DestinationDirs]
+DialedInputFilter_CopyFiles=13
+
+[SourceDisksNames]
+1=%DialedInputFilter.DiskName%
+
+[SourceDisksFiles]
+dialed_input_filter.sys=1
+
+[DialedInputFilter_Install.NT]
+CopyFiles=DialedInputFilter_CopyFiles
+
+[DialedInputFilter_Install.NT.Services]
+AddService=DialedInputFilter,0,DialedInputFilter_Service
+
+[DialedInputFilter_Install.NT.Filters]
+AddFilter=DialedInputFilter,0,DialedInputFilter_Lower
+
+[DialedInputFilter_Install.NT.Wdf]
+KmdfService=DialedInputFilter,DialedInputFilter_Wdf
+
+[DialedInputFilter_CopyFiles]
+dialed_input_filter.sys
+
+[DialedInputFilter_Service]
+DisplayName=%DialedInputFilter.ServiceDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%13%\dialed_input_filter.sys
+
+[DialedInputFilter_Lower]
+FilterPosition=Lower
+
+[DialedInputFilter_Wdf]
+KmdfLibraryVersion=1.33
+
+[Strings]
+Dialed="Dialed"
+DialedInputFilter.DeviceDesc="Dialed transparent input filter prototype"
+DialedInputFilter.ServiceDesc="Dialed transparent input filter prototype"
+DialedInputFilter.DiskName="Dialed transparent input filter prototype media"

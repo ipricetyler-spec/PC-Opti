@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "2.0.0",
+  "packageId": "replace-after-written-permission",
+  "version": "UNCONFIGURED",
+  "architecture": "x64",
+  "upstream": {
+    "name": "REPLACE_WITH_AUTHORIZED_UPSTREAM",
+    "sourceUrl": "https://example.invalid/replace-with-authoritative-source",
+    "version": "REPLACE_WITH_REVIEWED_VERSION"
+  },
+  "redistributionPermission": {
+    "packageRoute": "UNMODIFIED_RIGHTS_HOLDER",
+    "evidence": "sha256:REPLACE_WITH_WRITTEN_PERMISSION_DOCUMENT_HASH",
+    "attribution": "REPLACE_WITH_APPROVED_ATTRIBUTION",
+    "grants": {
+      "commercialRedistribution": false,
+      "bundling": false,
+      "automation": false,
+      "modification": false
+    }
+  },
+  "publisher": {
+    "subject": "REPLACE_WITH_CATALOG_SIGNER_SUBJECT",
+    "thumbprint": "REPLACE_WITH_PINNED_CATALOG_SIGNER_THUMBPRINT"
+  },
+  "driverPackage": {
+    "inf": {
+      "provider": "REPLACE_WITH_INF_PROVIDER",
+      "class": "REPLACE_WITH_INF_CLASS",
+      "classGuid": "{REPLACE-WITH-EXACT-CLASS-GUID}",
+      "catalogName": "REPLACE.cat",
+      "driverVersion": "REPLACE_WITH_EXACT_DRIVER_VERSION",
+      "installModel": "REPLACE_WITH_REVIEWED_INSTALL_MODEL",
+      "service": {
+        "name": "REPLACE_WITH_SERVICE_NAME",
+        "startType": "REPLACE_WITH_EXACT_START_TYPE",
+        "imagePath": "REPLACE_WITH_EXACT_IMAGE_PATH"
+      }
+    }
+  },
+  "signingPolicy": {
+    "catalogRequiredEkuOids": [],
+    "systemBinary": { "subject": "REPLACE", "thumbprint": "REPLACE", "requiredEkuOids": [] },
+    "helper": { "subject": "REPLACE", "thumbprint": "REPLACE", "requiredEkuOids": [] },
+    "application": { "subject": "REPLACE", "thumbprint": "REPLACE", "requiredEkuOids": [] },
+    "revocation": { "mode": "UNVERIFIED", "failClosed": false, "maximumEvidenceAgeHours": 0, "requireTimestamp": false }
+  },
+  "compatibility": {
+    "windows": { "minimumBuild": 0, "maximumBuild": null },
+    "memoryIntegrity": "UNVERIFIED",
+    "secureBoot": "UNVERIFIED"
+  },
+  "polling": { "requestsHz": [], "maximumRequestHz": 0 },
+  "upgradePredecessors": [],
+  "files": [
+    { "role": "INF", "path": "payload/REPLACE.inf", "bytes": 0, "sha256": "REPLACE_WITH_SHA256", "catalogMembership": "REQUIRED" },
+    { "role": "SYS", "path": "payload/REPLACE.sys", "bytes": 0, "sha256": "REPLACE_WITH_SHA256", "catalogMembership": "REQUIRED" },
+    { "role": "CAT", "path": "payload/REPLACE.cat", "bytes": 0, "sha256": "REPLACE_WITH_SHA256", "catalogMembership": "NOT_APPLICABLE" },
+    { "role": "HELPER", "path": "payload/REPLACE.exe", "bytes": 0, "sha256": "REPLACE_WITH_SHA256", "catalogMembership": "NOT_APPLICABLE" }
+  ]
+}

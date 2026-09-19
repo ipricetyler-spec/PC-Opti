@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "1.0.0",
+  "phase": 1,
+  "status": "OFFLINE_SOURCE_ONLY",
+  "installModel": "PNP_FILTER",
+  "packageKind": "EXTENSION_INF",
+  "packageIdentity": {
+    "extensionId": "{97169AAC-36F0-46A3-8B47-B728E7D0A8F9}",
+    "extensionIdOwnershipStatus": "UNVERIFIED_OWNER_GATE",
+    "extensionIdOwnershipEvidence": null
+  },
+  "target": {
+    "scope": "DEVICE_SPECIFIC_USB_HID_INTERFACE",
+    "hardwareId": null,
+    "deviceInstanceId": null,
+    "physicalDeviceDigest": null,
+    "interfaceNumber": null,
+    "endpointKeys": []
+  },
+  "attachment": {
+    "directive": "AddFilter",
+    "position": "LOWER",
+    "level": null,
+    "relativeOrderDependency": false,
+    "classWide": false
+  },
+  "preAttach": {
+    "exactStackGraphRequired": true,
+    "stackGraphReviewStatus": "NOT_RUN",
+    "disallowedPlacement": "BETWEEN_HIDCLASS_AND_HID_TRANSPORT"
+  },
+  "requestContract": {
+    "ownership": "WDF_AUTOFORWARD_NO_QUEUE",
+    "handledRequestTypes": [],
+    "userModeInterface": false,
+    "customIoctl": false,
+    "usbPipeHandle": false,
+    "urbParsing": false,
+    "descriptorMutation": false
+  },
+  "scheduling": {
+    "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+    "mechanism": "UNRESOLVED",
+    "consumerClaimAllowed": false
+  },
+  "toolchain": {
+    "visualStudio": "2026",
+    "visualStudioBuildTools": "18.3.0",
+    "msvcToolset": "14.50",
+    "windowsSdk": "10.0.28000.2526",
+    "windowsDriverKit": "10.0.28000.2526",
+    "kmdf": "1.33",
+    "architecture": "x64"
+  },
+  "validation": {
+    "requiresWarningFreeBuild": true,
+    "requiresInfVerifW": true,
+    "requiresInfVerifH": true,
+    "requiresStaticAnalysis": true,
+    "requiresExtensionIdOwnershipEvidence": true,
+    "requiresExactStackGraphReview": true,
+    "currentHostToolchainAvailable": false,
+    "buildExecuted": false
+  },
+  "gates": {
+    "liveExecutionAuthorized": false,
+    "productionIntegrationAuthorized": false,
+    "signingAuthorized": false,
+    "installationAuthorized": false,
+    "restartAuthorized": false,
+    "securityReductionAllowed": false
+  },
+  "documentedInterfaceVerdict": {
+    "adr": "ADR-0002-DOCUMENTED-SCHEDULING-INTERFACE.md",
+    "reviewedOn": "2026-09-03",
+    "hostScheduleControlDocumented": false,
+    "bIntervalDriverChangeable": false,
+    "documentedWdfMechanismReachable": false,
+    "matchesRecommendedHidFilterPlacement": false,
+    "createsDiscouragedHidclassToTransportPlacement": false,
+    "primaryEvidenceRefs": [
+      "P-010",
+      "P-024"
+    ],
+    "secondaryEvidenceRefs": [
+      "P-019",
+      "P-025",
+      "P-026",
+      "P-027"
+    ]
+  },
+  "targetBinding": {
+    "schema": "../schemas/target-binding.schema.json",
+    "validator": "../target-binding-validator.cjs",
+    "fixtures": [
+      "../fixtures/target-binding.attach.example.json",
+      "../fixtures/target-binding.lifecycle-chain.example.json"
+    ],
+    "scheduleRequestPermitted": false,
+    "nativeBehaviorProven": false,
+    "chainValidated": true
+  }
+}

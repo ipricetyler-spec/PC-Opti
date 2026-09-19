@@ -1,10 +1,277 @@
 @import "tailwindcss";
 
+:root,
+:root[data-theme='console'] {
+  /* Dialed's own look, chosen 2026-09-18: flat navy panels, one lime accent for things
+     that are on or done, amber for "measure it". No glows or gradients. */
+  --app-font: 'Space Grotesk Variable', 'Segoe UI', sans-serif;
+  --app-font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+  --app-bg-top: #0b0e14;
+  --app-bg-mid: #0b0e14;
+  --app-bg-bottom: #0b0e14;
+  --app-panel: #131826;
+  --app-header: rgb(11 14 20 / 0.92);
+  --app-accent: #c6f24e;
+  --app-accent-soft: #d4f57a;
+  --app-accent-rgb: 198 242 78;
+  --app-accent-ink: #0b0e14;
+  --app-secondary: #ffb25c;
+  --app-secondary-rgb: 255 178 92;
+  --app-surface: #131826;
+  --app-surface-soft: #0f131d;
+  --app-surface-strong: #1a2032;
+  --app-control: #1a2032;
+  --app-border: #232a3b;
+  --app-border-strong: #2f3850;
+  --app-text-strong: #f2f4f8;
+  --app-text: #c9cfdb;
+  --app-muted: #8b93a7;
+  --app-faint: #6f7890;
+  --app-chart-idle: var(--app-accent);
+  --app-chart-loaded: var(--app-secondary);
+  --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);
+  --app-chart-upload: color-mix(in srgb, var(--app-secondary) 30%, #fbbf24);
+  --app-backdrop: #0b0e14;
+  --app-sidebar-visual: #0e121b;
+  --app-surface-visual: #131826;
+  --app-surface-soft-visual: #0f131d;
+  --app-theme-stripe: var(--app-border);
+}
+
+:root[data-theme='instrument'] {
+  /* Graphite and amber, like a measuring instrument: dense and precise. */
+  --app-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --app-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --app-bg-top: #111315;
+  --app-bg-mid: #111315;
+  --app-bg-bottom: #111315;
+  --app-panel: #1c2024;
+  --app-header: rgb(17 19 21 / 0.92);
+  --app-accent: #e8a33d;
+  --app-accent-soft: #f3c06f;
+  --app-accent-rgb: 232 163 61;
+  --app-accent-ink: #111315;
+  --app-secondary: #7fb77e;
+  --app-secondary-rgb: 127 183 126;
+  --app-surface: #1c2024;
+  --app-surface-soft: #16191c;
+  --app-surface-strong: #22262a;
+  --app-control: #22262a;
+  --app-border: #2a2e33;
+  --app-border-strong: #3a3f45;
+  --app-text-strong: #e6e4df;
+  --app-text: #c9c9c4;
+  --app-muted: #9aa0a6;
+  --app-faint: #7d848b;
+  --app-chart-idle: var(--app-accent);
+  --app-chart-loaded: var(--app-secondary);
+  --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);
+  --app-chart-upload: color-mix(in srgb, var(--app-secondary) 30%, #fbbf24);
+  --app-backdrop: #111315;
+  --app-sidebar-visual: #15181b;
+  --app-surface-visual: #1c2024;
+  --app-surface-soft-visual: #16191c;
+  --app-theme-stripe: var(--app-border);
+}
+
 @layer base {
   body {
-    background-color: #0a0b0d;
-    color: #e2e8f0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--app-bg-mid);
+    color: var(--app-text);
+    font-family: var(--app-font);
+  }
+}
+
+::selection {
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+/* Engineering evidence is opt-in. Essential warnings, confirmations, recovery,
+   and result limitations never use this attribute and remain visible. */
+:root[data-technical-details='hidden'] [data-technical-detail] {
+  display: none !important;
+}
+
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: var(--app-control);
+  color: var(--app-text-strong);
+}
+
+/* Root rem sizing preserves responsive layout and browser text scaling. */
+:root[data-density='comfortable'] { font-size: 112.5%; }
+:root[data-density='comfortable'] :is(button, select, input:not([type='checkbox']):not([type='radio']), textarea) {
+  min-height: 2.5rem;
+}
+:root[data-density='comfortable'] [class*='text-[11px]'],
+:root[data-density='comfortable'] [class*='text-[10px]'] { font-size: 0.75rem; }
+
+:root[data-background='simple'] {
+  --app-backdrop: var(--app-bg-mid);
+  --app-sidebar-visual: var(--app-panel);
+  --app-surface-visual: var(--app-surface-strong);
+  --app-surface-soft-visual: var(--app-bg-mid);
+  --app-theme-stripe: var(--app-accent);
+}
+
+.app-shell {
+  background: var(--app-backdrop);
+  background-attachment: fixed;
+}
+
+.app-sidebar {
+  background: var(--app-sidebar-visual);
+  box-shadow: inset -1px 0 0 var(--app-border);
+}
+.app-header {
+  position: relative;
+  background: var(--app-header);
+  box-shadow: inset 0 -1px 0 var(--app-border), 0 12px 36px rgb(0 0 0 / 0.12);
+}
+.app-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: '';
+  background: var(--app-theme-stripe);
+  opacity: 0.72;
+}
+.brand-mark {
+  background: linear-gradient(145deg, var(--app-accent-soft), var(--app-accent));
+  box-shadow: 0 10px 24px rgb(var(--app-accent-rgb) / 0.18);
+}
+
+/* Preserve semantic status colors while making the original cyan primary
+   interaction accent follow the selected appearance theme. */
+:root .text-cyan-100,
+:root .text-cyan-200,
+:root .text-cyan-300,
+:root .text-cyan-400 { color: var(--app-accent-soft) !important; }
+:root .bg-cyan-300,
+:root .bg-cyan-400,
+:root .bg-cyan-500 { background-color: var(--app-accent) !important; }
+:root .bg-cyan-400\/10,
+:root .bg-cyan-500\/10,
+:root .bg-cyan-500\/20 { background-color: rgb(var(--app-accent-rgb) / 0.12) !important; }
+:root .border-cyan-400\/20,
+:root .border-cyan-400\/50,
+:root .border-cyan-400\/60,
+:root .border-cyan-500\/20,
+:root .border-cyan-500\/30 { border-color: rgb(var(--app-accent-rgb) / 0.42) !important; }
+
+/* Violet is Dialed's secondary-information accent. Giving it a theme token
+   makes palettes read as designed systems instead of simple primary recolors. */
+:root .text-violet-100,
+:root .text-violet-200,
+:root .text-violet-300,
+:root .text-violet-400 { color: color-mix(in srgb, var(--app-secondary) 80%, white) !important; }
+:root .bg-violet-400 { background-color: color-mix(in srgb, var(--app-secondary) 80%, white) !important; }
+:root .bg-violet-400\/10,
+:root .bg-violet-400\/15,
+:root .bg-violet-500\/10,
+:root .bg-violet-950\/15,
+:root .bg-violet-950\/20,
+:root .bg-violet-950\/30 { background-color: rgb(var(--app-secondary-rgb) / 0.12) !important; }
+:root .border-violet-400,
+:root .border-violet-400\/20,
+:root .border-violet-400\/25,
+:root .border-violet-400\/30,
+:root .border-violet-400\/40,
+:root .border-violet-500\/20,
+:root .border-violet-500\/25 { border-color: rgb(var(--app-secondary-rgb) / 0.42) !important; }
+
+/* Theme the structural Tailwind surfaces too. Without these tokens a theme is
+   only an accent swap over the same navy interface. Semantic success, warning,
+   and danger colors intentionally remain unchanged. */
+:root .bg-slate-900,
+:root .bg-slate-900\/50,
+:root .bg-slate-900\/60,
+:root .bg-slate-900\/70 { background: var(--app-surface-visual) !important; }
+:root .bg-slate-950,
+:root .bg-slate-950\/30,
+:root .bg-slate-950\/35,
+:root .bg-slate-950\/40,
+:root .bg-slate-950\/45,
+:root .bg-slate-950\/50,
+:root .bg-slate-950\/60 { background: var(--app-surface-soft-visual) !important; }
+:root .bg-slate-900\/40,
+:root .bg-slate-800,
+:root .bg-slate-700 { background-color: var(--app-surface-strong) !important; }
+:root .border-slate-800,
+:root .border-slate-800\/80 { border-color: var(--app-border) !important; }
+:root .border-slate-700,
+:root .border-slate-700\/70,
+:root .border-slate-700\/80,
+:root .border-slate-600,
+:root .border-slate-500 { border-color: var(--app-border-strong) !important; }
+:root .text-white,
+:root .text-slate-100 { color: var(--app-text-strong) !important; }
+:root .text-slate-200,
+:root .text-slate-300 { color: var(--app-text) !important; }
+:root .text-slate-400 { color: var(--app-muted) !important; }
+:root .text-slate-500,
+:root .text-slate-600 { color: var(--app-faint) !important; }
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.01em;
+}
+
+/* Readings and numbers line up in a monospace face. */
+.font-mono,
+code,
+kbd,
+pre {
+  font-family: var(--app-font-mono);
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--app-text-strong);
+}
+.wordmark span {
+  color: var(--app-accent);
+}
+
+.glass-panel {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-visual);
+}
+
+.metric-pill {
+  border: 1px solid var(--app-border-strong);
+  background-color: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.panel-shell {
+  animation: panel-fade-slide 200ms ease;
+}
+
+@keyframes panel-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -15,16 +282,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0b0d;
+  background: var(--app-bg-mid);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--app-border-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--app-accent);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -33,4 +300,132 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Solid primary actions use their palette's tested ink, including OLED blue. */
+:root .bg-cyan-300.text-slate-950,
+:root .bg-cyan-400.text-slate-950,
+:root .bg-cyan-500.text-slate-950 { color: var(--app-accent-ink) !important; }
+
+/* Primary navigation: flat rows, the current section marked by an accent bar. */
+.nav-item {
+  position: relative;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.nav-item:hover {
+  background-color: var(--app-surface-soft);
+}
+.nav-item-selected {
+  background-color: var(--app-surface-strong);
+  color: var(--app-text-strong);
+}
+.nav-item-selected::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0;
+  width: 2px;
+  border-radius: 1px;
+  content: '';
+  background: var(--app-accent);
+}
+.nav-item-selected svg {
+  color: var(--app-accent);
+}
+.tab-item-selected {
+  border-color: var(--app-accent);
+}
+
+/* Tweaks cards. A setting Dialed has changed gets the accent border and an Undo button;
+   an experiment gets a dashed border and a "measure it" badge. */
+.tweak-card {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+.tweak-card-experiment {
+  border-style: dashed;
+  border-color: var(--app-border-strong);
+}
+.tweak-card-changed {
+  border: 1px solid var(--app-accent);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}
+.tweak-changed-label {
+  color: var(--app-accent-soft);
+}
+.tweak-undo {
+  border: 1px solid rgb(var(--app-accent-rgb) / 0.5);
+  color: var(--app-accent-soft);
+}
+.tweak-undo:hover:not(:disabled) {
+  background: rgb(var(--app-accent-rgb) / 0.1);
+}
+.tweak-badge-measure {
+  background: rgb(var(--app-secondary-rgb) / 0.14);
+  color: var(--app-secondary);
+}
+
+/* Instrument: design A's structure, not only its colours. Settings read as a ruled list
+   instead of boxed cards, corners are small and square, labels are small monospace
+   capitals. Behaviour and markup are shared with Console. */
+:root[data-theme='instrument'] .rounded-2xl,
+:root[data-theme='instrument'] .rounded-xl,
+:root[data-theme='instrument'] .rounded-lg { border-radius: 6px !important; }
+:root[data-theme='instrument'] .rounded-md { border-radius: 4px !important; }
+:root[data-theme='instrument'] .tweak-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  border-top: 1px solid var(--app-border);
+}
+:root[data-theme='instrument'] .tweak-card {
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  border-radius: 0 !important;
+  background: transparent;
+  padding: 0.75rem 0.25rem;
+}
+:root[data-theme='instrument'] .tweak-card-experiment { border-bottom-style: dashed; border-bottom-color: var(--app-border-strong); }
+:root[data-theme='instrument'] .tweak-card-changed {
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: inset 2px 0 0 var(--app-accent);
+  padding-left: 0.875rem;
+  background: rgb(var(--app-accent-rgb) / 0.05);
+}
+:root[data-theme='instrument'] .tweak-group-label,
+:root[data-theme='instrument'] .tab-item {
+  font-family: var(--app-font-mono);
+  letter-spacing: 0.08em;
+}
+:root[data-theme='instrument'] .tab-item { text-transform: uppercase; font-size: 0.75rem; }
+:root[data-theme='instrument'] .nav-item { border-radius: 0 !important; }
+:root[data-theme='instrument'] .nav-item-selected { background-color: transparent; }
+:root[data-theme='instrument'] h2 { letter-spacing: -0.02em; }
+/* Instrument rows: explanation on the left, actions on the right, like mockup A. */
+@media (min-width: 768px) {
+  :root[data-theme='instrument'] .tweak-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  :root[data-theme='instrument'] .tweak-card > * { grid-column: 1; }
+  :root[data-theme='instrument'] .tweak-card > .tweak-actions {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin-top: 0;
+    justify-content: flex-end;
+    max-width: 22rem;
+  }
+  :root[data-theme='instrument'] .tweak-card > dl { grid-column: 1 / -1; }
+  :root[data-theme='instrument'] .tweak-card .tweak-actions > p { text-align: right; }
 }

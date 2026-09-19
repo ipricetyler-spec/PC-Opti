@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <StartupObject>Program</StartupObject>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Compile integration as part of the closed fixture only. Program is the
+         sole startup object; neither product entry point nor WindowsMachine is run. -->
+    <Compile Include="../hidusbf-host/Program.cs" Link="HostEntryPoint.cs" />
+    <Compile Include="../hidusbf-broker/Program.cs" Link="BrokerEntryPoint.cs" />
+    <Compile Include="../hidusbf-broker/SetupPresentation.cs" Link="SetupPresentation.cs" />
+    <Compile Include="../hidusbf-broker/SetupSelection.cs" Link="SetupSelection.cs" />
+    <Compile Include="../hidusbf-broker/SetupView.cs" Link="SetupView.cs" />
+    <Compile Include="../hidusbf-boot-diagnostic/Program.cs" Link="BootDiagnosticEntryPoint.cs" />
+    <Compile Include="../hidusbf-helper/WindowsMachine.cs" Link="WindowsMachine.cs" />
+    <Compile Include="../hidusbf-helper/BootObservation.cs" Link="BootObservation.cs" />
+    <Compile Include="../hidusbf-helper/BootSessionIdentity.cs" Link="BootSessionIdentity.cs" />
+    <Compile Include="../../src/main/input-devices/usb-native.cs" Link="ExistingUsbInventory.cs" />
+    <Compile Include="../hidusbf-helper/ReleasePolicy.cs" Link="ReleasePolicy.cs" />
+    <Compile Include="../hidusbf-helper/SessionProtocol.cs" Link="SessionProtocol.cs" />
+    <Compile Include="../hidusbf-helper/NativeSessionTransport.cs" Link="NativeSessionTransport.cs" />
+    <Compile Include="../hidusbf-helper/ScopeDigests.cs" Link="ScopeDigests.cs" />
+    <Compile Include="../hidusbf-helper/LifecycleSession.cs" Link="LifecycleSession.cs" />
+    <Compile Include="../hidusbf-helper/SetupState.cs" Link="SetupState.cs" />
+    <Compile Include="../hidusbf-helper/InventoryReconciliation.cs" Link="InventoryReconciliation.cs" />
+    <Compile Include="../hidusbf-helper/IntervalBinding.cs" Link="IntervalBinding.cs" />
+    <Compile Include="../hidusbf-helper/ServiceInventory.cs" Link="ServiceInventory.cs" />
+    <Compile Include="../hidusbf-helper/DeviceInventory.cs" Link="DeviceInventory.cs" />
+    <Compile Include="../hidusbf-helper/DeviceReconnect.cs" Link="DeviceReconnect.cs" />
+    <Compile Include="../hidusbf-helper/AuthenticatedPipe.cs" Link="AuthenticatedPipe.cs" />
+    <Compile Include="../hidusbf-helper/NativePeerIdentity.cs" Link="NativePeerIdentity.cs" />
+    <Compile Include="../hidusbf-helper/ProtectedJournal.cs" Link="ProtectedJournal.cs" />
+  </ItemGroup>
+</Project>

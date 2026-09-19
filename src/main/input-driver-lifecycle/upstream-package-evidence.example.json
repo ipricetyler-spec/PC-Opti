@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "1.1.0",
+  "archive": {
+    "sourceUrl": "https://github.com/LordOfMice/hidusbf",
+    "fileName": "hidusbf.zip",
+    "sha256": "bd8d1fb0545d8df88d9cef0c67682daef7d304561bc64acfee5c0d8c12d0f797",
+    "commitReference": "994259a8de31b35d2d44dc800368d9418dd3eb04",
+    "retrievedAt": "2026-09-04"
+  },
+  "maintainerPermission": {
+    "issueUrl": "https://github.com/LordOfMice/hidusbf/issues/407#issuecomment-5043047919",
+    "statement": "Repository owner LordOfMice replied on 2026-07-22: \"Binaries are in Public Domain. You are free to do anything except changing those files and continue to name them MY.\" He separately confirmed \"Yes, you are free to do this.\" to the requester's statement that the app bundles the driver binaries and INF files unmodified, and corrected the requester's commercial-precedent claim by explaining that the other redistributor helps him with driver signing and was reciprocated as a gesture.",
+    "scope": "PUBLIC_DOMAIN_BINARIES_UNMODIFIED_NAME_PRESERVED",
+    "grantedTo": "Jbogert123",
+    "grantedToProject": "CINCH OC, a separate free tool by Cinch Gaming; Dialed was not the requester"
+  },
+  "rights": {
+    "freeUnmodifiedBundling": "GRANTED",
+    "commercialRedistribution": "UNRESOLVED",
+    "automation": "UNRESOLVED",
+    "modification": "DENIED",
+    "brandingWording": "UNRESOLVED",
+    "derivativePackagingAroundExactBinary": "UNRESOLVED",
+    "microsoftSignatureSubmission": "UNRESOLVED"
+  },
+  "files": [
+    {
+      "role": "INF",
+      "path": "DRIVER/HIDUSBF_AS.INF",
+      "sha256": "48c3a0055070b9a66c239ffc3d068b39aafe7a14554984268acc6da1492759e6",
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "NOT_APPLICABLE",
+        "subject": ""
+      }
+    },
+    {
+      "role": "SYS_NOPATCH",
+      "path": "DRIVER/AMD64_AS/hidusbf.sys",
+      "sha256": "2f82cdeb36bdaa42ea1933a9b11f3b8e1bdb28e6d3e3da7e65b4631b3375412d",
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "VALID_EMBEDDED_SIGNATURE_NOT_CATALOG_MEMBER",
+        "subject": "Microsoft Windows Hardware Compatibility Publisher"
+      }
+    },
+    {
+      "role": "SYS_PATCHING_1KHZ",
+      "path": "DRIVER/AMD64_AS/hidusbf.sys",
+      "sha256": "81f649b34978fe9f74ce5c7c04ba24d5238faec6c70018f14da9423a46e6e04d",
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "VALID_EMBEDDED_SIGNATURE_NOT_CATALOG_MEMBER",
+        "subject": "Microsoft Windows Hardware Compatibility Publisher"
+      }
+    },
+    {
+      "role": "SYS_PATCHING_4_8KHZ",
+      "path": "DRIVER/AMD64_AS/hidusbf.sys",
+      "sha256": "db73a8c259e16a0d02f138650497c1bdec81add66d928f3cf3ff39fad4eb421b",
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "VALID_EMBEDDED_SIGNATURE_NOT_CATALOG_MEMBER",
+        "subject": "Microsoft Windows Hardware Compatibility Publisher"
+      }
+    },
+    {
+      "role": "SETUP_EXE",
+      "path": "Setup.exe",
+      "sha256": null,
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "SELF_SIGNED_UNTRUSTED_CHAIN",
+        "subject": "SweetLow"
+      }
+    },
+    {
+      "role": "SX64_EXE",
+      "path": "sx64.exe",
+      "sha256": null,
+      "catalogFileDirective": false,
+      "authenticode": {
+        "status": "SELF_SIGNED_UNTRUSTED_CHAIN",
+        "subject": "SweetLow"
+      }
+    }
+  ],
+  "signers": {
+    "systemBinary": {
+      "subject": "Microsoft Windows Hardware Compatibility Publisher",
+      "status": "VALID_EMBEDDED_SIGNATURE_NOT_CATALOG_MEMBER"
+    },
+    "setupTools": {
+      "status": "SELF_SIGNED_UNTRUSTED_CHAIN"
+    }
+  },
+  "compatibility": {
+    "memoryIntegrityRequiredDisabledForPatchingVariant": true
+  },
+  "packageRoute": {
+    "thirdPartyCatalogSigningAvailable": false,
+    "microsoftSoleProviderOfProductionKernelSignatures": true,
+    "resubmissionAltersReviewedBinary": true,
+    "symbolFileAvailableForSubmission": false
+  }
+}

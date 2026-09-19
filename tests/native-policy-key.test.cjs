@@ -1,0 +1,43 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
+const { verifyPolicy } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
+test('owner-only DPAPI custody reopens, signs without plaintext export, and refuses wrong identity or replacement', { timeout: 60000, skip: process.platform !== 'win32' }, () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-protected-key-fixture-'));
+  const directory = path.join(temporary, 'keys');
+  const script = path.resolve(__dirname, '../scripts/native-policy-key.ps1');
+  const run = args => execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', script, '-KeyDirectory', directory, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    const created = JSON.parse(run(['-Action', 'Create']));
+    assert.equal(created.privateFormat, 'DPAPI_CURRENT_USER_PKCS8');
+    assert.equal(created.plaintextPrivateFileWritten, false);
+    assert.equal(created.reopenedAndVerified, true);
+    assert.deepEqual(fs.readdirSync(directory).sort(), ['release-policy-private.dpapi', 'release-policy-public.pem']);
+    const publicKey = fs.readFileSync(created.publicKeyPath, 'utf8');
+    assert.equal(crypto.createHash('sha256').update(crypto.createPublicKey(publicKey).export({ type: 'spki', format: 'der' })).digest('hex'), created.publicKeySpkiSha256);
+    const encryptedBefore = fs.readFileSync(path.join(directory, 'release-policy-private.dpapi'));
+    assert.equal(encryptedBefore.includes(Buffer.from('PRIVATE KEY')), false);
+    assert.equal(JSON.parse(run(['-Action', 'Inspect', '-PublicFingerprint', created.publicKeySpkiSha256])).reopenedAndVerified, true);
+    assert.throws(() => run(['-Action', 'Create']), /operation refused/);
+    assert.throws(() => run(['-Action', 'Inspect', '-PublicFingerprint', '0'.repeat(64)]), /operation refused/);
+    const policy = { SchemaVersion: 1, ExpiresAt: new Date(Date.now() + 86400000).toISOString(), BrokerSha256: 'a'.repeat(64), HelperSha256: 'b'.repeat(64), PublisherThumbprint: 'C'.repeat(40), AcceptedPlatformDigests: ['d'.repeat(64)], Purpose: 'VALIDATION_ONLY', AuthorizedDeviceDigests: ['e'.repeat(64)] };
+    const policyPath = path.join(temporary, 'policy.json'), signaturePath = path.join(temporary, 'policy.sig');
+    fs.writeFileSync(policyPath, JSON.stringify(policy));
+    const args = ['-Action', 'Sign', '-PublicFingerprint', created.publicKeySpkiSha256, '-PolicyPath', policyPath, '-SignaturePath', signaturePath];
+    assert.equal(JSON.parse(run(args)).action, 'Sign');
+    assert.equal(verifyPolicy(fs.readFileSync(policyPath), fs.readFileSync(signaturePath), publicKey).Purpose, 'VALIDATION_ONLY');
+    assert.throws(() => run(args), /operation refused/);
+    fs.unlinkSync(signaturePath);
+    fs.writeFileSync(policyPath, JSON.stringify({ ...policy, Purpose: 'ACCEPTED_RELEASE' }));
+    assert.throws(() => run(args), /operation refused/);
+    assert.equal(fs.existsSync(signaturePath), false);
+    fs.writeFileSync(policyPath, JSON.stringify(policy).replace('"SchemaVersion":1', '"SchemaVersion":1,"SchemaVersion":1'));
+    assert.throws(() => run(args), /operation refused/);
+    assert.equal(fs.existsSync(signaturePath), false);
+    assert.deepEqual(fs.readFileSync(path.join(directory, 'release-policy-private.dpapi')), encryptedBefore);
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});

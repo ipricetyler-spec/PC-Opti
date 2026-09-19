@@ -1,0 +1,476 @@
+[
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "PREVIEW",
+    "lifecycle": {
+      "previousState": "READY_FOR_PREFLIGHT",
+      "state": "PREVIEW_ISSUED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "driverSessionDigest": null
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": false,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 0,
+      "checkpointDigest": "1010101010101010101010101010101010101010101010101010101010101010",
+      "previousCheckpointDigest": null,
+      "preimageStateDigest": "2020202020202020202020202020202020202020202020202020202020202020",
+      "observedStateDigest": "2020202020202020202020202020202020202020202020202020202020202020",
+      "sealed": true
+    },
+    "declaredDelta": "NONE",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  },
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "INSTALL_PACKAGE",
+    "lifecycle": {
+      "previousState": "PREVIEW_ISSUED",
+      "state": "PACKAGE_INSTALLED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "driverSessionDigest": null
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": false,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 1,
+      "checkpointDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "previousCheckpointDigest": "1010101010101010101010101010101010101010101010101010101010101010",
+      "preimageStateDigest": "2121212121212121212121212121212121212121212121212121212121212121",
+      "observedStateDigest": "2121212121212121212121212121212121212121212121212121212121212121",
+      "sealed": true
+    },
+    "declaredDelta": "PACKAGE_INSTALLED",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  },
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "ATTACH_SELECTED_DEVICE",
+    "lifecycle": {
+      "previousState": "PACKAGE_INSTALLED",
+      "state": "RESTART_REQUIRED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "driverSessionDigest": null
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": false,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 2,
+      "checkpointDigest": "1212121212121212121212121212121212121212121212121212121212121212",
+      "previousCheckpointDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "preimageStateDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "observedStateDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "sealed": true
+    },
+    "declaredDelta": "SELECTED_ATTACHMENT_ADDED",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  },
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "RECONCILE_AFTER_RESTART",
+    "lifecycle": {
+      "previousState": "RESTART_REQUIRED",
+      "state": "FILTER_ATTACHED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "driverSessionDigest": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b"
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": true,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 3,
+      "checkpointDigest": "1313131313131313131313131313131313131313131313131313131313131313",
+      "previousCheckpointDigest": "1212121212121212121212121212121212121212121212121212121212121212",
+      "preimageStateDigest": "2323232323232323232323232323232323232323232323232323232323232323",
+      "observedStateDigest": "2323232323232323232323232323232323232323232323232323232323232323",
+      "sealed": true
+    },
+    "declaredDelta": "NONE",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  },
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "DETACH_SELECTED_DEVICE",
+    "lifecycle": {
+      "previousState": "FILTER_ATTACHED",
+      "state": "DETACH_VERIFIED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "driverSessionDigest": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b"
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": true,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 4,
+      "checkpointDigest": "1414141414141414141414141414141414141414141414141414141414141414",
+      "previousCheckpointDigest": "1313131313131313131313131313131313131313131313131313131313131313",
+      "preimageStateDigest": "2424242424242424242424242424242424242424242424242424242424242424",
+      "observedStateDigest": "2424242424242424242424242424242424242424242424242424242424242424",
+      "sealed": true
+    },
+    "declaredDelta": "SELECTED_ATTACHMENT_REMOVED",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  },
+  {
+    "schemaVersion": "1.0.0",
+    "bindingId": "fixture-target-binding-lifecycle-chain-v1",
+    "recordKind": "TARGET_BINDING",
+    "operation": "REMOVE_DETACHED_PACKAGE",
+    "lifecycle": {
+      "previousState": "DETACH_VERIFIED",
+      "state": "PACKAGE_REMOVED",
+      "pnpPowerState": "D0_STARTED",
+      "bootSessionDigest": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "driverSessionDigest": null
+    },
+    "selectedTarget": {
+      "physicalDeviceDigest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "interfaceNumber": 0,
+      "hardwareIds": [
+        "USB\\VID_FFFE&PID_0001&MI_00"
+      ],
+      "compatibilityClassId": "fixture-hs-hid-fffe-0001-v1",
+      "compositeScope": "SINGLE_INTERFACE",
+      "endpointKeys": [
+        "if0-ep81"
+      ]
+    },
+    "inventory": {
+      "completeness": "COMPLETE",
+      "entries": [
+        {
+          "deviceInstanceIdDigest": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": true,
+          "filterAttached": false,
+          "selected": true,
+          "inSelectedScope": true
+        },
+        {
+          "deviceInstanceIdDigest": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "containerIdDigest": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "presence": "PRESENT",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        },
+        {
+          "deviceInstanceIdDigest": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "containerIdDigest": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "presence": "PHANTOM",
+          "dialedManaged": false,
+          "filterAttached": false,
+          "selected": false,
+          "inSelectedScope": false
+        }
+      ]
+    },
+    "recovery": {
+      "checkpointIndex": 5,
+      "checkpointDigest": "1515151515151515151515151515151515151515151515151515151515151515",
+      "previousCheckpointDigest": "1414141414141414141414141414141414141414141414141414141414141414",
+      "preimageStateDigest": "2525252525252525252525252525252525252525252525252525252525252525",
+      "observedStateDigest": "2525252525252525252525252525252525252525252525252525252525252525",
+      "sealed": true
+    },
+    "declaredDelta": "PACKAGE_REMOVED",
+    "schedule": {
+      "status": "BLOCKED_PENDING_DOCUMENTED_INTERFACE",
+      "mechanism": "UNRESOLVED",
+      "mechanismRefs": [],
+      "requestedHz": null
+    },
+    "claimLimits": {
+      "configuredIsUsbProof": false,
+      "attachmentIsScheduleProof": false,
+      "anyDeviceClaimAllowed": false
+    }
+  }
+]

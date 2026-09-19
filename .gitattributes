@@ -1,0 +1,16 @@
+# Files whose SHA-256 is pinned in code must check out byte for byte, on every machine and
+# whatever core.autocrlf is set to. Each rule matches the line endings the pinned hash was
+# taken from; tests/pinned-files.test.cjs checks the files on disk against their pins.
+
+# PresentMon: the MIT license was pinned with LF endings; the executable is binary.
+src/main/presentmon/vendor/LICENSE.txt   text eol=lf
+src/main/presentmon/vendor/*.exe         binary
+
+# Input devices: the native helper source was pinned with CRLF endings.
+src/main/input-devices/usb-native.cs     text eol=crlf
+
+# HIDUSBF upstream files keep the CRLF endings their inventory hashes were taken from.
+vendor/hidusbf/payload/**/*.INF          text eol=crlf
+vendor/hidusbf/payload/*.TXT             text eol=crlf
+vendor/hidusbf/payload/**/*.sys          binary
+vendor/hidusbf/archives/*                binary

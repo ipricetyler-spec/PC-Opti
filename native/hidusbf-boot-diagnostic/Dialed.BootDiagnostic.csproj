@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <OutputType>Exe</OutputType>
+    <StartupObject>BootDiagnosticEntryPoint</StartupObject>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../hidusbf-helper/*.cs" Link="Helper/%(Filename)%(Extension)" />
+    <Compile Include="../../src/main/input-devices/usb-native.cs" Link="ExistingUsbInventory.cs" />
+  </ItemGroup>
+</Project>

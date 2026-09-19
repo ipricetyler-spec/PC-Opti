@@ -17,7 +17,7 @@ export function HardwareReadingsSummary({ view }: { view: TelemetryView }) {
   const unverified = view.adapters.some((adapter) => adapter.identity !== 'VERIFIED');
   return <div className="text-xs text-slate-300">
     {rows.length > 0 ? <div className="overflow-x-auto"><table className="w-full min-w-[26rem] text-left">
-      <thead className="text-[11px] text-slate-500"><tr><th className="py-1 pr-3 font-semibold">Reading</th><th className="py-1 pr-3 font-semibold">Average</th><th className="py-1 pr-3 font-semibold">95th pct</th><th className="py-1 pr-3 font-semibold">Peak</th><th data-technical-detail className="py-1 font-semibold">Coverage</th></tr></thead>
+      <thead className="text-[11px] text-slate-500"><tr><th className="py-1 pr-3 font-semibold">Reading</th><th className="py-1 pr-3 font-semibold">Average</th><th className="py-1 pr-3 font-semibold">95th percentile</th><th className="py-1 pr-3 font-semibold">Peak</th><th data-technical-detail className="py-1 font-semibold">Coverage</th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.key} className="border-t border-slate-800">
         <td className="py-1.5 pr-3 text-slate-400">{row.label}</td>
         <td className="py-1.5 pr-3">{formatMetricValue(row.stat.mean, row.unit)}{row.capacityBytes && row.stat.mean !== null ? <span className="text-slate-500"> of {formatMetricValue(row.capacityBytes, 'bytes')}</span> : null}</td>

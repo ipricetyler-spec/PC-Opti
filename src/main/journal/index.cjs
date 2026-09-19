@@ -78,8 +78,45 @@ const SAFE_JOURNAL_STATUSES = new Set(['PENDING', 'SUCCESS', 'FAILED', 'NEEDS_RE
 const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend']);
 const SAFE_RECONCILIATION_CLASSES = new Set(['INTENDED_STATE', 'PRE_ACTION_STATE', 'DIVERGED', 'TARGET_CHANGED', 'UNKNOWN', 'UNAVAILABLE']);
 
+// When Dialed runs as administrator the change log lives in an admin-only folder (see
+// src/main/protected-data), so a program running as the user cannot forge entries that
+// the elevated app later acts on. Callers keep passing the user-data path; it is mapped
+// here, so every journal file (active, recovery, preserved) moves together.
+let protectedJournal = null;
+
+function journalDirectory(userDataPath) {
+  if (protectedJournal && path.resolve(userDataPath) === protectedJournal.userDataPath) return protectedJournal.directory;
+  return userDataPath;
+}
+
+/**
+ * Moves the change log into the protected folder once, then uses it for this user-data
+ * path. The old file is kept, renamed, so nothing is lost. Refuses to move a journal that
+ * has an unfinished recovery, and never overwrites a protected journal that exists.
+ */
+function useProtectedJournalDirectory(userDataPath, directory) {
+  const source = path.resolve(userDataPath);
+  const target = path.resolve(directory);
+  fs.mkdirSync(target, { recursive: true });
+  const moved = { migrated: false };
+  const oldJournal = path.join(source, 'journal.json');
+  const newJournal = path.join(target, 'journal.json');
+  if (!fs.existsSync(newJournal) && fs.existsSync(oldJournal)) {
+    if (listPendingRecoveryFiles(source).length) throw new Error('The change log has an unfinished recovery. Finish it before Dialed moves the log to its protected folder.');
+    const inspection = inspectJournalFile(oldJournal);
+    if (inspection.state !== 'VALID') throw new Error(`The change log could not be moved to its protected folder: ${inspection.reason}`);
+    const temporary = `${newJournal}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(inspection.entries, null, 2), { encoding: 'utf8', flag: 'wx' });
+    fs.renameSync(temporary, newJournal);
+    fs.renameSync(oldJournal, path.join(source, `journal.moved-to-protected-folder.${Date.now()}.json`));
+    moved.migrated = true;
+  }
+  protectedJournal = { userDataPath: source, directory: target };
+  return moved;
+}
+
 function journalPath(userDataPath) {
-  return path.join(userDataPath, 'journal.json');
+  return path.join(journalDirectory(userDataPath), 'journal.json');
 }
 
 function recoveryFileNames(timestamp, nonce) {
@@ -92,14 +129,14 @@ function recoveryFileNames(timestamp, nonce) {
 function listPendingRecoveryFiles(userDataPath) {
   let entries;
   try {
-    entries = fs.readdirSync(userDataPath, { withFileTypes: true });
+    entries = fs.readdirSync(journalDirectory(userDataPath), { withFileTypes: true });
   } catch (error) {
     if (error?.code === 'ENOENT') return [];
     throw new Error(`Windows could not inspect pending audit recovery state: ${error.message}`);
   }
   return entries
     .filter((entry) => JOURNAL_RECOVERY_PENDING_PATTERN.test(entry.name))
-    .map((entry) => ({ fileName: entry.name, filePath: path.join(userDataPath, entry.name), match: entry.name.match(JOURNAL_RECOVERY_PENDING_PATTERN) }));
+    .map((entry) => ({ fileName: entry.name, filePath: path.join(journalDirectory(userDataPath), entry.name), match: entry.name.match(JOURNAL_RECOVERY_PENDING_PATTERN) }));
 }
 
 function inspectJournalFile(filePath) {
@@ -195,7 +232,7 @@ function inspectJournalRecovery(userDataPath) {
 }
 
 function writeJournal(userDataPath, entries) {
-  fs.mkdirSync(userDataPath, { recursive: true });
+  fs.mkdirSync(journalDirectory(userDataPath), { recursive: true });
   const target = journalPath(userDataPath);
   const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(temporary, JSON.stringify(entries, null, 2), 'utf8');
@@ -291,7 +328,7 @@ function inspectPendingRecovery(userDataPath) {
   const timestamp = pending.match[1];
   const nonce = pending.match[2];
   const { preservedFileName } = recoveryFileNames(timestamp, nonce);
-  const preservedPath = path.join(userDataPath, preservedFileName);
+  const preservedPath = path.join(journalDirectory(userDataPath), preservedFileName);
   const pendingInspection = inspectJournalFile(pending.filePath);
   const activeInspection = inspectJournalFile(journalPath(userDataPath));
   if (pendingInspection.state !== 'RECOVERABLE') {
@@ -387,7 +424,7 @@ function completePendingRecovery(userDataPath, pendingState) {
     throw new Error('The pending audit journal changed during recovery. Both copies remain preserved for review.');
   }
   fs.unlinkSync(pendingState.pendingPath);
-  fsyncDirectoryIfSupported(userDataPath);
+  fsyncDirectoryIfSupported(journalDirectory(userDataPath));
   const current = inspectJournalRecovery(userDataPath);
   if (current.recovery) throw new Error('Audit recovery could not be finalized. The original remains preserved.');
   return {
@@ -410,14 +447,14 @@ function recoverCorruptJournal(userDataPath) {
     throw new Error('Only a structurally corrupt or bounded-overflow journal can be preserved and reset. Valid, interrupted, missing, linked, or inaccessible history was not changed.');
   }
 
-  fs.mkdirSync(userDataPath, { recursive: true });
+  fs.mkdirSync(journalDirectory(userDataPath), { recursive: true });
   const nonce = crypto.randomUUID();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const { pendingFileName } = recoveryFileNames(timestamp, nonce);
-  const pendingPath = path.join(userDataPath, pendingFileName);
+  const pendingPath = path.join(journalDirectory(userDataPath), pendingFileName);
   try {
     fs.renameSync(target, pendingPath);
-    fsyncDirectoryIfSupported(userDataPath);
+    fsyncDirectoryIfSupported(journalDirectory(userDataPath));
   } catch (error) {
     throw new Error(`The corrupt audit journal could not be claimed without overwriting another file: ${error.message}`);
   }
@@ -427,7 +464,7 @@ function recoverCorruptJournal(userDataPath) {
     const activeAfterClaim = inspectJournalFile(target);
     if (activeAfterClaim.state === 'MISSING') {
       fs.renameSync(pendingPath, target);
-      fsyncDirectoryIfSupported(userDataPath);
+      fsyncDirectoryIfSupported(journalDirectory(userDataPath));
     }
     throw new Error('The audit journal changed before recovery could claim its exact corrupt state. No active history was overwritten.');
   }
@@ -2609,5 +2646,6 @@ module.exports = {
   readJournal,
   reconcilePendingEntries,
   rollbackAuditEntry,
+  useProtectedJournalDirectory,
   writeAuditExport,
 };

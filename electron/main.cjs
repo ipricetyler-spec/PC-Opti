@@ -72,6 +72,7 @@ async function assertEditionSupports(editions) {
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
+const { ensureProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
 const fullscreenOptimizations = require('../src/main/fullscreen-optimizations/index.cjs');
 const { assertExecutablePath, gpuPreferenceTargetId, listGpuPreferences, parseGpuPreference, readGpuPreference } = require('../src/main/gpu-preference/index.cjs');
 const { readDisplayModes } = require('../src/main/display-modes/index.cjs');
@@ -86,6 +87,7 @@ const {
   setFullscreenOptimizations,
   setUsbSelectiveSuspendOff,
   setWindowedGameOptimizations,
+  useProtectedJournalDirectory,
   setMouseAcceleration,
   setUserSetting,
   applyJournalDeletion,
@@ -156,10 +158,27 @@ function presentMonCaptures() {
   }
   return presentMonCaptureService;
 }
+// The admin-only folder for the change log and update staging. Null when Dialed is not
+// running as administrator or the folder could not be verified; then the previous
+// per-user locations are used, as before.
+let protectedDataRoot = null;
+async function prepareProtectedData() {
+  if (process.platform !== 'win32') return;
+  try {
+    const { root } = await ensureProtectedDataRoot();
+    const { migrated } = useProtectedJournalDirectory(app.getPath('userData'), path.join(root, 'Journal'));
+    protectedDataRoot = root;
+    console.info(`Change log is in the protected folder${migrated ? ' (moved there now)' : ''}.`);
+  } catch (error) {
+    console.warn(`Protected folder unavailable, using per-user data: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function verifiedUpdater() {
   if (!verifiedUpdaterService) {
     verifiedUpdaterService = createUpdaterService({
-      userDataPath: app.getPath('userData'),
+      // Update files are staged where only administrators can change them, when available.
+      userDataPath: protectedDataRoot || app.getPath('userData'),
       currentVersion: app.getVersion(),
       isPackaged: app.isPackaged,
       runningExecutablePath: process.execPath,
@@ -1304,6 +1323,8 @@ ipcMain.handle('pc-opti:rollback-audit-entry', async (_event, entryId) => {
 });
 
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
+  // Before any window can read or write the change log.
+  await prepareProtectedData();
   createWindow();
 
   app.on('activate', () => {

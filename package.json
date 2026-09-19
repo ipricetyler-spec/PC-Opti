@@ -35,6 +35,14 @@
   "build": {
     "appId": "com.pc-opti.diagnostics",
     "productName": "Dialed",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "directories": {
       "output": "dist-electron"
     },

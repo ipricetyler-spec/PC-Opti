@@ -36,7 +36,7 @@ export interface TweakDefinition {
   destination: TweakDestination | null;
   actionLabel: string;
   /** A per-user Windows setting Dialed turns on or off directly on the card. */
-  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend';
+  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features';
   /** Which state Dialed suggests, when there is one. */
   suggested?: 'on' | 'off';
   /** Machine-wide settings need administrator rights; some need a restart to take effect. */
@@ -103,7 +103,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'Keeps unwanted apps from appearing and running in the background. This is a tidiness and privacy setting, not an FPS setting.',
     leaveItIf: 'You like Windows suggestions. Microsoft documents this policy for Enterprise and Education only; Home and Pro ignore it.',
     undo: 'Undo restores the exact previous policy value, or removes it if it was not set.',
-    measureFirst: false, destination: { tab: 'startup', view: 'windows' }, actionLabel: 'Review policy',
+    measureFirst: false, destination: { tab: 'startup', view: 'windows' }, actionLabel: 'Review policy', userSettingId: 'consumer-features',
   },
   {
     id: 'game-mode', group: 'Windows & privacy', title: 'Game Mode', capabilityIds: ['gaming:game-mode'], perItem: false,

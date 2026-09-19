@@ -32,8 +32,8 @@ function fakeRegistry(settingId, initial) {
   };
 }
 
-test('only the eight allowlisted settings exist, each in the hive its scope says, mapped to its own capability', () => {
-  assert.deepEqual(Object.keys(settings.USER_SETTINGS).sort(), ['background-recording', 'block-background-apps', 'exclude-driver-updates', 'game-mode', 'global-timer-resolution', 'gpu-scheduling', 'mpo', 'no-auto-restart']);
+test('only the allowlisted settings exist, each in the hive its scope says, mapped to its own capability', () => {
+  assert.deepEqual(Object.keys(settings.USER_SETTINGS).sort(), ['background-recording', 'block-background-apps', 'consumer-features', 'exclude-driver-updates', 'game-mode', 'global-timer-resolution', 'gpu-scheduling', 'mpo', 'no-auto-restart']);
   for (const [id, setting] of Object.entries(settings.USER_SETTINGS)) {
     assert.match(setting.registryPath, setting.scope === 'user' ? /^HKCU:\\/ : /^HKLM:\\/, `${id} is in the wrong hive for its scope`);
     const capability = capabilities.capabilityForAction(settings.userSettingActionId(id));

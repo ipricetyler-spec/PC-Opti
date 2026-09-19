@@ -121,6 +121,23 @@ const USER_SETTINGS = Object.freeze({
     absentMeans: false,
     restartRequired: false,
   }),
+  // Turned on only through its own flow (Tweaks › Windows policy), which creates a
+  // restore point first. This entry exists so a leftover value on an edition that
+  // ignores the policy can be removed, recorded and undone like the others.
+  'consumer-features': Object.freeze({
+    capabilityId: 'policy:disable-windows-consumer-features',
+    title: 'Windows suggested apps and content',
+    scope: 'machine',
+    registryPath: 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent',
+    valueName: 'DisableWindowsConsumerFeatures',
+    // Microsoft documents this policy for Enterprise and Education only.
+    editions: Object.freeze(['enterprise', 'education']),
+    onValue: 1,
+    offValue: null,
+    absentMeans: false,
+    restartRequired: false,
+    removeOnly: true,
+  }),
 });
 
 function userSetting(settingId) {

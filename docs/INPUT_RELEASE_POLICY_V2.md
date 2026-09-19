@@ -42,8 +42,10 @@ working unchanged.
 1. **HIDUSBF redistribution rights: decided (2026-09-19).** The maintainer's statement
    covers unchanged files with credit; the owner accepted it as sufficient.
 2. **Code signing and the installer**, with the owner's approval of the exact artifacts.
-3. **A hardware matrix**: several mice, keyboards and controllers, receivers, and at
-   least two USB controller vendors, including undo and recovery on each.
+3. **Hardware coverage.** Tested so far only on the owner's devices; no other hardware
+   is available for testing. Release notes must say other compatible devices are
+   expected to work but untested, and point to the built-in undo and recovery. Early
+   user reports (device, USB controller, result) take the place of a test matrix.
 
 ## Where it lives
 

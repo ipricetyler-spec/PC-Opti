@@ -492,7 +492,7 @@ function normalizedActionFamily(actionId) {
   if (/^retrim-drive:[A-Z]$/i.test(id)) return 'maintenance:retrim-drive';
   if (id === 'clear-temp-files') return 'maintenance:clear-temp-files';
   if (id === 'policy:disable-windows-consumer-features') return id;
-  if (/^settings:(user|machine):(game-mode|background-recording|gpu-scheduling|mpo|global-timer-resolution|mouse-acceleration|block-background-apps|exclude-driver-updates|no-auto-restart)$/.test(id)) return id;
+  if (/^settings:(user|machine):(game-mode|background-recording|gpu-scheduling|mpo|global-timer-resolution|mouse-acceleration|block-background-apps|exclude-driver-updates|no-auto-restart|consumer-features)$/.test(id)) return id;
   if (id.startsWith('settings:restore-user:')) return 'settings:restore-user';
   if (id === 'power:add-ultimate-plan') return id;
   if (id.startsWith('power:cpu-minimum-state:')) return 'power:cpu-minimum-state';

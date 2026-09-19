@@ -89,3 +89,27 @@ test('a policy this edition ignores can still be removed, and the removal is rec
   await journal.rollbackAuditEntry(directory, removed.entry.id, adapters);
   assert.deepEqual(state, { exists: true, kind: 'DWord', value: 1 });
 });
+
+test('the suggested-content policy can only be removed from the card, never turned on there', async () => {
+  const setting = settings.USER_SETTINGS['consumer-features'];
+  assert.equal(setting.removeOnly, true);
+  assert.deepEqual([...setting.editions], ['enterprise', 'education']);
+  const main = require('node:fs').readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
+  assert.match(main, /if \(USER_SETTINGS\[settingId\]\.removeOnly && enabled\) throw new Error\('Turn this policy on from its own page, which creates a restore point first\. Nothing was changed\.'\);/);
+  assert.match(main, /if \(setting\.removeOnly && support\.supported\) continue;/);
+
+  // Removing a leftover is recorded and undone exactly, like the other policies.
+  const directory = tempDir('dialed-outside-');
+  const state = { exists: true, kind: 'DWord', value: 1 };
+  const adapters = {
+    readUserSetting: async (settingId) => ({ settingId, ...state, value: state.exists ? state.value : null, enabled: settings.effectiveEnabled(settingId, state) }),
+    writeUserSettingValue: async (_id, value) => { Object.assign(state, { exists: true, kind: 'DWord', value }); return { output: {}, stdout: '', stderr: '', exitCode: 0 }; },
+    removeUserSettingValue: async () => { Object.assign(state, { exists: false, kind: null, value: null }); return { output: {}, stdout: '', stderr: '', exitCode: 0 }; },
+    isCurrentProcessElevated: async () => true,
+  };
+  const removed = await journal.setUserSetting(directory, 'consumer-features', false, adapters);
+  assert.equal(removed.entry.capabilityId, 'policy:disable-windows-consumer-features');
+  assert.equal(state.exists, false);
+  await journal.rollbackAuditEntry(directory, removed.entry.id, adapters);
+  assert.deepEqual(state, { exists: true, kind: 'DWord', value: 1 });
+});

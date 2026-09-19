@@ -871,6 +871,8 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
   for (const [settingId, setting] of Object.entries(USER_SETTINGS)) {
     if (!isCapabilityAvailable(setting.capabilityId, resolveRuntimeProfileForApp())) continue;
     const support = editionSupport(setting.editions, family);
+    // Remove-only entries report state only as a leftover on an edition that ignores them.
+    if (setting.removeOnly && support.supported) continue;
     if (!support.supported) {
       // A value this edition ignores may still be present (set by another tool); it can be removed.
       const leftover = await readUserSetting(settingId).then((state) => state.exists && (state.kind === 'DWord')).catch(() => false);
@@ -963,6 +965,7 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
   }
   if (!Object.prototype.hasOwnProperty.call(USER_SETTINGS, settingId)) throw new Error('This Windows setting is not one Dialed manages.');
   if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
+  if (USER_SETTINGS[settingId].removeOnly && enabled) throw new Error('Turn this policy on from its own page, which creates a restore point first. Nothing was changed.');
   assertCapabilityAvailable(USER_SETTINGS[settingId].capabilityId);
   // Enabling a policy this edition ignores would record a change that does nothing.
   // Turning one off (removing the value) stays allowed, so leftovers can be cleaned up.

@@ -1853,6 +1853,7 @@ function capabilityForAction(actionId) {
   if (id === 'settings:machine:block-background-apps') return capabilityById('policy:block-background-apps');
   if (id === 'settings:machine:exclude-driver-updates') return capabilityById('policy:exclude-windows-update-drivers');
   if (id === 'settings:machine:no-auto-restart') return capabilityById('policy:no-auto-restart-signed-in');
+  if (id === 'settings:machine:consumer-features') return capabilityById('policy:disable-windows-consumer-features');
   if (id === 'settings:machine:gpu-scheduling') return capabilityById('graphics:hardware-gpu-scheduling');
   if (id === 'settings:machine:mpo') return capabilityById('graphics:multiplane-overlay');
   if (id === 'settings:machine:global-timer-resolution') return capabilityById('timing:global-timer-resolution');

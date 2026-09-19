@@ -117,6 +117,12 @@ Everything below has been exercised on exactly one desktop, one edition of Windo
 English, with one NVIDIA GPU. None of this is a defect in what's shipped — it's untested
 territory.
 
+No other hardware is available for testing before release. So the release notes must say
+which setups were tested, that other compatible hardware is expected to work but is
+untested, and how to undo and recover. Early user reports (device, USB controller,
+Windows build, result) stand in for a test matrix; the items below are what to watch in
+those reports.
+
 - [ ] Owner approves the exact supported Windows versions/editions. Policy controls (background
       apps, driver-update exclusion, no-auto-restart, Windows consumer features) are
       edition-checked against Home/Pro/Enterprise/Education today, but only Home has

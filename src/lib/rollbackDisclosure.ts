@@ -3,7 +3,7 @@ import type { AuditJournalEntry } from '../types';
 const MAX_DISPLAY_LENGTH = 200;
 
 // Labels for the per-user settings Dialed manages; anything else is not described.
-const USER_SETTING_LABELS: Record<string, string> = { 'game-mode': 'Game Mode', 'background-recording': 'Game Bar background recording', 'gpu-scheduling': 'Hardware-accelerated GPU scheduling', mpo: 'Multiplane overlay (MPO)', 'global-timer-resolution': 'Global timer resolution requests', 'block-background-apps': 'Block background apps', 'exclude-driver-updates': 'Keep Windows Update from installing drivers', 'no-auto-restart': 'No automatic restart while signed in' };
+const USER_SETTING_LABELS: Record<string, string> = { 'game-mode': 'Game Mode', 'background-recording': 'Game Bar background recording', 'gpu-scheduling': 'Hardware-accelerated GPU scheduling', mpo: 'Multiplane overlay (MPO)', 'global-timer-resolution': 'Global timer resolution requests', 'block-background-apps': 'Block background apps', 'exclude-driver-updates': 'Keep Windows Update from installing drivers', 'no-auto-restart': 'No automatic restart while signed in', 'consumer-features': 'Windows suggested apps and content' };
 
 function displayValue(value: unknown): string | null {
   if (typeof value !== 'string' || value.length === 0) return null;

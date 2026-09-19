@@ -109,9 +109,10 @@ foreach ($root in $roots) {
   $pending.Push($root)
   while ($pending.Count -gt 0) {
     $directory = $pending.Pop()
-    $directoryErrors = @()
-    $children = @(Get-ChildItem -LiteralPath $directory -Force -ErrorAction SilentlyContinue -ErrorVariable directoryErrors)
-    $enumerationErrorCount += $directoryErrors.Count
+    # .NET lists a folder much faster than Get-ChildItem and includes hidden and system
+    # items, as -Force did. A folder that cannot be read counts as an enumeration error.
+    try { $children = @(([IO.DirectoryInfo]::new($directory)).GetFileSystemInfos()) }
+    catch { $enumerationErrorCount++; $children = @() }
     foreach ($item in $children) {
       try {
         $fullName = [IO.Path]::GetFullPath($item.FullName)
@@ -123,7 +124,7 @@ foreach ($root in $roots) {
           $reparsePointCount++
           continue
         }
-        if ($item.PSIsContainer) {
+        if ($item -is [IO.DirectoryInfo]) {
           $pending.Push($fullName)
           continue
         }

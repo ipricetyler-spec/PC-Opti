@@ -40,7 +40,7 @@ working unchanged.
 ## What must happen first
 
 1. **HIDUSBF redistribution rights.** A release policy only matters if the driver can
-   be shipped. See `docs/HIDUSBF_RIGHTS_AND_PACKAGE_DECISION.md`.
+   be shipped. The rights review is kept with the owner's private notes.
 2. **Code signing and the installer**, with the owner's approval of the exact artifacts.
 3. **A hardware matrix**: several mice, keyboards and controllers, receivers, and at
    least two USB controller vendors, including undo and recovery on each.

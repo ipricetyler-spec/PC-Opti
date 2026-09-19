@@ -2,7 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, FlaskConical, RotateCcw } from 'lucide-react';
 import type { AuditJournalEntry } from '../types';
-import { TWEAK_GROUPS, changedLabel, tweakMatches, type TweakCardState, type TweakDestination } from '../lib/tweaks';
+import { TWEAK_GROUPS, changedLabel, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
 
 export interface UserSettingState {
   enabled: boolean | null;
@@ -17,13 +17,19 @@ export interface UserSettingState {
   leftover?: boolean;
 }
 
+/** One finished item of an "Apply selected" run. */
+export interface BatchResult { title: string; ok: boolean; message: string }
+
 /** A setting changed from the Windows default by something other than Dialed. */
 export interface OutsideChange {
   onReturnToDefault: () => void;
 }
 
-function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest, focused, outside }: {
+function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest, focused, outside, batchAction, selected, onSelect }: {
   focused?: boolean;
+  batchAction?: BatchAction;
+  selected?: boolean;
+  onSelect?: (selected: boolean) => void;
   outside?: OutsideChange;
   card: TweakCardState;
   restoringId: string | null;
@@ -46,9 +52,12 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
   useEffect(() => { if (focused) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [focused]);
   return <article ref={ref} id={`tweak-${definition.id}`} className={`tweak-card ${tone} min-w-0 rounded-lg p-4 ${focused ? 'ring-2 ring-cyan-400/70' : ''}`}>
     <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-start gap-2">
+        {batchAction && onSelect && <input type="checkbox" checked={Boolean(selected)} disabled={busy || restoringId !== null} onChange={(event) => onSelect(event.target.checked)} aria-label={`Select ${definition.title}: ${batchAction.label}`} className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-400" />}
+        <div className="min-w-0">
         <h4 className="text-sm font-semibold text-white">{definition.title}</h4>
         <p className="mt-1 text-xs leading-relaxed text-slate-400">{definition.summary}</p>
+        </div>
       </div>
       {definition.measureFirst && <span className="tweak-badge-measure inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold"><FlaskConical className="h-3 w-3" aria-hidden="true" />Measure it</span>}
     </div>
@@ -78,7 +87,7 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
   </article>;
 }
 
-export function TweaksOverview({ heading, cards, restoringId, userSettings, busySettingId, error, onOpen, onUndo, onReviewChanges, onToggle, testableIds, onTest, focusId, outsideChanges }: {
+export function TweaksOverview({ heading, cards, restoringId, userSettings, busySettingId, error, onOpen, onUndo, onReviewChanges, onToggle, testableIds, onTest, focusId, outsideChanges, batch }: {
   /** Title and introduction; the Tweaks page wording by default. */
   heading?: { title: string; intro: string };
   cards: TweakCardState[];
@@ -96,6 +105,17 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
   focusId?: string | null;
   /** Cards whose setting was changed from the Windows default outside Dialed. */
   outsideChanges?: Partial<Record<string, OutsideChange>>;
+  /** "Apply selected": the change each selectable card would make. */
+  batch?: {
+    actions: Partial<Record<string, BatchAction>>;
+    selected: Set<string>;
+    onSelect: (tweakId: string, selected: boolean) => void;
+    onApply: () => void;
+    onClear: () => void;
+    running: boolean;
+    results: BatchResult[] | null;
+    onUndoRun?: () => void;
+  };
 }) {
   const [query, setQuery] = useState('');
   // Opening a tweak from search clears any filter that would hide it.
@@ -107,6 +127,16 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
       <h2 className="text-2xl font-bold text-white">{heading?.title ?? 'Tweaks'}</h2>
       <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">{heading?.intro ?? 'Every setting Dialed can change or guide, with what it does and when to leave it alone. Nothing here changes on its own: each change is previewed, confirmed, checked afterwards and can be undone.'}</p>
       {cards.length > 4 && <div className="mt-3 flex flex-wrap items-center gap-2"><label className="sr-only" htmlFor="tweak-filter">Find a tweak</label><input id="tweak-filter" type="search" maxLength={60} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setQuery(''); }} placeholder="Find a tweak…" className="w-64 max-w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />{query.trim() && <span role="status" className="text-xs text-slate-400">{shown.length ? `${shown.length} match${shown.length === 1 ? '' : 'es'}` : 'No tweak matches that.'}</span>}</div>}
+      {batch && <div className="sticky top-2 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs">
+        <span role="status" className="text-slate-300">{batch.selected.size ? `${batch.selected.size} selected` : 'Tick several tweaks to apply them together.'}</span>
+        <button type="button" disabled={!batch.selected.size || batch.running} onClick={batch.onApply} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">{batch.running ? 'Applying…' : 'Apply selected'}</button>
+        {batch.selected.size > 0 && !batch.running && <button type="button" onClick={batch.onClear} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Clear</button>}
+      </div>}
+      {batch?.results && <div role="log" aria-label="Apply selected results" className="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs">
+        <p className="font-semibold text-slate-200">{batch.results.filter((item) => item.ok).length} of {batch.results.length} applied</p>
+        <ul className="mt-2 space-y-1">{batch.results.map((item) => <li key={item.title} className={item.ok ? 'text-emerald-200' : 'text-amber-200'}>{item.ok ? '✓' : '✗'} {item.title}: <ErrorText text={item.message} /></li>)}</ul>
+        {batch.onUndoRun && <button type="button" onClick={batch.onUndoRun} className="tweak-undo mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />Undo this run</button>}
+      </div>}
       {error && <p role="alert" className="mt-2 text-xs text-amber-200"><ErrorText text={error} /></p>}
       <p role="status" className="mt-2 text-xs text-slate-500">{changedCount ? `${changedCount} setting${changedCount === 1 ? ' has' : 's have'} a change made by Dialed, marked with a border.` : 'Dialed has not changed any of these settings.'}</p>
     </section>
@@ -115,7 +145,7 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
       if (!inGroup.length) return null;
       return <section key={group} aria-labelledby={`tweak-group-${group.replace(/\W+/g, '-')}`}>
         <h3 id={`tweak-group-${group.replace(/\W+/g, '-')}`} className="tweak-group-label mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{group}</h3>
-        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} focused={focusId === card.definition.id} outside={outsideChanges?.[card.definition.id]} />)}</div>
+        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} focused={focusId === card.definition.id} outside={outsideChanges?.[card.definition.id]} batchAction={batch?.actions[card.definition.id]} selected={batch?.selected.has(card.definition.id)} onSelect={batch ? (value) => batch.onSelect(card.definition.id, value) : undefined} />)}</div>
       </section>;
     })}
   </div>;

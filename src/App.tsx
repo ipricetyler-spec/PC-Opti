@@ -38,8 +38,8 @@ import { ReleaseStatusCard } from './components/ReleaseStatusCard';
 import { DEFAULT_APP_THEME, isAppThemeId, type AppThemeId } from './lib/themes';
 import { describeRollbackTarget, rollbackDisclosureText } from './lib/rollbackDisclosure';
 import { graphicsAdapters } from './lib/displaySetup';
-import { TWEAKS, buildTweakCards, type TweakCardState, type TweakDestination } from './lib/tweaks';
-import { TweaksOverview, usePowerPlanName, type UserSettingState } from './components/TweaksOverview';
+import { TWEAKS, buildTweakCards, type TweakCardState, type TweakDestination, batchActionFor } from './lib/tweaks';
+import { TweaksOverview, usePowerPlanName, type BatchResult, type UserSettingState } from './components/TweaksOverview';
 import type { TestPrefill, TestableTweak } from './components/TestAChange';
 import { HomeSummary } from './components/HomeSummary';
 import { ShowDetails } from './components/ShowDetails';
@@ -926,6 +926,89 @@ export default function App() {
     }
     return found;
   }, [tweakCards, userSettings, timingExperiments]);
+  // "Apply selected" on the Tweaks page: one confirmation, then each change in turn,
+  // each journaled and undoable on its own; "Undo this run" reverses them together.
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set());
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null);
+  const [batchEntryIds, setBatchEntryIds] = useState<string[]>([]);
+  const batchActions = useMemo(() => {
+    const actions: Record<string, NonNullable<ReturnType<typeof batchActionFor>>> = {};
+    for (const card of tweakCards) {
+      const settingId = card.definition.userSettingId;
+      const action = batchActionFor(card.definition, settingId ? userSettings[settingId] : undefined, Boolean(outsideChanges[card.definition.id]));
+      if (action) actions[card.definition.id] = action;
+    }
+    return actions;
+  }, [tweakCards, userSettings, outsideChanges]);
+  const applySelectedTweaks = async () => {
+    const native = window.pcOptiNative;
+    if (!native || batchRunning || busySettingId) return;
+    const plan = tweakCards.filter((card) => batchSelected.has(card.definition.id) && batchActions[card.definition.id]).map((card) => ({ card, action: batchActions[card.definition.id] }));
+    if (!plan.length) return;
+    const restart = plan.filter(({ card }) => card.definition.requiresRestart).map(({ card }) => card.definition.title);
+    const confirmed = await confirmAction({
+      title: `Apply ${plan.length} change${plan.length === 1 ? '' : 's'}?`,
+      description: 'Dialed applies them one at a time. Each is recorded separately, so you can undo any one of them later, or all of them with "Undo this run".',
+      details: plan.map(({ card, action }) => `${card.definition.title}: ${action.from} → ${action.to}`).join('\n'),
+      detailsLabel: 'Changes',
+      notice: `Dialed records each previous value first and checks each new value after writing it. If one fails, the others still run and the failure is shown.${restart.length ? ` Restart Windows afterwards for: ${restart.join(', ')}.` : ' Restart a running game for the changes to apply.'}`,
+      confirmLabel: `Apply ${plan.length}`,
+    });
+    if (!confirmed) return;
+    setBatchRunning(true);
+    setBatchResults(null);
+    const results: BatchResult[] = [];
+    const entryIds: string[] = [];
+    for (const { card, action } of plan) {
+      setBusySettingId(action.settingId);
+      try {
+        const result = await native.setUserSetting(action.settingId, action.enable);
+        if (result.success) { entryIds.push(result.entry.id); results.push({ title: card.definition.title, ok: true, message: `${action.from} → ${action.to}` }); }
+        else results.push({ title: card.definition.title, ok: false, message: result.error || 'Windows did not confirm the change. Nothing is recorded as applied.' });
+      } catch (error) {
+        results.push({ title: card.definition.title, ok: false, message: error instanceof Error ? error.message : 'The change could not be made.' });
+      }
+    }
+    setBusySettingId(null);
+    setBatchSelected(new Set());
+    setBatchResults(results);
+    setBatchEntryIds(entryIds);
+    setBatchRunning(false);
+    await loadHistory();
+    await loadUserSettings();
+  };
+  const undoTweakRun = async () => {
+    const native = window.pcOptiNative;
+    if (!native || batchRunning || !batchEntryIds.length) return;
+    const entries = (await native.getAuditHistory()).entries;
+    const undoable = [...batchEntryIds].reverse().map((id) => entries.find((entry) => entry.id === id)).filter((entry): entry is AuditJournalEntry => Boolean(entry?.rollback.available));
+    if (!undoable.length) { setTweakError('Nothing from that run can be undone from here any more. Check Restore.'); return; }
+    const confirmed = await confirmAction({
+      title: `Undo ${undoable.length} change${undoable.length === 1 ? '' : 's'} from this run?`,
+      description: 'Each setting goes back to exactly what it was before the run, newest first.',
+      details: undoable.map((entry) => entry.title).join('\n'),
+      detailsLabel: 'Changes to undo',
+      notice: 'Dialed checks that each setting still has the value it wrote, and skips any that something else has changed since.',
+      confirmLabel: 'Undo run',
+    });
+    if (!confirmed) return;
+    setBatchRunning(true);
+    const results: BatchResult[] = [];
+    for (const entry of undoable) {
+      try {
+        const result = await native.rollbackAuditEntry(entry.id);
+        results.push({ title: entry.title, ok: result.success, message: result.success ? 'undone' : result.error || 'Windows did not confirm the undo.' });
+      } catch (error) {
+        results.push({ title: entry.title, ok: false, message: error instanceof Error ? error.message : 'The undo could not be made.' });
+      }
+    }
+    setBatchResults(results);
+    setBatchEntryIds([]);
+    setBatchRunning(false);
+    await loadHistory();
+    await loadUserSettings();
+  };
   // Test a change: apply one Dialed tweak through its normal confirmed, journaled path,
   // then return the journal entry it wrote (null if canceled or failed).
   const TESTABLE_TWEAKS: Record<string, { timingActionId?: string }> = {
@@ -1344,7 +1427,7 @@ export default function App() {
     {activeTab === 'startup' && <TabPanel ariaLabel="Optimize categories" value={optimizeView}>
     {activeTab === 'startup' && optimizeView === 'timing' && <Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense>}
     {activeTab === 'startup' && optimizeView === 'bios' && (capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative) && <Suspense fallback={<p className="text-sm text-slate-400">Loading BIOS guide…</p>}><BiosGuidanceCenter /></Suspense>}
-    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
+    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
     {activeTab === 'startup' && optimizeView === 'recommended' && <div className="space-y-6"><section className="rounded-2xl border border-cyan-400/20 bg-cyan-950/10 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Recommended</p><h2 className="mt-2 text-2xl font-bold text-white">Choose a small, reviewable set of changes</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Pick the fixes you want. Each one is checked again before it runs, verified afterwards, and recorded so you can undo it. The tabs above explain each area in more detail.</p></section><OptimizationCatalog items={batchOptimizationItems} loading={isScanning || isStartupLoading || isProcessLoading || isPolicyLoading || isTimingLoading} onRefresh={refreshBatchOptimizationTargets} onRunSelected={runOptimizationBatch} /></div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
     {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}

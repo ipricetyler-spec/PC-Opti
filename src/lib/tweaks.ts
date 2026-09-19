@@ -327,6 +327,51 @@ export function buildTweakCards(definitions: TweakDefinition[], history: AuditJo
   });
 }
 
+/** The state the Tweaks page reads for a setting card. */
+export interface BatchSettingState {
+  enabled: boolean | null;
+  manageable: boolean;
+  unsupported?: string;
+  windowsDefault?: boolean | null;
+  leftover?: boolean;
+  /** Current value in words, when the reader provides one (e.g. "On when plugged in"). */
+  detail?: string;
+}
+
+/** One change a card would make as part of "Apply selected". */
+export interface BatchAction {
+  settingId: NonNullable<TweakDefinition['userSettingId']>;
+  enable: boolean;
+  /** Button-style label, e.g. "Turn on" or "Remove leftover". */
+  label: string;
+  /** For the confirmation: what it is now and what it becomes. */
+  from: string;
+  to: string;
+}
+
+/**
+ * The single change a card's main button would make right now, or null when the card
+ * has no direct change (it opens a page, is unsupported, or its state is unknown).
+ * Exactly the same change the card's own button makes, so batch and single runs agree.
+ */
+export function batchActionFor(definition: TweakDefinition, state: BatchSettingState | undefined, outsideDefault = false): BatchAction | null {
+  const settingId = definition.userSettingId;
+  if (!settingId || !state) return null;
+  const onOff = (value: boolean) => (value ? 'on' : 'off');
+  if (state.unsupported) {
+    return state.leftover ? { settingId, enable: false, label: 'Remove leftover', from: 'set (ignored by this Windows edition)', to: 'removed' } : null;
+  }
+  if (!state.manageable) return null;
+  if (outsideDefault && typeof state.windowsDefault === 'boolean' && state.enabled !== null) {
+    return { settingId, enable: state.windowsDefault, label: 'Return to Windows default', from: `${onOff(state.enabled)} (set outside Dialed)`, to: `${onOff(state.windowsDefault)} (Windows default)` };
+  }
+  if (definition.oneWay) {
+    return state.enabled === false ? { settingId, enable: true, label: definition.actionLabel, from: state.detail || 'current value', to: definition.actionLabel.toLowerCase() } : null;
+  }
+  if (state.enabled === null) return null;
+  return { settingId, enable: !state.enabled, label: state.enabled ? 'Turn off' : 'Turn on', from: onOff(state.enabled), to: onOff(!state.enabled) };
+}
+
 export function changedLabel(card: TweakCardState): string | null {
   if (!card.changes.length) return null;
   if (card.definition.perItem) return `${card.changes.length} change${card.changes.length === 1 ? '' : 's'} made by Dialed`;

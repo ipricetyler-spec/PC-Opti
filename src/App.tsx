@@ -1,4 +1,5 @@
 import { LocalDataCenter } from './components/LocalDataCenter';
+import { fixTextsFor, WHY_LISTED } from './lib/fixTexts';
 import { ExperimentSessions } from './components/ExperimentSessions';
 import type { ExperimentSession } from './lib/experimentSessions';
 import { DisplaySetupGuide } from './components/DisplaySetupGuide';
@@ -622,10 +623,11 @@ export default function App() {
     const capability = (id: string) => runtimeProfile.capabilities.find((item) => item.id === id);
     const fromCapability = (id: string) => {
       const item = capability(id);
+      const plain = fixTextsFor(id);
       return {
-        expectedBenefit: item?.expectedBenefit || 'Depends on your PC. Measure before keeping it.',
-        undo: item ? `${item.rollbackMethod}. ${item.rollbackLimitations}` : 'After it runs, you can undo it from Restore › Recovery & history.',
-        verification: item ? `${item.verificationMethod}. Success means: ${item.measurableSuccessCriteria}.` : 'The result is recorded in Restore › Recovery & history.',
+        expectedBenefit: plain?.expectedBenefit || item?.expectedBenefit || 'Depends on your PC. Measure before keeping it.',
+        undo: plain?.undo || (item ? `${item.rollbackMethod}. ${item.rollbackLimitations}` : 'After it runs, you can undo it from Restore.'),
+        verification: plain?.verification || (item ? `${item.verificationMethod}. Success means: ${item.measurableSuccessCriteria}.` : 'The result is recorded in Restore.'),
         riskLevel: item?.riskLevel || 'Medium' as const,
         requiresAdmin: item?.privilegeRequirement.toLowerCase().includes('administrator') || false,
         requiresReboot: item?.rebootRequirement.toLowerCase().includes('required') || false,
@@ -641,7 +643,7 @@ export default function App() {
         targetId: item.id,
         title: `Stop ${item.name} starting with Windows`,
         description: `${item.scope} · ${item.path || 'Windows did not report the program path.'}`,
-        whyAppeared: 'It starts when you sign in, and Dialed can turn it off and back on safely.',
+        whyAppeared: WHY_LISTED.startup,
         category: 'Startup',
         ...fromCapability(machineWide ? 'startup:disable-machine-run' : 'startup:disable-current-user-run'),
         requiresAdmin: machineWide,
@@ -656,7 +658,7 @@ export default function App() {
       creationTime: item.creationTime || undefined,
       title: `Efficiency mode: ${item.name}`,
       description: `${item.cpuPercent === null ? 'CPU use unknown' : `${item.cpuPercent}% CPU recently`} · lasts until the app closes`,
-      whyAppeared: 'It is running in the background, is not in efficiency mode, and is not on the protected list.',
+      whyAppeared: WHY_LISTED.process,
       category: 'Background apps',
       ...fromCapability('process:enable-ecoqos'),
       irreversible: false,
@@ -680,7 +682,7 @@ export default function App() {
       targetId: policy.id,
       title: policy.title,
       description: policy.description,
-      whyAppeared: 'A fresh policy read found this optional Windows preference disabled or absent with a supported value type.',
+      whyAppeared: WHY_LISTED.policy,
       category: 'Windows policy',
       ...fromCapability('policy:disable-windows-consumer-features'),
       irreversible: false,
@@ -692,14 +694,14 @@ export default function App() {
       targetId: experiment.actionId || experiment.id,
       title: experiment.title,
       description: `${experiment.currentState} ${experiment.framing}`,
-      whyAppeared: 'A reboot-required boot timing experiment exists for this PC. It stays unchecked by default; research-only ideas are listed under Boot timing instead.',
+      whyAppeared: WHY_LISTED.timing,
       category: 'Experimental timing',
       ...fromCapability(experiment.actionId || ''),
       requiresAdmin: experiment.requiresElevation,
       requiresReboot: experiment.requiresReboot,
       irreversible: false,
       selectable: Boolean(experiment.actionId && experiment.availability === 'APPLICABLE'),
-      statusReason: experiment.availability === 'APPLICABLE' ? 'Eligible, but unchecked by default. Preview and per-action confirmation still apply.' : experiment.unavailableReason || experiment.actionLabel,
+      statusReason: experiment.availability === 'APPLICABLE' ? 'Available. Not ticked by default; you see a preview and confirm before anything changes.' : experiment.unavailableReason || experiment.actionLabel,
     }));
 
     return items;

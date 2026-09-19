@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -26,7 +27,7 @@ for (const [name, mutate, message] of [
   }, /Linked/],
 ]) {
   test(`bundle refuses ${name}`, () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-bundle-test-'));
+    const root = tempDir('dialed-bundle-test-');
     try {
       fs.cpSync(source, root, { recursive: true });
       mutate(root);

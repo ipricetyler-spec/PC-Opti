@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -19,7 +20,7 @@ test('missing process CPU remains unknown and sorts behind measured zero', () =>
 });
 
 test('same PID and name with changed lifetime refuses before journaling or writing', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-lifetime-'));
+  const directory = tempDir('dialed-lifetime-');
   let writes = 0;
   try {
     await assert.rejects(journal.enableProcessEcoQos(directory, { pid: 999, name: 'fixture', creationTime: '133000000000000000' }, {

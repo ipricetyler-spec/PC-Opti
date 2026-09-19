@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -131,7 +132,7 @@ test('optional bundle removal preserves the exact safe tilde identity through th
 });
 
 test('optional app journal records verified removal and refuses stale preview before mutation', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-optional-app-'));
+  const directory = tempDir('dialed-optional-app-');
   const preview = await optionalApps.previewOptionalAppRemoval('microsoft-news', { runPowerShell: listAdapter([packageFixture()]) });
   const inventory = { scannedAt: new Date().toISOString(), items: [preview], limitations: 'fixture' };
   let removals = 0;

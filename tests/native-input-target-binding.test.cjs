@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -557,7 +558,7 @@ test('the CLI reports the fixture as valid and fails closed on a rejected record
   assert.equal(valid.status, 0);
   assert.match(valid.stdout, /valid \(ATTACH_SELECTED_DEVICE\)/);
 
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-binding-'));
+  const temporaryDirectory = tempDir('dialed-binding-');
   const recordPath = path.join(temporaryDirectory, 'blocked.json');
   try {
     const record = binding();
@@ -737,7 +738,7 @@ test('the CLI validates chains and cross-checks a capability record', () => {
   assert.equal(usage.status, 2);
   assert.match(usage.stderr, /Unknown option --unknown/);
 
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-chain-'));
+  const temporaryDirectory = tempDir('dialed-chain-');
   const recordPath = path.join(temporaryDirectory, 'mismatched.json');
   try {
     const record = binding();
@@ -758,7 +759,7 @@ test('the CLI validates chains and cross-checks a capability record', () => {
 });
 
 test('the CLI refuses an invalid or unledgered capability before cross-checking a binding', () => {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-capability-crosscheck-'));
+  const temporaryDirectory = tempDir('dialed-capability-crosscheck-');
   const invalidCapabilityPath = path.join(temporaryDirectory, 'invalid-capability.json');
   const unledgeredCapabilityPath = path.join(temporaryDirectory, 'unledgered-capability.json');
 

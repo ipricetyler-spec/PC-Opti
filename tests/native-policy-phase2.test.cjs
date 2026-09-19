@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const crypto = require('node:crypto');
@@ -134,7 +135,7 @@ test('candidate packaging pins the installed Electron distribution to bun.lock',
 });
 
 test('candidate packaging retains administrator manifests while disabling rebuild and signing only in staged config', (context) => {
-  const directory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'dialed-policy-package-'));
+  const directory = tempDir('dialed-policy-package-');
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const destination = path.join(directory, 'package.json');
   writeStagedPackageJson(destination);
@@ -156,7 +157,7 @@ test('candidate packaging retains administrator manifests while disabling rebuil
 });
 
 test('package reverification preserves matching immutable evidence and refuses drift', (context) => {
-  const directory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'dialed-policy-verify-'));
+  const directory = tempDir('dialed-policy-verify-');
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const reportFile = path.join(directory, 'report.json');
   const sumsFile = path.join(directory, 'sums.txt');

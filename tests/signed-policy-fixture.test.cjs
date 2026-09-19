@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -14,7 +15,7 @@ test('signed fixture is optional for verification but never accepted by prepare 
 });
 
 test('fixture verification refuses incomplete or mismatched trust evidence before launching a process', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-signed-fixture-'));
+  const directory = tempDir('dialed-signed-fixture-');
   const file = path.join(directory, 'manifest.json');
   const thumbprint = 'C'.repeat(40);
   try {

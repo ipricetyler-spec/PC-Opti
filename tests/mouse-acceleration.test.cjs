@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,7 +10,7 @@ const capabilities = require('../src/main/capabilities/index.cjs');
 const mouse = require('../src/main/mouse-acceleration/index.cjs');
 
 function userData() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-mouse-'));
+  return tempDir('dialed-mouse-');
 }
 
 function values(speed, t1, t2) {

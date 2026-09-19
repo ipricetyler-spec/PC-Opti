@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -13,7 +14,7 @@ const timing = require('../src/main/timing/index.cjs');
 const temporaryDirectories = [];
 
 function createUserData(entries = []) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-timing-test-'));
+  const directory = tempDir('pc-opti-timing-test-');
   temporaryDirectories.push(directory);
   fs.writeFileSync(path.join(directory, 'journal.json'), JSON.stringify(entries), 'utf8');
   return directory;

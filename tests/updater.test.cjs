@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -110,7 +111,7 @@ test('version comparison rejects invalid versions and prevents same-version or d
 });
 
 test('installer verification directly rejects all six post-download tamper conditions', async (context) => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-updater-tamper-'));
+  const temporary = tempDir('dialed-updater-tamper-');
   context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
   const updateRoot = path.join(temporary, 'updates');
   fs.mkdirSync(updateRoot);
@@ -148,7 +149,7 @@ test('installer verification directly rejects all six post-download tamper condi
 });
 
 test('service requires a signed packaged caller, consumes tokens, verifies the exact installer at every stage and only then opens it under a sealed name', async (t) => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-updater-test-'));
+  const temporary = tempDir('dialed-updater-test-');
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
   const installerBytes = Buffer.from('fixture installer bytes');
   const { privateKey, trust } = fixtureTrust();

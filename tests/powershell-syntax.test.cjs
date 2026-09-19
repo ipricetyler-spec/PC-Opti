@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -44,7 +45,7 @@ test('every file that runs PowerShell has its scripts found by the syntax check'
 test('Windows PowerShell parses every script Dialed ships', { skip: process.platform !== 'win32' }, () => {
   const scripts = listPowerShellScripts();
   assert.ok(scripts.length >= 70, `only ${scripts.length} scripts found`);
-  const input = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-ps-')), 'scripts.json');
+  const input = path.join(tempDir('dialed-ps-'), 'scripts.json');
   fs.writeFileSync(input, JSON.stringify(scripts));
   const check = `$items = Get-Content -LiteralPath '${input.replace(/'/g, "''")}' -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach ($item in $items) {

@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -113,7 +114,7 @@ test('combined validator and assertion fail closed on structurally incomplete re
 });
 
 test('CLI fails closed instead of reporting a structurally incomplete record as valid', () => {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-capability-'));
+  const temporaryDirectory = tempDir('dialed-capability-');
   const recordPath = path.join(temporaryDirectory, 'incomplete.json');
   try {
     fs.writeFileSync(
@@ -684,7 +685,7 @@ test('provenance references must resolve against the clean-room ledger', () => {
 });
 
 test('an empty or unreadable provenance ledger fails closed', () => {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-ledger-'));
+  const temporaryDirectory = tempDir('dialed-ledger-');
   const emptyLedgerPath = path.join(temporaryDirectory, 'EMPTY_LEDGER.md');
   try {
     fs.writeFileSync(emptyLedgerPath, '# No entries\n', 'utf8');
@@ -703,7 +704,7 @@ test('an empty or unreadable provenance ledger fails closed', () => {
 });
 
 test('the validator CLI rejects a record citing an unledgered source', () => {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-capability-ledger-'));
+  const temporaryDirectory = tempDir('dialed-capability-ledger-');
   const recordPath = path.join(temporaryDirectory, 'unledgered.json');
   try {
     const record = fixture();

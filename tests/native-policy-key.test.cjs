@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -7,7 +8,7 @@ const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { verifyPolicy } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 test('owner-only DPAPI custody reopens, signs without plaintext export, and refuses wrong identity or replacement', { timeout: 60000, skip: process.platform !== 'win32' }, () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-protected-key-fixture-'));
+  const temporary = tempDir('dialed-protected-key-fixture-');
   const directory = path.join(temporary, 'keys');
   const script = path.resolve(__dirname, '../scripts/native-policy-key.ps1');
   const run = args => execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', script, '-KeyDirectory', directory, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });

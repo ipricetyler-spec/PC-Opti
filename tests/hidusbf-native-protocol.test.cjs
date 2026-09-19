@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -37,7 +38,7 @@ test('native framing, preview refusals, scope construction and journal survive c
       assert.equal(entry.authorizedDeviceDigests.includes(unselected.interfaceDigest), false);
     }
   }
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-scope-corpus-'));
+  const directory = tempDir('dialed-scope-corpus-');
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'corpus.json');
   fs.writeFileSync(file, JSON.stringify(corpus), { flag: 'wx' });

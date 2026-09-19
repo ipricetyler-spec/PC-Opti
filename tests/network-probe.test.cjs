@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -107,7 +108,7 @@ test('cancellation preserves fixed sample counts and does not invent loaded evid
 });
 
 test('history migrates v1 entries as legacy, writes v2 atomically, and segregates method evidence', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'dialed-network-history-'));
+  const directory = tempDir('dialed-network-history-');
   fs.writeFileSync(probe.networkHistoryPath(directory), JSON.stringify({schemaVersion:'1.0.0',entries:[{id:'legacy',completedAt:'2026-09-05T00:00:00Z',status:'COMPLETE',endpointId:'cloudflare-bounded-quality-v1',metrics:{idleLatencyMs:12,idleJitterMs:2,lossPercent:0,loadedLatencyMs:28,loadedLatencyIncreaseMs:16,downloadMbps:100,uploadMbps:20}}]}));
   const migrated = probe.readNetworkQualityHistory(directory);
   assert.equal(migrated.status,'READY');

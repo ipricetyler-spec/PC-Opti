@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -17,7 +18,7 @@ const GAME = 'D:\\Games\\Example\\game.exe';
 const ok = { exitCode: 0, stdout: '', stderr: '', output: {} };
 
 function userData() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-new-tweaks-'));
+  return tempDir('dialed-new-tweaks-');
 }
 
 function fakeWindowed(initial = { exists: true, data: 'VRROptimizeEnable=1;' }, build = 26200) {

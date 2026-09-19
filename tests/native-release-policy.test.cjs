@@ -1,4 +1,5 @@
 const { test, after } = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -8,7 +9,7 @@ const { execFileSync } = require('node:child_process');
 const { verifyPolicy, readNativeBrokerStatus } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 const workflow = require('../scripts/native-release-policy.cjs');
 const root = path.resolve(__dirname, '..');
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-policy-fixture-'));
+const temporary = tempDir('dialed-policy-fixture-');
 // Ephemeral test keys only. No production key is generated or stored by tooling.
 const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 3072 });
 const other = crypto.generateKeyPairSync('rsa', { modulusLength: 3072 });

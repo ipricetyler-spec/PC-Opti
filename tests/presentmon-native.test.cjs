@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -64,12 +65,12 @@ test('PresentMon verification requires exact size, SHA-256, license, Intel signa
 });
 
 test('PresentMon verification fails closed for a missing or same-size tampered bundled binary', async (context) => {
-  const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-missing-'));
+  const missingRoot = tempDir('dialed-presentmon-missing-');
   const missingInfo = await presentMon.inspectPresentMonTool({ appRoot: missingRoot, isPackaged: false, resourcesPath: '' }, VERIFIED_DEPENDENCIES);
   assert.equal(missingInfo.status, 'UNAVAILABLE');
   assert.match(missingInfo.reason, /ENOENT|no such file or directory/i);
 
-  const tamperedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-tampered-'));
+  const tamperedRoot = tempDir('dialed-presentmon-tampered-');
   context.after(() => {
     fs.rmSync(missingRoot, { recursive: true, force: true });
     fs.rmSync(tamperedRoot, { recursive: true, force: true });
@@ -110,7 +111,7 @@ test('PresentMon targets exclude protected, anti-cheat, malformed, and backgroun
 });
 
 test('native capture uses main-owned arguments, finalizes bounded CSV evidence, and refuses later tampering', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-'));
+  const directory = tempDir('dialed-presentmon-');
   const captureChildren = [];
   let clock = Date.now();
   const dependencies = {
@@ -161,7 +162,7 @@ test('native capture uses main-owned arguments, finalizes bounded CSV evidence, 
 });
 
 test('an immediate normal process exit cannot become a complete timed capture after a wall-clock jump', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-early-'));
+  const directory = tempDir('dialed-presentmon-early-');
   let wallClock = Date.now();
   let captureChild;
   const service = presentMon.createPresentMonService({ ...TOOL_OPTIONS, userDataPath: directory }, {
@@ -186,7 +187,7 @@ test('an immediate normal process exit cannot become a complete timed capture af
 });
 
 test('stop uses the active main-owned session name and no renderer-supplied command flags', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-stop-'));
+  const directory = tempDir('dialed-presentmon-stop-');
   const calls = [];
   let captureChild;
   const dependencies = {
@@ -222,7 +223,7 @@ test('stop uses the active main-owned session name and no renderer-supplied comm
 });
 
 test('a non-user PresentMon process failure remains needs-review even when a partial CSV parses', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-error-'));
+  const directory = tempDir('dialed-presentmon-error-');
   let captureChild;
   const dependencies = {
     ...VERIFIED_DEPENDENCIES,
@@ -244,7 +245,7 @@ test('a non-user PresentMon process failure remains needs-review even when a par
 });
 
 test('native capture deletion previews exact local files, refuses drift, and deletes only after a fresh preview', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-delete-'));
+  const directory = tempDir('dialed-presentmon-delete-');
   let captureChild;
   const dependencies = {
     ...VERIFIED_DEPENDENCIES,
@@ -313,7 +314,7 @@ async function waitForIdle(service) {
 
 test('hardware readings run beside a capture, are saved and deleted with it, and never change the capture result', async () => {
   for (const telemetryStatus of ['RECORDED', 'FAILED']) {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), `dialed-presentmon-telemetry-${telemetryStatus}-`));
+    const directory = tempDir(`dialed-presentmon-telemetry-${telemetryStatus}-`);
     let captureChild;
     const sessions = [];
     let clock = 1000;
@@ -357,7 +358,7 @@ test('hardware readings run beside a capture, are saved and deleted with it, and
     }
   }
 
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-presentmon-no-telemetry-'));
+  const directory = tempDir('dialed-presentmon-no-telemetry-');
   let started = 0;
   const service = presentMon.createPresentMonService({ ...TOOL_OPTIONS, userDataPath: directory }, {
     ...VERIFIED_DEPENDENCIES,

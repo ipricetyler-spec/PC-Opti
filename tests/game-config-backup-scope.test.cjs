@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,7 +10,7 @@ const gc = require('../src/main/game-config/index.cjs');
 test('a settings file outside the user profile is refused at backup time, not hidden afterwards', () => {
   // Reproduces the review finding: a backup of a file on another drive used to be
   // written, then silently left out of the list because restores are profile-only.
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-gc-scope-'));
+  const userData = tempDir('dialed-gc-scope-');
   const outside = fs.mkdtempSync(path.join(__dirname, '..', '.test-outside-profile-'));
   const configFile = path.join(outside, 'settings.ini');
   fs.writeFileSync(configFile, '[Video]\nFrameCap=141\n');
@@ -25,8 +26,8 @@ test('a settings file outside the user profile is refused at backup time, not hi
 });
 
 test('a settings file inside the user profile is still backed up and listed', () => {
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-gc-scope-'));
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-gc-profile-'));
+  const userData = tempDir('dialed-gc-scope-');
+  const profile = tempDir('dialed-gc-profile-');
   const configFile = path.join(profile, 'GameUserSettings.ini');
   fs.writeFileSync(configFile, '[Video]\nFrameCap=141\n');
   const environment = { LOCALAPPDATA: profile, APPDATA: profile, USERPROFILE: profile };

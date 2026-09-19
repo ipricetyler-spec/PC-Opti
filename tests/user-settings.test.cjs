@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,7 +10,7 @@ const capabilities = require('../src/main/capabilities/index.cjs');
 const settings = require('../src/main/user-settings/index.cjs');
 
 function userData() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-user-settings-'));
+  return tempDir('dialed-user-settings-');
 }
 
 // A fake per-user Registry for one setting, shaped like readUserSetting's result.

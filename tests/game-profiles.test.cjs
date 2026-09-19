@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -17,7 +18,7 @@ const valorantOriginal = '[ScalabilityGroups]\nsg.ViewDistanceQuality=3\nsg.Anti
 const arcOriginal = '[ScalabilityGroups]\nsg.ResolutionQuality=100\nsg.ViewDistanceQuality=2\nsg.AntiAliasingQuality=2\nsg.ShadowQuality=1\nsg.PostProcessQuality=0\nsg.TextureQuality=2\nsg.EffectsQuality=0\nsg.FoliageQuality=2\nsg.ShadingQuality=2\n';
 const closed = { listProcessNames: async () => ['System', 'explorer'] };
 function fixture(id = fortnite) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-profile-fixture-'));
+  const root = tempDir('dialed-profile-fixture-');
   dirs.push(root);
   const roots = { localAppData: path.join(root, 'Local'), documents: path.join(root, 'RedirectedDocuments') };
   const source = id === fortnite

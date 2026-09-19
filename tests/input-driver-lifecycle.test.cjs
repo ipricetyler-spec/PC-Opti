@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -22,7 +23,7 @@ const NATIVE_PREIMAGE_BINDINGS_SHA256 = hash(JSON.stringify([
 ]));
 
 function validFixture(version = '2.0.0', upgradePredecessors = []) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-driver-lifecycle-v2-'));
+  const root = tempDir('dialed-driver-lifecycle-v2-');
   fs.mkdirSync(path.join(root, 'payload'));
   const contents = { INF: Buffer.from(`fixture inf ${version}`), SYS: Buffer.from(`fixture sys ${version}`), CAT: Buffer.from(`fixture cat ${version}`), HELPER: Buffer.from(`fixture helper ${version}`) };
   const files = Object.entries(contents).map(([role, content]) => {
@@ -1068,7 +1069,7 @@ test('all public status, preview, apply, reconcile, and error surfaces redact na
 });
 
 test('fixture file store uses process-local revision compare-and-swap but can never satisfy the production protection gate', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-driver-store-'));
+  const root = tempDir('dialed-driver-store-');
   const uncontracted = lifecycle.createFileTransactionStore(path.join(root, 'uncontracted.json'));
   assert.equal(uncontracted.contract, null);
   const claimedProtection = { kind: lifecycle.STORE_CONTRACT_KIND, protectedMachineDirectory: true, crossProcessCas: true, appendOnlyJournal: true, identity: 'e'.repeat(64) };

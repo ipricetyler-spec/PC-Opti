@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -6,7 +7,7 @@ const path = require('node:path');
 const journal = require('../src/main/journal/index.cjs');
 
 test('maintenance distinguishes command completion, file-byte accounting and unmeasured device effects', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-maintenance-evidence-'));
+  const directory = tempDir('dialed-maintenance-evidence-');
   try {
     const clean = await journal.executeMaintenanceAction(directory, 'clear-temp-files', {
       prepareTempState: async () => ({ pathCount: 2 }),
@@ -33,7 +34,7 @@ test('maintenance distinguishes command completion, file-byte accounting and unm
 });
 
 test('ReTRIM refuses with readable privilege guidance before inventory, dispatch, or journaling', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-retrim-preflight-'));
+  const directory = tempDir('dialed-retrim-preflight-');
   let inventoryCalled = false;
   let retrimCalled = false;
   try {

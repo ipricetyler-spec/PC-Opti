@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -11,7 +12,7 @@ const protectedStore = require('../src/main/protected-store/index.cjs');
 const HKLM_RUN = 'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
 
 function userData() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-protected-'));
+  return tempDir('dialed-protected-');
 }
 
 function ok(output = {}) {

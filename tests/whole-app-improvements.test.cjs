@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -16,7 +17,7 @@ const BALANCED = '381b4222-f694-41f0-9685-ff5bb260df2e';
 const HIGH = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
 
 function userData() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-improvements-'));
+  return tempDir('dialed-improvements-');
 }
 
 function planState(activeGuid, extra = []) {

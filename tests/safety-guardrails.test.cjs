@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -29,7 +30,7 @@ const windowsElevation = require('../src/main/shared/windows-elevation.cjs');
 const temporaryDirectories = [];
 
 function createJournal(entries) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   fs.writeFileSync(path.join(directory, 'journal.json'), JSON.stringify(entries), 'utf8');
   return directory;
@@ -727,7 +728,7 @@ test('interrupted unknown actions become review-only instead of assumed successf
 });
 
 test('audit journal rejects a BOM-prefixed fixture without rewriting its evidence', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   const filePath = path.join(directory, 'journal.json');
   const bytes = Buffer.concat([
@@ -878,7 +879,7 @@ test('unavailable hardware metrics cannot create recommendations and remain expl
   assert.equal(recommendations.some((item) => item.id === 'memory-pressure-review'), false);
   assert.equal(recommendations.some((item) => item.id.startsWith('low-storage-') || item.id.startsWith('retrim-')), false);
 
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-drift-'));
+  const directory = tempDir('pc-opti-drift-');
   temporaryDirectories.push(directory);
   drift.setDriftBaseline(directory, availableSnapshot);
   const report = drift.buildDriftReport(directory, unavailableSnapshot);
@@ -962,7 +963,7 @@ test('public-profile recommendation panel links never point at a tab hidden in t
 });
 
 test('manual drift baseline reports stable changes and excludes volatile scan values', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-drift-'));
+  const directory = tempDir('pc-opti-drift-');
   temporaryDirectories.push(directory);
   const baselineSnapshot = migrateSystemScanSnapshot(legacySnapshot());
   baselineSnapshot.timestamp = '2026-08-16T12:00:00.000Z';
@@ -1006,7 +1007,7 @@ test('manual drift baseline reports stable changes and excludes volatile scan va
 });
 
 test('drift baseline stays main-owned, manual, local, and device-bound', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-drift-'));
+  const directory = tempDir('pc-opti-drift-');
   temporaryDirectories.push(directory);
   const snapshot = migrateSystemScanSnapshot(legacySnapshot());
   drift.setDriftBaseline(directory, snapshot);
@@ -1444,7 +1445,7 @@ test('journal recovery preserves corrupt bytes and refuses valid interrupted his
   assert.throws(() => journal.recoverCorruptJournal(interruptedDirectory), /Only a structurally corrupt or bounded-overflow journal/);
   assert.deepEqual(fs.readFileSync(interruptedPath), interruptedBytes);
 
-  const corruptDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const corruptDirectory = tempDir('pc-opti-test-');
   temporaryDirectories.push(corruptDirectory);
   const corruptPath = path.join(corruptDirectory, 'journal.json');
   const corruptBytes = Buffer.from('{not valid json', 'utf8');
@@ -1476,7 +1477,7 @@ test('journal recovery classifies bounded overflow and inaccessible paths withou
   assert.equal(JSON.parse(fs.readFileSync(path.join(overflowDirectory, recovered.quarantine.fileName), 'utf8')).length, 1_001);
   assert.deepEqual(journal.readJournal(overflowDirectory), []);
 
-  const inaccessibleDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const inaccessibleDirectory = tempDir('pc-opti-test-');
   temporaryDirectories.push(inaccessibleDirectory);
   const unsafeJournalPath = path.join(inaccessibleDirectory, 'journal.json');
   fs.mkdirSync(unsafeJournalPath);
@@ -1489,7 +1490,7 @@ test('journal recovery classifies bounded overflow and inaccessible paths withou
 });
 
 test('journal recovery flushes the preserved copy before activating an empty journal', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   fs.writeFileSync(path.join(directory, 'journal.json'), '{durability fixture', 'utf8');
   const originalOpen = fs.openSync;
@@ -1526,7 +1527,7 @@ test('journal recovery flushes the preserved copy before activating an empty jou
 });
 
 test('journal recovery never overwrites concurrently created valid or interrupted history', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   const corruptBytes = Buffer.from('{concurrent fixture', 'utf8');
   const concurrentEntries = [{ id: 'new-pending', status: 'PENDING', rollback: { available: true } }];
@@ -1555,7 +1556,7 @@ test('journal recovery never overwrites concurrently created valid or interrupte
 });
 
 test('exclusive journal activation never deletes a concurrent EEXIST winner', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   const corruptBytes = Buffer.from('{exclusive race fixture', 'utf8');
   const concurrentEntries = [{ id: 'exclusive-winner', status: 'PENDING', rollback: { available: true } }];
@@ -1594,7 +1595,7 @@ test('exclusive journal activation never deletes a concurrent EEXIST winner', ()
 });
 
 test('interrupted corrupt-journal recovery remains visible and resumes without losing the original', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-opti-test-'));
+  const directory = tempDir('pc-opti-test-');
   temporaryDirectories.push(directory);
   const corruptBytes = Buffer.from('{resume fixture', 'utf8');
   fs.writeFileSync(path.join(directory, 'journal.json'), corruptBytes);

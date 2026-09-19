@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -13,7 +14,7 @@ test('bundle status distinguishes inert identity from activation and measured ra
   assert.ok(result.rates.every(rate => rate.state === 'UNTESTED' && !rate.available));
 });
 test('package verifier accepts exact inert resource set and rejects hidden extra tools', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-packaged-bundle-'));
+  const directory = tempDir('dialed-packaged-bundle-');
   try {
     for (const item of ['README.md', 'inventory.json', 'payload']) fs.cpSync(path.join(root, item), path.join(directory, item), { recursive: true });
     assert.equal(verifyBundledInventory(directory, { packaged: true }).selectedFileCount, 10);

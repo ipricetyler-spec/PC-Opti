@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -10,7 +11,7 @@ const gameConfig = require('../src/main/game-config/index.cjs');
 const temporaryDirectories = [];
 
 function temporaryDirectory() {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-game-config-test-'));
+  const directory = tempDir('dialed-game-config-test-');
   temporaryDirectories.push(directory);
   return directory;
 }

@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { tempDir } = require('./helpers/temp-dir.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -48,7 +49,7 @@ function inventory(overrides = {}) {
 }
 
 function harness(options = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-input-fixture-'));
+  const directory = tempDir('dialed-input-fixture-');
   roots.push(directory);
   let current = inventory(options), changes = 0, tierChanges = 0, heldTest;
   const native = async (mode, payload, signal) => {
@@ -93,7 +94,7 @@ function harness(options = {}) {
 }
 
 test('native source loader accepts only the pinned ASAR or development bytes', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dialed-input-source-'));
+  const root = tempDir('dialed-input-source-');
   roots.push(root);
   const moduleDirectory = path.join(root, 'module');
   fs.mkdirSync(moduleDirectory, { recursive: true });
@@ -682,7 +683,7 @@ test('unmonitored declarations disclose partial coverage without erasing support
 
 test('native authority path guard allows absence but refuses journal reservation, links and unreadable paths', () => {
   const {legacyRestoreAuthority}=require('../src/main/input-devices/legacy-authority.cjs');
-  const base=fs.mkdtempSync(path.join(os.tmpdir(),'dialed-authority-')); roots.push(base);
+  const base=tempDir('dialed-authority-'); roots.push(base);
   assert.equal(legacyRestoreAuthority(base).allowed,true);
   const nativePath=path.join(base,'Dialed','HidusbfLifecycle'); fs.mkdirSync(nativePath,{recursive:true});
   assert.equal(legacyRestoreAuthority(base).allowed,false); // Even incomplete native initialization reserves authority.

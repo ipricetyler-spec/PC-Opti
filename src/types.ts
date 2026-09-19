@@ -82,7 +82,9 @@ export interface BiosGuidancePlan {
     bios: { manufacturer: string; version: string; date: string };
     system: { manufacturer: string; model: string; pcSystemType: number | null };
     chassis: number[];
-    memory: Array<{ manufacturer: string; partNumber: string; slot: string; capacityBytes: number | null; configuredSpeed: number | null; memoryType: number | null }>;
+    memory: Array<{ manufacturer: string; partNumber: string; slot: string; capacityBytes: number | null; configuredSpeed: number | null; ratedSpeed?: number | null; memoryType: number | null }>;
+    /** Read-only facts from NVIDIA's own tool, when present. */
+    nvidia?: { memoryMiB: number | null; bar1MiB: number | null; genCurrent: number | null; genMax: number | null; widthCurrent: number | null; widthMax: number | null } | null;
     gpus: string[];
     errors: string[];
   };
@@ -93,6 +95,8 @@ export interface BiosGuidancePlan {
   limitations: string;
   recommendations: Array<{
     id: string; title: string; risk: string; advanced: boolean; status: 'CHECK_COMPATIBILITY'; currentState: string;
+    /** What Windows reports that relates to this setting. Never proof of the BIOS setting. */
+    observed?: string | null;
     matchReason: string; target: string; benefit: string; tradeoff: string; checks: string[]; steps: string[];
     verify: string; undo: string; menuHint: string; sources: Array<{ title: string; url: string; reviewedAt: string }>;
   }>;

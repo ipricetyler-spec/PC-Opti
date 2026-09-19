@@ -25,10 +25,23 @@ $system = @((Read-Cim 'Win32_ComputerSystem') | Select-Object -First 1 | ForEach
 })
 $chassis = @((Read-Cim 'Win32_SystemEnclosure') | ForEach-Object { $_.ChassisTypes })
 $memory = @(((Read-Cim 'Win32_PhysicalMemory') | Select-Object -First 32) | ForEach-Object {
-  @{ manufacturer = [string]$_.Manufacturer; partNumber = [string]$_.PartNumber; capacityBytes = [double]$_.Capacity; configuredSpeed = [int]$_.ConfiguredClockSpeed; memoryType = [int]$_.SMBIOSMemoryType; slot = [string]$_.DeviceLocator }
+  @{ manufacturer = [string]$_.Manufacturer; partNumber = [string]$_.PartNumber; capacityBytes = [double]$_.Capacity; configuredSpeed = [int]$_.ConfiguredClockSpeed; ratedSpeed = [int]$_.Speed; memoryType = [int]$_.SMBIOSMemoryType; slot = [string]$_.DeviceLocator }
 })
 $gpus = @((Read-Cim 'Win32_VideoController') | Select-Object -First 8 | ForEach-Object { [string]$_.Name })
-@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
+# Read-only link and BAR1 sizes from NVIDIA's own tool at its fixed System32 path.
+$nvidia = $null
+$smi = Join-Path $env:SystemRoot 'System32\\nvidia-smi.exe'
+if (Test-Path -LiteralPath $smi) {
+  try {
+    $line = [string]@(& $smi --query-gpu=memory.total,pcie.link.gen.current,pcie.link.gen.max,pcie.link.width.current,pcie.link.width.max --format=csv,noheader,nounits 2>$null)[0]
+    $memoryReport = @(& $smi -q -d MEMORY 2>$null) -join [Environment]::NewLine
+    $bar1 = $null
+    if ($memoryReport -match 'BAR1 Memory Usage\\s+Total\\s+:\\s+(\\d+) MiB') { $bar1 = [int]$Matches[1] }
+    $parts = $line -split ',\\s*'
+    if ($parts.Count -ge 5) { $nvidia = @{ memoryMiB = [int]$parts[0]; genCurrent = [int]$parts[1]; genMax = [int]$parts[2]; widthCurrent = [int]$parts[3]; widthMax = [int]$parts[4]; bar1MiB = $bar1 } }
+  } catch { $errors.Add('NVIDIA link inventory unavailable.') }
+}
+@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
 `;
 
 const list = (value) => Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [];
@@ -38,6 +51,43 @@ const known = (value) => {
   return /^(unknown|default string|to be filled by o\.?e\.?m\.?|system product name|not applicable|n\/a|none)$/i.test(result) ? '' : result;
 };
 const number = (value, max) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= max ? value : null;
+
+function normalizeNvidia(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const result = {
+    memoryMiB: number(value.memoryMiB, 1024 * 1024), bar1MiB: number(value.bar1MiB, 1024 * 1024),
+    genCurrent: number(value.genCurrent, 16), genMax: number(value.genMax, 16),
+    widthCurrent: number(value.widthCurrent, 32), widthMax: number(value.widthMax, 32),
+  };
+  return Object.values(result).some((item) => item !== null) ? result : null;
+}
+
+/**
+ * What Windows can see that relates to a recommendation. This is never proof of a BIOS
+ * setting: a faster memory speed may be a profile or manual timings, and a large BAR
+ * window only shows Resizable BAR is active, not how it was turned on.
+ */
+function observedFor(profile, hardware) {
+  if (profile.kind === 'memory') {
+    const modules = hardware.memory.filter((item) => item.configuredSpeed && item.ratedSpeed);
+    if (!modules.length || modules.length !== hardware.memory.length) return null;
+    const running = Math.min(...modules.map((item) => item.configuredSpeed));
+    const standard = Math.max(...modules.map((item) => item.ratedSpeed));
+    if (running > standard) return `Windows reports the memory running at ${running} MT/s, above the modules' standard ${standard} MT/s. A memory profile or a manual setting appears to be active; Windows cannot tell which.`;
+    return `Windows reports the memory running at ${running} MT/s, the modules' standard speed. No memory profile appears to be active.`;
+  }
+  const nvidia = hardware.nvidia;
+  if (profile.kind === 'rebar' && profile.gpuVendor === 'nvidia' && nvidia?.bar1MiB && nvidia.memoryMiB) {
+    if (nvidia.bar1MiB >= nvidia.memoryMiB * 0.9) return `The graphics card reports a ${nvidia.bar1MiB} MiB BAR window, about the size of its ${nvidia.memoryMiB} MiB of memory. That is what Resizable BAR looks like when it is active.`;
+    if (nvidia.bar1MiB <= 512) return `The graphics card reports a ${nvidia.bar1MiB} MiB BAR window, which usually means Resizable BAR is not active.`;
+    return null;
+  }
+  if (profile.kind === 'pcie' && nvidia?.genCurrent && nvidia.genMax && nvidia.widthCurrent && nvidia.widthMax) {
+    const widthNote = nvidia.widthCurrent < nvidia.widthMax ? ` The link is narrower than the card supports (x${nvidia.widthCurrent} of x${nvidia.widthMax}); check the slot and the board manual's lane sharing.` : '';
+    return `The graphics card reports PCIe Gen ${nvidia.genCurrent} x${nvidia.widthCurrent} right now (it supports Gen ${nvidia.genMax} x${nvidia.widthMax}). The generation drops while the card is idle to save power, so check it during a game.${widthNote}`;
+  }
+  return null;
+}
 
 function normalizeInventory(raw = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
@@ -53,9 +103,10 @@ function normalizeInventory(raw = {}) {
     chassis: list(raw.chassis).filter((entry) => Number.isInteger(entry)).slice(0, 8),
     memory: list(raw.memory).slice(0, 32).filter((item) => item && typeof item === 'object').map((item) => ({
       manufacturer: known(item.manufacturer), partNumber: known(item.partNumber), slot: known(item.slot),
-      capacityBytes: number(item.capacityBytes, 2 ** 50), configuredSpeed: number(item.configuredSpeed, 30000), memoryType: number(item.memoryType, 100),
+      capacityBytes: number(item.capacityBytes, 2 ** 50), configuredSpeed: number(item.configuredSpeed, 30000), ratedSpeed: number(item.ratedSpeed, 30000), memoryType: number(item.memoryType, 100),
     })),
     gpus: list(raw.gpus).map(known).filter(Boolean).slice(0, 8),
+    nvidia: normalizeNvidia(raw.nvidia),
     errors: list(raw.errors).map(text).filter(Boolean).slice(0, 16),
   };
 }
@@ -127,7 +178,7 @@ function buildBiosPlan(raw, { now = new Date() } = {}) {
     return true;
   }).map((profile) => ({
     id: profile.id, title: profile.title, risk: profile.risk, advanced: profile.advanced,
-    status: 'CHECK_COMPATIBILITY', currentState: 'Not read from BIOS',
+    status: 'CHECK_COMPATIBILITY', currentState: 'Not read from BIOS', observed: observedFor(profile, hardware),
     matchReason: `${hardware.cpu.name} + ${hardware.board.product}${profile.kind === 'memory' ? ` + ${hardware.memory.length} detected DDR${hardware.memory[0].memoryType === 34 ? '5' : '4'} module(s)` : profile.gpuVendor ? ` + ${profile.gpuVendor === 'nvidia' ? 'GeForce RTX' : 'Radeon RX'} GPU candidate` : ''}. This is family-level guidance, not a tested exact-combination preset.`,
     target: profile.target, benefit: profile.benefit, tradeoff: profile.tradeoff,
     checks: [...profile.checks, 'Confirm all control names and prerequisites in the exact model / revision manual before changing a setting.'],
@@ -142,7 +193,7 @@ function buildBiosPlan(raw, { now = new Date() } = {}) {
     hardware, match: { ...match, boardName: board?.name || null, supportUrl: model?.url || board?.supportUrl || null, supportMatch: model ? 'MODEL' : board ? 'VENDOR' : null },
     status: !match.supported ? 'NO_REVIEWED_MATCH' : 'GUIDANCE_AVAILABLE', reviewStatus,
     preparation: [...PREPARATION], preparationSources: [{ ...SOURCES.recovery, reviewedAt: REVIEWED_AT }], warnings,
-    limitations: 'Local inventory does not read active EXPO/XMP, CPU offsets, Resizable BAR, boot mode, encryption status or cooling limits. Recommendations are manual candidates, not a diagnosis or proof that a change is needed. No hardware data is sent to an AI service.',
+    limitations: 'Dialed does not read BIOS settings. "Observed" lines are what Windows reports (memory speed, the graphics card\'s BAR window and PCIe link), which can match a setting without proving it. CPU offsets, boot mode, encryption status and cooling limits are not visible. Recommendations are manual candidates, not a diagnosis. No hardware data is sent anywhere.',
     recommendations,
   };
 }
@@ -160,4 +211,4 @@ async function readBiosPlan({ platform = process.platform, run = runPowerShell, 
   }
 }
 
-module.exports = { INVENTORY_SCRIPT, normalizeInventory, classifyHardware, buildBiosPlan, readBiosPlan };
+module.exports = { INVENTORY_SCRIPT, observedFor, normalizeInventory, classifyHardware, buildBiosPlan, readBiosPlan };

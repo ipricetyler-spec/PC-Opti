@@ -109,7 +109,7 @@ export function BiosGuidanceCenter() {
             ['Graphics', plan.hardware.gpus.join(' / ') || 'Unknown'],
           ].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg bg-slate-950/50 p-3"><dt className="text-slate-400">{label}</dt><dd className="mt-1 text-slate-100">{value}</dd></div>)}
         </dl>
-        <p className="mt-3 text-xs text-slate-400">Windows cannot tell whether EXPO/XMP is on. Check it in your BIOS and note what it was before you change it.</p>
+        <p className="mt-3 text-xs text-slate-400">Dialed cannot read BIOS settings. Where Windows shows something related, the check says <strong className="text-slate-200">Observed</strong>; confirm the setting itself in your BIOS and record it under Your progress.</p>
         <p className="mt-2 text-xs text-slate-400">{plan.limitations}</p>
         <details data-technical-detail className="mt-3 text-xs text-slate-300">
           <summary className="cursor-pointer py-1 font-medium">RAM modules and matching details ({plan.hardware.memory.length} modules)</summary>
@@ -144,12 +144,18 @@ export function BiosGuidanceCenter() {
       {items.map((item) => <section key={item.id} className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-white">{item.title}</h3><span className="text-xs text-amber-200">{item.risk} · Manual</span></div>
         <p className="mt-2 text-sm text-slate-300">{item.benefit}</p>
+        <p className="mt-2 flex flex-wrap items-baseline gap-2 text-xs">
+          {item.observed
+            ? <><span className="rounded bg-sky-500/15 px-1.5 py-0.5 font-semibold text-sky-200">Observed</span><span className="min-w-0 flex-1 text-slate-300">{item.observed}</span></>
+            : <><span className="rounded bg-slate-700/60 px-1.5 py-0.5 font-semibold text-slate-300">Not visible from Windows</span><span className="min-w-0 flex-1 text-slate-400">Check this one in your BIOS.</span></>}
+          {notes[item.id]?.status && notes[item.id]?.status !== 'Not reviewed' && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-200">You: {notes[item.id]?.status}</span>}
+        </p>
         <p className="mt-2 text-xs text-cyan-200"><strong>Target:</strong> {item.target}</p>
         <p className="mt-2 flex gap-2 text-xs leading-relaxed text-amber-200/90"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{item.tradeoff}</p>
         <details className="mt-3">
           <summary className="cursor-pointer rounded py-2 text-sm font-semibold text-cyan-300">Steps, compatibility and recovery</summary>
           <div className="mt-2 space-y-4 text-xs leading-relaxed text-slate-300">
-            <p>{item.matchReason} Current setting: {item.currentState}.</p>
+            <p>{item.matchReason}</p>
             <div><h4 className="font-semibold text-white">Check first</h4><ul className="mt-1 list-disc space-y-1 pl-5">{item.checks.map((step) => <li key={step}>{step}</li>)}</ul></div>
             <p><strong className="text-white">Where to look:</strong> {item.menuHint}</p>
             <ol className="list-decimal space-y-2 pl-5">{item.steps.map((step) => <li key={step}>{step}</li>)}</ol>

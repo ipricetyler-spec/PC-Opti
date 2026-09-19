@@ -94,8 +94,11 @@ declare global {
       listGpuPreferences: () => Promise<import('./types').GpuPreferenceItem[]>;
       chooseGpuPreferenceApp: () => Promise<{ canceled: boolean; item?: import('./types').GpuPreferenceItem }>;
       setGpuPreference: (targetId: string, preference: 0 | 1 | 2) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
-      readUserSettings: () => Promise<Partial<Record<'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart', { enabled: boolean | null; manageable: boolean; detail?: string; unsupported?: string }>>>;
-      setUserSetting: (settingId: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart', enabled: boolean) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
+      listFullscreenOptimizations: () => Promise<import('./types').FullscreenOptimizationItem[]>;
+      chooseFullscreenOptimizationsApp: () => Promise<{ canceled: boolean; item?: import('./types').FullscreenOptimizationItem }>;
+      setFullscreenOptimizations: (targetId: string, disableOptimizations: boolean) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
+      readUserSettings: () => Promise<Partial<Record<'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend', { enabled: boolean | null; manageable: boolean; detail?: string; unsupported?: string }>>>;
+      setUserSetting: (settingId: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend', enabled: boolean) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
       readDisplayModes: () => Promise<import('./types').DisplayModeReport>;
       readWifiStatus: () => Promise<import('./types').WifiStatusReport>;
       getAuditHistory: () => Promise<AuditHistoryState>;

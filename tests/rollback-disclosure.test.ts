@@ -111,3 +111,10 @@ test('power restores name the plan or percentage they return to', () => {
   assert.deepEqual(describeRollbackTarget({ ...base, actionId: 'power:add-ultimate-plan', preAction: { beforeGuids: [] }, resultingState: { createdGuid: '0f3c2a44-1111-4a2b-9c3d-123456789abc', name: 'Ultimate Performance' }, rollback: { available: true, reason: '', kind: 'remove-power-plan' } }), ['Power plan to remove: Ultimate Performance', 'Plan id: 0f3c2a44-1111-4a2b-9c3d-123456789abc']);
   assert.deepEqual(describeRollbackTarget({ ...base, actionId: 'power:cpu-minimum-state:x', preAction: { ac: 5, schemeName: 'Balanced' }, resultingState: null, rollback: { available: true, reason: '', kind: 'restore-cpu-minimum-state' } }), ['Minimum processor state (plugged in) will be set back to: 5%', 'Power plan: Balanced']);
 });
+
+test('undo for the windowed-games, fullscreen and USB tweaks says what goes back', () => {
+  assert.deepEqual(describeRollbackTarget(entry('restore-usb-selective-suspend', { ac: 1, schemeName: 'Balanced' })), ['USB selective suspend (plugged in) will be set back to: on', 'Power plan: Balanced']);
+  assert.deepEqual(describeRollbackTarget(entry('restore-windowed-games', { existed: false })), ['Setting: Optimizations for windowed games', 'Will be set back to: the Windows default']);
+  assert.deepEqual(describeRollbackTarget(entry('restore-fullscreen-optimizations', { exePath: 'D:\Games\game.exe', existed: false })), ['Game: D:\Games\game.exe', 'Fullscreen optimizations will be set back to: on']);
+  assert.deepEqual(describeRollbackTarget(entry('restore-fullscreen-optimizations', { exePath: 'D:\Games\game.exe', existed: true, data: '~ DISABLEDXMAXIMIZEDWINDOWEDMODE' })), ['Game: D:\Games\game.exe', 'Fullscreen optimizations will be set back to: off']);
+});

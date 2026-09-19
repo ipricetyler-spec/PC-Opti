@@ -23,6 +23,8 @@ const {
 } = require('../user-settings/index.cjs');
 const mouse = require('../mouse-acceleration/index.cjs');
 const powerTweaks = require('../power-tweaks/index.cjs');
+const windowedGames = require('../windowed-games/index.cjs');
+const fullscreen = require('../fullscreen-optimizations/index.cjs');
 const protectedStore = require('../protected-store/index.cjs');
 const { queryCurrentProcessElevation } = require('../shared/windows-elevation.cjs');
 const {
@@ -73,7 +75,7 @@ const JOURNAL_DELETION_MODES = Object.freeze({
 const KNOWN_CAPABILITY_IDS = new Set(listCapabilities().map((capability) => capability.id));
 const SAFE_JOURNAL_CATEGORIES = new Set(['Targeted maintenance', 'Startup management', 'Dynamic process balancing', 'Safe OS policy', 'Timing experiment', 'Power plan', 'Graphics preference', 'Windows gaming setting']);
 const SAFE_JOURNAL_STATUSES = new Set(['PENDING', 'SUCCESS', 'FAILED', 'NEEDS_REVIEW']);
-const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state']);
+const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend']);
 const SAFE_RECONCILIATION_CLASSES = new Set(['INTENDED_STATE', 'PRE_ACTION_STATE', 'DIVERGED', 'TARGET_CHANGED', 'UNKNOWN', 'UNAVAILABLE']);
 
 function journalPath(userDataPath) {
@@ -456,6 +458,12 @@ function normalizedActionFamily(actionId) {
   if (id.startsWith('settings:restore-user:')) return 'settings:restore-user';
   if (id === 'power:add-ultimate-plan') return id;
   if (id.startsWith('power:cpu-minimum-state:')) return 'power:cpu-minimum-state';
+  if (id === 'graphics:windowed-game-optimizations') return id;
+  if (/^graphics:fullscreen-optimizations:[a-f0-9]{24}$/.test(id)) return 'graphics:fullscreen-optimizations';
+  if (id.startsWith('power:usb-selective-suspend:')) return 'power:usb-selective-suspend';
+  if (id.startsWith('graphics:restore-windowed-games:')) return 'graphics:restore-windowed-games';
+  if (id.startsWith('graphics:restore-fullscreen-optimizations:')) return 'graphics:restore-fullscreen-optimizations';
+  if (id.startsWith('power:restore-usb-selective-suspend:')) return 'power:restore-usb-selective-suspend';
   return 'unknown';
 }
 
@@ -1433,6 +1441,9 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
   const readSetting = adapters.readUserSetting || readUserSetting;
   const readMouse = adapters.readMouseAcceleration || mouse.readMouseAcceleration;
   const readCpu = adapters.readCpuMinimumState || powerTweaks.readCpuMinimumState;
+  const readWindowed = adapters.readWindowedGameSetting || windowedGames.readWindowedGameSetting;
+  const readFullscreen = adapters.readFullscreenOptimizations || fullscreen.readFullscreenOptimizations;
+  const readUsb = adapters.readUsbSelectiveSuspend || powerTweaks.readUsbSelectiveSuspend;
   const entries = readJournal(userDataPath);
   const pending = entries.filter((entry) => entry?.status === 'PENDING');
   if (!pending.length) return { reconciled: 0, entries };
@@ -1517,6 +1528,31 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
           setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The plan still reports its previous minimum processor state; the interrupted change did not take effect.', { verified: actual }, false);
         } else {
           setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'The minimum processor state differs from both the captured and intended values. Dialed will not change it.', { verified: actual }, false);
+        }
+        continue;
+      }
+
+      if (String(entry.actionId).startsWith('power:usb-selective-suspend:')) {
+        const actual = await readUsb(entry.preAction?.schemeGuid);
+        if (actual.ac === 0) {
+          setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The plan reports USB selective suspend off after the interruption.', { verified: actual, recoveredAfterInterruption: true }, true);
+        } else if (actual.ac === entry.preAction?.ac) {
+          setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The plan still reports its previous USB selective suspend setting; the interrupted change did not take effect.', { verified: actual }, false);
+        } else {
+          setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'The USB selective suspend setting differs from both the captured and intended values. Dialed will not change it.', { verified: actual }, false);
+        }
+        continue;
+      }
+
+      if (entry.actionId === 'graphics:windowed-game-optimizations' || String(entry.actionId).startsWith('graphics:fullscreen-optimizations:')) {
+        const windowed = entry.actionId === 'graphics:windowed-game-optimizations';
+        const actual = windowed ? await readWindowed() : await readFullscreen(entry.preAction?.exePath);
+        if (textStateMatches(actual, { existed: entry.preAction?.intendedData !== null, data: entry.preAction?.intendedData })) {
+          setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The setting matches the intended value after the interruption.', { verified: actual, recoveredAfterInterruption: true }, true);
+        } else if (textStateMatches(actual, entry.preAction)) {
+          setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The previous setting is still present; the interrupted change did not take effect.', { verified: actual }, false);
+        } else {
+          setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'The setting differs from both the captured and intended values. Dialed will not overwrite it.', { verified: actual }, false);
         }
         continue;
       }
@@ -1815,6 +1851,55 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     });
   }
 
+  if (original.rollback.kind === 'restore-usb-selective-suspend') {
+    const readUsb = adapters.readUsbSelectiveSuspend || powerTweaks.readUsbSelectiveSuspend;
+    const writeUsb = adapters.writeUsbSelectiveSuspendAc || powerTweaks.writeUsbSelectiveSuspendAc;
+    const guid = assertPowerPlanGuid(original.preAction?.schemeGuid);
+    const previous = original.preAction?.ac;
+    if (previous !== 0 && previous !== 1) throw new Error('The recorded previous value is not Disabled or Enabled. Restore was refused.');
+    const current = await readUsb(guid);
+    if (current.ac !== 0) throw new Error('The USB selective suspend setting changed after Dialed set it. Restore was refused to avoid overwriting that change.');
+    return runRestore(userDataPath, original, {
+      actionId: `power:restore-usb-selective-suspend:${original.id}`,
+      title: `Restore USB selective suspend: ${previous === 1 ? 'Enabled' : 'Disabled'}`,
+      category: 'Power plan',
+      restore: async () => {
+        const result = await writeUsb(guid, previous);
+        const verified = await readUsb(guid);
+        if (verified.ac !== previous) throw new Error('Windows did not report the previous USB selective suspend setting after restore.');
+        return { ...result, output: { verified } };
+      },
+    });
+  }
+
+  if (original.rollback.kind === 'restore-windowed-games' || original.rollback.kind === 'restore-fullscreen-optimizations') {
+    const windowed = original.rollback.kind === 'restore-windowed-games';
+    if (windowed !== (original.actionId === 'graphics:windowed-game-optimizations')) throw new Error('This audit entry does not match its restore type.');
+    const exePath = windowed ? null : assertExecutablePath(original.preAction?.exePath);
+    const read = windowed ? (adapters.readWindowedGameSetting || windowedGames.readWindowedGameSetting) : (adapters.readFullscreenOptimizations || fullscreen.readFullscreenOptimizations);
+    const write = windowed ? (adapters.writeWindowedGameData || windowedGames.writeWindowedGameData) : (adapters.writeCompatibilityFlags || fullscreen.writeCompatibilityFlags);
+    const remove = windowed ? (adapters.removeWindowedGameValue || windowedGames.removeWindowedGameValue) : (adapters.removeCompatibilityFlags || fullscreen.removeCompatibilityFlags);
+    const readTarget = () => (windowed ? read() : read(exePath));
+    const intended = original.preAction?.intendedData ?? null;
+    const current = await readTarget();
+    if (!textStateMatches(current, { existed: intended !== null, data: intended })) {
+      throw new Error('The setting changed after Dialed wrote it. Restore was refused to avoid overwriting that change.');
+    }
+    return runRestore(userDataPath, original, {
+      actionId: windowed ? `graphics:restore-windowed-games:${original.id}` : `graphics:restore-fullscreen-optimizations:${original.id}`,
+      title: windowed ? 'Restore optimizations for windowed games' : `Restore fullscreen optimizations: ${path.win32.basename(exePath)}`,
+      category: 'Graphics preference',
+      restore: async () => {
+        const result = original.preAction.existed
+          ? await (windowed ? write(original.preAction.data) : write(exePath, original.preAction.data))
+          : await (windowed ? remove() : remove(exePath));
+        const verified = await readTarget();
+        if (!textStateMatches(verified, original.preAction)) throw new Error('Windows did not report the exact previous setting after restore.');
+        return { ...result, output: { verified } };
+      },
+    });
+  }
+
   if (original.rollback.kind === 'restore-cpu-minimum-state') {
     const readCpu = adapters.readCpuMinimumState || powerTweaks.readCpuMinimumState;
     const writeCpu = adapters.writeCpuMinimumAc || powerTweaks.writeCpuMinimumAc;
@@ -1975,6 +2060,116 @@ async function runRestore(userDataPath, original, { actionId, title, category, r
     entry.exitCode = error && Number.isInteger(error.exitCode) ? error.exitCode : null;
     entry.stdout = error?.stdout || '';
     entry.stderr = error?.stderr || (error instanceof Error ? error.message : String(error));
+    replaceEntry(userDataPath, entry);
+    return { success: false, entry, error: entry.stderr };
+  }
+}
+
+/** True when a text value is present or absent as expected, with exactly the same text. */
+function textStateMatches(state, expected) {
+  if (Boolean(state?.exists) !== Boolean(expected?.existed)) return false;
+  return !expected?.existed || (state.kind === 'String' && state.data === expected.data);
+}
+
+async function setWindowedGameOptimizations(userDataPath, enabled, adapters = {}) {
+  const read = adapters.readWindowedGameSetting || windowedGames.readWindowedGameSetting;
+  const write = adapters.writeWindowedGameData || windowedGames.writeWindowedGameData;
+  if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
+  const before = await read();
+  const unsupported = windowedGames.unsupportedReason(before);
+  if (unsupported) throw new Error(`${unsupported} Nothing was changed.`);
+  const intendedData = windowedGames.formatWindowedOptimizations(before.data, enabled);
+  if (before.exists && before.data === intendedData) throw new Error(`Optimizations for windowed games are already ${enabled ? 'on' : 'off'}.`);
+  const entry = createEntry(
+    'graphics:windowed-game-optimizations',
+    `Optimizations for windowed games: ${enabled ? 'on' : 'off'}`,
+    { existed: before.exists, data: before.data, kind: before.kind, intendedData, enabled },
+    { category: 'Graphics preference', rollback: { available: true, kind: 'restore-windowed-games', reason: before.exists ? 'Restores the exact previous text.' : 'Removes the value so Windows uses its default again.' } }
+  );
+  appendEntry(userDataPath, entry);
+  try {
+    const result = await write(intendedData);
+    const verified = await read();
+    if (!textStateMatches(verified, { existed: true, data: intendedData })) throw new Error('Windows did not report the intended setting after the write.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.stdout = result.stdout || '';
+    entry.stderr = result.stderr || '';
+    entry.resultingState = { verified, restartRequired: false, performanceOutcome: 'UNVERIFIED' };
+    replaceEntry(userDataPath, entry);
+    return { success: true, entry, result: entry.resultingState };
+  } catch (error) {
+    markUnverifiedMutation(entry, error);
+    replaceEntry(userDataPath, entry);
+    return { success: false, entry, error: entry.stderr };
+  }
+}
+
+async function setFullscreenOptimizations(userDataPath, exePath, disableOptimizations, adapters = {}) {
+  const read = adapters.readFullscreenOptimizations || fullscreen.readFullscreenOptimizations;
+  const write = adapters.writeCompatibilityFlags || fullscreen.writeCompatibilityFlags;
+  const remove = adapters.removeCompatibilityFlags || fullscreen.removeCompatibilityFlags;
+  const safePath = assertExecutablePath(exePath);
+  if (typeof disableOptimizations !== 'boolean') throw new Error('Choose on or off.');
+  const before = await read(safePath);
+  if (before.exists && before.kind !== 'String') throw new Error('The existing compatibility setting is not stored as text. Dialed will not overwrite it.');
+  const intendedData = fullscreen.formatCompatibilityFlags(before.data, disableOptimizations);
+  if ((before.data ?? null) === intendedData) throw new Error(`Fullscreen optimizations are already ${disableOptimizations ? 'off' : 'on'} for this program.`);
+  const name = path.win32.basename(safePath);
+  const entry = createEntry(
+    `graphics:fullscreen-optimizations:${fullscreen.targetId(safePath)}`,
+    `Fullscreen optimizations ${disableOptimizations ? 'off' : 'on'}: ${name}`,
+    { exePath: safePath, existed: before.exists, data: before.data, kind: before.kind, intendedData, disableOptimizations, disabledForAllUsers: before.disabledForAllUsers },
+    { category: 'Graphics preference', rollback: { available: true, kind: 'restore-fullscreen-optimizations', reason: before.exists ? 'Restores the exact previous compatibility text.' : 'Removes the compatibility value again.' } }
+  );
+  appendEntry(userDataPath, entry);
+  try {
+    const result = intendedData === null ? await remove(safePath) : await write(safePath, intendedData);
+    const verified = await read(safePath);
+    if (!textStateMatches(verified, { existed: intendedData !== null, data: intendedData })) throw new Error('Windows did not report the intended compatibility setting after the write.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.stdout = result.stdout || '';
+    entry.stderr = result.stderr || '';
+    entry.resultingState = { verified, restartRequired: true, performanceOutcome: 'UNVERIFIED' };
+    replaceEntry(userDataPath, entry);
+    return { success: true, entry, result: entry.resultingState };
+  } catch (error) {
+    markUnverifiedMutation(entry, error);
+    replaceEntry(userDataPath, entry);
+    return { success: false, entry, error: entry.stderr };
+  }
+}
+
+async function setUsbSelectiveSuspendOff(userDataPath, adapters = {}) {
+  const readPlans = adapters.listPowerPlans || listPowerPlans;
+  const readUsb = adapters.readUsbSelectiveSuspend || powerTweaks.readUsbSelectiveSuspend;
+  const writeUsb = adapters.writeUsbSelectiveSuspendAc || powerTweaks.writeUsbSelectiveSuspendAc;
+  const plans = await readPlans();
+  if (!plans.activeGuid) throw new Error('Windows did not report the active power plan, so an exact undo could not be recorded. Nothing was changed.');
+  const plan = plans.items.find((item) => item.guid === plans.activeGuid);
+  const before = await readUsb(plans.activeGuid);
+  if (before.ac === 0) throw new Error(`USB selective suspend is already off on ${plan?.name || 'the active plan'} when plugged in.`);
+  const entry = createEntry(
+    `power:usb-selective-suspend:${plans.activeGuid}`,
+    `USB selective suspend off (plugged in): ${plan?.name || 'active plan'}`,
+    { schemeGuid: plans.activeGuid, schemeName: plan?.name || '', ac: before.ac, dc: before.dc },
+    { category: 'Power plan', rollback: { available: true, kind: 'restore-usb-selective-suspend', reason: 'Turns USB selective suspend back on when plugged in.' } }
+  );
+  appendEntry(userDataPath, entry);
+  try {
+    const result = await writeUsb(plans.activeGuid, 0);
+    const verified = await readUsb(plans.activeGuid);
+    if (verified.ac !== 0 || verified.dc !== before.dc) throw new Error('Windows did not report the intended USB selective suspend setting after the write.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.stdout = result.stdout || '';
+    entry.stderr = result.stderr || '';
+    entry.resultingState = { verified, performanceOutcome: 'UNVERIFIED' };
+    replaceEntry(userDataPath, entry);
+    return { success: true, entry, result: entry.resultingState };
+  } catch (error) {
+    markUnverifiedMutation(entry, error);
     replaceEntry(userDataPath, entry);
     return { success: false, entry, error: entry.stderr };
   }
@@ -2383,7 +2578,10 @@ module.exports = {
   setGpuPreference,
   addUltimatePlan,
   setCpuMinimumState,
+  setFullscreenOptimizations,
   setMouseAcceleration,
+  setUsbSelectiveSuspendOff,
+  setWindowedGameOptimizations,
   setUserSetting,
   assertValidAuditExport,
   createAuditExportPreview,

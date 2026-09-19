@@ -36,7 +36,7 @@ export interface TweakDefinition {
   destination: TweakDestination | null;
   actionLabel: string;
   /** A per-user Windows setting Dialed turns on or off directly on the card. */
-  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart';
+  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend';
   /** Which state Dialed suggests, when there is one. */
   suggested?: 'on' | 'off';
   /** Machine-wide settings need administrator rights; some need a restart to take effect. */
@@ -138,6 +138,15 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: false, destination: null, actionLabel: 'Turn on', userSettingId: 'no-auto-restart', requiresAdmin: true,
   },
   {
+    id: 'usb-selective-suspend', group: 'Input', title: 'USB selective suspend', capabilityIds: ['power:usb-selective-suspend'], perItem: false,
+    summary: 'Whether Windows may put USB devices to sleep while they are idle. Turning it off can stop a mouse, keyboard, headset or controller from dropping out.',
+    whatChanges: 'Sets USB selective suspend to Disabled in the active power plan, when plugged in. The battery setting is left alone.',
+    whenItHelps: 'Only when a USB device disconnects, stutters or is slow to respond after sitting idle. It fixes that problem; it does not make games faster.',
+    leaveItIf: 'Your USB devices work fine. With it off, idle USB devices use a little more power, which matters mostly on laptops.',
+    undo: 'Undo turns USB selective suspend back on for the same plan.',
+    measureFirst: false, destination: null, actionLabel: 'Turn off', userSettingId: 'usb-selective-suspend', oneWay: true,
+  },
+  {
     id: 'mouse-acceleration', group: 'Input', title: 'Mouse acceleration', capabilityIds: ['input:mouse-acceleration'], perItem: false,
     summary: 'Windows "Enhance pointer precision": the pointer moves further when you move the mouse faster.',
     whatChanges: 'Turns Enhance pointer precision on or off, writing the same three mouse values Windows Settings does. Applied straight away; no restart.',
@@ -163,6 +172,24 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'You have no flicker or stutter. With MPO off, video playback and windowed apps can use slightly more graphics power. In true exclusive fullscreen the game bypasses this layering, so MPO has little effect either way; many games labelled "fullscreen" actually run borderless, where it still applies.',
     undo: 'Undo puts back the exact previous value. Restart again afterwards.',
     measureFirst: false, destination: null, actionLabel: 'Turn off', userSettingId: 'mpo', suggested: 'on', requiresAdmin: true, requiresRestart: true,
+  },
+  {
+    id: 'windowed-games', group: 'Graphics', title: 'Optimizations for windowed games', capabilityIds: ['graphics:windowed-game-optimizations'], perItem: false,
+    summary: 'Lets older games that run in a window or borderless use the same faster way of showing frames as fullscreen games.',
+    whatChanges: 'Turns the Windows 11 switch in Settings › Display › Graphics on or off, for your account only. Other graphics options stored alongside it are left exactly as they are.',
+    whenItHelps: 'DirectX 10 and 11 games played borderless or windowed. It can lower input delay and lets variable refresh rate (G-SYNC, FreeSync) work in a window. DirectX 12 and Vulkan games, and games in exclusive fullscreen, are not affected.',
+    leaveItIf: 'A game, overlay or capture tool shows glitches with it on. Some Windows 11 versions already turn it on by default.',
+    undo: 'Undo puts back the exact previous value, or removes it so Windows uses its default again. Restart the game afterwards.',
+    measureFirst: false, destination: null, actionLabel: 'Turn on', userSettingId: 'windowed-games', suggested: 'on',
+  },
+  {
+    id: 'fullscreen-optimizations', group: 'Graphics', title: 'Fullscreen optimizations per game', capabilityIds: ['graphics:fullscreen-optimizations'], perItem: true,
+    summary: 'Whether Windows runs one game\'s fullscreen mode through its own display handling. Set per game, never for every program.',
+    whatChanges: 'Ticks or clears “Disable fullscreen optimizations” on the game\'s Compatibility tab, for your account only. Other compatibility options on that game are left as they are.',
+    whenItHelps: 'Only when one game has alt-tab trouble, overlay problems or uneven frame pacing in fullscreen. Most games run best with the optimizations left on.',
+    leaveItIf: 'The game works well. Turning them off can make alt-tab slower and stops overlays like the Game Bar showing over the game.',
+    undo: 'Undo puts back the exact previous compatibility setting for that game.',
+    measureFirst: false, destination: { tab: 'gpu' }, actionLabel: 'Choose a game',
   },
   {
     id: 'gpu-preference', group: 'Graphics', title: 'Graphics processor per program', capabilityIds: ['graphics:per-app-gpu-preference'], perItem: true,

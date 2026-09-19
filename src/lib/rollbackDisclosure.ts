@@ -68,6 +68,21 @@ export function describeRollbackTarget(entry: AuditJournalEntry): string[] {
     return [`Setting: ${label}`, `Will be set back to: ${previous}`];
   }
 
+  if (entry.rollback.kind === 'restore-usb-selective-suspend') {
+    const plan = displayValue(preAction.schemeName);
+    const previous = preAction.ac === 1 ? 'on' : preAction.ac === 0 ? 'off' : 'the previous value';
+    return [`USB selective suspend (plugged in) will be set back to: ${previous}`, ...(plan ? [`Power plan: ${plan}`] : [])];
+  }
+
+  if (entry.rollback.kind === 'restore-windowed-games') {
+    return ['Setting: Optimizations for windowed games', `Will be set back to: ${preAction.existed === true ? 'the previous value' : 'the Windows default'}`];
+  }
+
+  if (entry.rollback.kind === 'restore-fullscreen-optimizations') {
+    const exePath = displayValue(preAction.exePath);
+    return [...(exePath ? [`Game: ${exePath}`] : []), `Fullscreen optimizations will be set back to: ${preAction.existed === true && typeof preAction.data === 'string' && /DISABLEDXMAXIMIZEDWINDOWEDMODE/i.test(preAction.data) ? 'off' : 'on'}`];
+  }
+
   if (entry.rollback.kind === 'restore-gpu-preference') {
     const exePath = displayValue(preAction.exePath) || displayValue(preAction.path);
     return exePath ? [`Application: ${exePath}`] : [];

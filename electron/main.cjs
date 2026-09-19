@@ -71,6 +71,8 @@ async function assertEditionSupports(editions) {
 }
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
+const windowedGames = require('../src/main/windowed-games/index.cjs');
+const fullscreenOptimizations = require('../src/main/fullscreen-optimizations/index.cjs');
 const { assertExecutablePath, gpuPreferenceTargetId, listGpuPreferences, parseGpuPreference, readGpuPreference } = require('../src/main/gpu-preference/index.cjs');
 const { readDisplayModes } = require('../src/main/display-modes/index.cjs');
 const { readWifiStatus } = require('../src/main/wifi-status/index.cjs');
@@ -81,6 +83,9 @@ const {
   setGpuPreference,
   addUltimatePlan,
   setCpuMinimumState,
+  setFullscreenOptimizations,
+  setUsbSelectiveSuspendOff,
+  setWindowedGameOptimizations,
   setMouseAcceleration,
   setUserSetting,
   applyJournalDeletion,
@@ -105,6 +110,7 @@ let latestVerifiedSnapshot = null;
 let latestStartupItems = new Map();
 let latestManageableProcesses = new Map();
 let latestGpuPreferenceTargets = new Map();
+let latestFullscreenTargets = new Map();
 function createMainPreviewStore(message, ttlMs = null, queuedMessage = message) {
   return createPreviewStore({ ttlMs, makeError: (reason) => new Error(reason === 'EXPIRED_WHILE_QUEUED' ? queuedMessage : message) });
 }
@@ -874,6 +880,28 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
       states['cpu-minimum-state'] = { enabled: null, manageable: false };
     }
   }
+  if (isCapabilityAvailable('power:usb-selective-suspend', resolveRuntimeProfileForApp())) {
+    try {
+      const plans = await listPowerPlans();
+      const plan = plans.items.find((item) => item.guid === plans.activeGuid);
+      const state = await powerTweaks.readUsbSelectiveSuspend(plans.activeGuid);
+      // The card turns suspend off, so "on" here means Dialed's change is in place.
+      states['usb-selective-suspend'] = { enabled: state.ac === 0, manageable: true, detail: `${state.ac === 0 ? 'Off' : 'On'} when plugged in (${plan?.name || 'active plan'})` };
+    } catch {
+      states['usb-selective-suspend'] = { enabled: null, manageable: false };
+    }
+  }
+  if (isCapabilityAvailable('graphics:windowed-game-optimizations', resolveRuntimeProfileForApp())) {
+    try {
+      const state = await windowedGames.readWindowedGameSetting();
+      const unsupported = windowedGames.unsupportedReason(state);
+      states['windowed-games'] = unsupported
+        ? { enabled: null, manageable: false, unsupported }
+        : { enabled: state.enabled, manageable: true, detail: state.enabled === null ? 'Windows default' : undefined };
+    } catch {
+      states['windowed-games'] = { enabled: null, manageable: false };
+    }
+  }
   if (isCapabilityAvailable('input:mouse-acceleration', resolveRuntimeProfileForApp())) {
     try {
       const state = await readMouseAcceleration();
@@ -893,6 +921,16 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
     if (enabled !== true) throw new Error('Use Undo to reverse this change.');
     assertCapabilityAvailable(settingId === 'ultimate-plan' ? 'power:ultimate-plan' : 'power:cpu-minimum-state');
     return serializeMutation(() => (settingId === 'ultimate-plan' ? addUltimatePlan(app.getPath('userData')) : setCpuMinimumState(app.getPath('userData'))));
+  }
+  if (settingId === 'usb-selective-suspend') {
+    if (enabled !== true) throw new Error('Use Undo to reverse this change.');
+    assertCapabilityAvailable('power:usb-selective-suspend');
+    return serializeMutation(() => setUsbSelectiveSuspendOff(app.getPath('userData')));
+  }
+  if (settingId === 'windowed-games') {
+    if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
+    assertCapabilityAvailable('graphics:windowed-game-optimizations');
+    return serializeMutation(() => setWindowedGameOptimizations(app.getPath('userData'), enabled));
   }
   if (settingId === 'mouse-acceleration') {
     if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
@@ -937,6 +975,32 @@ ipcMain.handle('pc-opti:set-gpu-preference', async (_event, targetId, preference
   const exePath = latestGpuPreferenceTargets.get(targetId);
   if (!exePath) throw new Error('Refresh the app list before changing a graphics preference.');
   return serializeMutation(() => setGpuPreference(app.getPath('userData'), exePath, preference));
+});
+
+ipcMain.handle('pc-opti:list-fullscreen-optimizations', async () => {
+  assertCapabilityAvailable('graphics:fullscreen-optimizations');
+  const items = await fullscreenOptimizations.listFullscreenOptimizations();
+  latestFullscreenTargets = new Map(items.map((item) => [item.id, item.exePath]));
+  return items;
+});
+
+// The executable path comes only from this main-process dialog or the fresh Registry list.
+ipcMain.handle('pc-opti:choose-fullscreen-optimizations-app', async () => {
+  assertCapabilityAvailable('graphics:fullscreen-optimizations');
+  const selection = await dialog.showOpenDialog(mainWindow, { title: 'Choose a game', properties: ['openFile'], filters: [{ name: 'Applications', extensions: ['exe'] }] });
+  if (selection.canceled || !selection.filePaths[0]) return { canceled: true };
+  const item = await fullscreenOptimizations.readFullscreenOptimizations(selection.filePaths[0]);
+  latestFullscreenTargets.set(item.id, item.exePath);
+  return { canceled: false, item };
+});
+
+ipcMain.handle('pc-opti:set-fullscreen-optimizations', async (_event, targetId, disableOptimizations) => {
+  assertCapabilityAvailable('graphics:fullscreen-optimizations');
+  assertShortString(targetId, 'Program', /^[a-f0-9]{24}$/);
+  if (typeof disableOptimizations !== 'boolean') throw new Error('Choose on or off.');
+  const exePath = latestFullscreenTargets.get(targetId);
+  if (!exePath) throw new Error('Choose the game again before changing this setting.');
+  return serializeMutation(() => setFullscreenOptimizations(app.getPath('userData'), exePath, disableOptimizations));
 });
 
 ipcMain.handle('pc-opti:read-display-modes', async () => {

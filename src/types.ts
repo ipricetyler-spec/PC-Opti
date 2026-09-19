@@ -734,7 +734,7 @@ export interface AuditJournalEntry {
   exitCode: number | null;
   stdout: string;
   stderr: string;
-  rollback: { available: boolean; reason: string; kind?: 'restore-registry-run-value' | 'disable-process-ecoqos' | 'restore-consumer-features-policy' | 'restore-boot-timing-setting' | 'restore-power-plan' | 'restore-gpu-preference' | 'restore-user-setting' | 'restore-mouse-acceleration' | 'remove-power-plan' | 'restore-cpu-minimum-state'; completedAt?: string };
+  rollback: { available: boolean; reason: string; kind?: 'restore-registry-run-value' | 'disable-process-ecoqos' | 'restore-consumer-features-policy' | 'restore-boot-timing-setting' | 'restore-power-plan' | 'restore-gpu-preference' | 'restore-user-setting' | 'restore-mouse-acceleration' | 'remove-power-plan' | 'restore-cpu-minimum-state' | 'restore-windowed-games' | 'restore-fullscreen-optimizations' | 'restore-usb-selective-suspend'; completedAt?: string };
   reconciliation?: {
     checkedAt: string;
     classification: 'INTENDED_STATE' | 'PRE_ACTION_STATE' | 'DIVERGED' | 'TARGET_CHANGED' | 'UNKNOWN' | 'UNAVAILABLE';
@@ -853,6 +853,18 @@ export interface PowerPlan {
 export interface PowerPlanInventory {
   items: PowerPlan[];
   activeGuid: string | null;
+}
+
+export interface FullscreenOptimizationItem {
+  id: string;
+  exePath: string;
+  exists: boolean;
+  kind: string | null;
+  data: string | null;
+  /** Fullscreen optimizations are off for this program (current user). */
+  disabled: boolean;
+  /** Also turned off for all users, which Dialed does not change. */
+  disabledForAllUsers: boolean;
 }
 
 export interface GpuPreferenceItem {

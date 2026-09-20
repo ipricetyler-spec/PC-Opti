@@ -344,7 +344,18 @@ export function InputDevicesCenter() {
                 <p className="mt-2 text-[11px] text-slate-400">Counts describe detected changes, not unique controls or a complete device health test.</p>
               </div>
               <p role="status" className={`rounded-lg border p-3 text-xs leading-relaxed ${test.deliveryAssessment.status === 'BELOW_REQUEST_OBSERVED' ? 'border-amber-500/25 bg-amber-950/15 text-amber-100' : 'border-slate-700 bg-slate-900/50 text-slate-200'}`}>{test.deliveryAssessment.message}</p>
-              {(test.deliveryAssessment.channelAssessments?.length ?? 0) > 1 && test.deliveryAssessment.channelAssessments?.map((assessment) => <p key={assessment.channel} className="text-xs text-slate-300">{channelName(assessment.kind as InputTest['channels'][number]['kind'])}: {assessment.message}</p>)}
+              {/* Per-channel lines only when they say something the summary above did not. A
+                  composite device exposes several channels that often share one verdict, which
+                  repeated the same sentence two or three times in a row. */}
+              {(() => {
+                const seen = new Set([test.deliveryAssessment.message]);
+                const extra = (test.deliveryAssessment.channelAssessments ?? []).filter((assessment) => {
+                  if (seen.has(assessment.message)) return false;
+                  seen.add(assessment.message);
+                  return true;
+                });
+                return extra.map((assessment) => <p key={assessment.channel} className="text-xs text-slate-300">{channelName(assessment.kind as InputTest['channels'][number]['kind'])}: {assessment.message}</p>);
+              })()}
               {test.channels.map((channel) => <div data-technical-detail key={channel.channel} className="rounded-lg border border-slate-700 p-3">
                 <p className="text-xs font-semibold text-slate-200">{channelName(channel.kind)} channel {channel.channel} · {channel.samples} messages</p>
                 <p className="mt-1 text-sm text-cyan-200">{channel.eventHz === null ? 'More messages needed for a rate estimate' : `${channel.eventHz} Windows messages/s`}</p>

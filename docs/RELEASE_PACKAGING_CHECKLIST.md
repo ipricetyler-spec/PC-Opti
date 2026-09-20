@@ -65,15 +65,33 @@ Signing: every artifact is timestamped, so signatures remain valid after the cer
       `Valid`, signed by Tyler Price and timestamped by Microsoft's Public RSA Time Stamping
       Authority. PresentMon keeps Intel's own signature. `verify-private-candidate.cjs` now
       understands signed candidates and reports `SIGNED_PORTABLE_CANDIDATE`.
-- [ ] The installer's own TOCTOU protection (verified file renamed to a random name,
-      re-verified, then launched — `src/main/updater/index.cjs`) is implemented and
-      covered by fixture tests, but has never run against a real signed installer.
-      Exercise it once a signed build exists.
-- [ ] Leave `package.json` → `dialed.update` (feed URL, allowed installer hosts, Ed25519
-      manifest key, exact Authenticode publisher subject/thumbprint) empty until the
-      signing certificate is final — see [Verified updates](VERIFIED_UPDATES.md) for the
-      full order of operations. Populating them early would pin a false identity that a
-      later certificate change can't easily undo.
+- [~] The installer's own TOCTOU protection (verified file renamed to a random name,
+      re-verified, then launched — `src/main/updater/index.cjs`). Partly exercised on
+      2026-09-20 against the real signed installer: `readAuthenticode` reports `Valid` with the
+      right subject, thumbprint and Microsoft timestamp; `verifyInstallerFile` returns `VALID`
+      for the matching publisher and refuses a different thumbprint with the expected message.
+      The rename-and-launch half is still unexercised, because exercising it means running an
+      installer.
+- [ ] `package.json` → `dialed.update` stays empty, and signing did **not** unblock it.
+      **Thumbprint pinning is incompatible with Trusted Signing.** The updater requires an
+      exact 40-character SHA-1 thumbprint match (`src/main/updater/index.cjs`), but Trusted
+      Signing issues short-lived certificates — this account's expire about three days after
+      issue, and today's build is already the third certificate this week. Pinning today's
+      thumbprint would make the updater refuse every future release, and refuse it with a
+      message that reads like an attack rather than a rotation.
+
+      Decide before enabling updates:
+      1. **Pin the subject, not the thumbprint**, and additionally require the chain to
+         Microsoft's Trusted Signing root. Simplest, slightly weaker than a thumbprint pin.
+      2. **Carry the expected thumbprint per release in the update manifest**, which is already
+         Ed25519-signed by us, so the pin travels with the release it describes. Keeps
+         thumbprint-strength pinning and survives rotation; more moving parts.
+      3. Keep the current pin and re-release the app on every certificate rotation. Impractical
+         at a three-day cadence.
+
+      Option 2 is the recommendation. Until this is decided, updates remain disabled, which is
+      the safe state. The feed URL, allowed hosts and Ed25519 manifest key are still unknown
+      independently of this, since nothing is published yet.
 
 ## Installer
 

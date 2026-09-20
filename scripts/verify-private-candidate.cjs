@@ -13,7 +13,13 @@ const root = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const productName = String(packageJson.build?.productName || packageJson.name || '').trim();
 const version = String(packageJson.version || '').trim();
-const directory = path.resolve(root, process.argv[2] || 'dist-electron-current-source');
+// No default. This verifier used to fall back to a fixed folder name, which let it pass over a
+// weeks-old build while the reader believed the current one had been checked. The candidate must
+// be named every time.
+if (!process.argv[2]) {
+  throw new Error('Name the candidate directory to verify, for example: node scripts/verify-private-candidate.cjs dist-electron');
+}
+const directory = path.resolve(root, process.argv[2]);
 const portableName = `${productName} ${version}.exe`;
 const portable = path.join(directory, portableName);
 const unpacked = path.join(directory, 'win-unpacked', `${productName}.exe`);

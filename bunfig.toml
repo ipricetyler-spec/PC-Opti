@@ -1,0 +1,6 @@
+# `bun test` with no path walks the whole working tree, including the build snapshots kept under
+# output/. Those hold copies of older source whose imports no longer resolve, so a bare run failed
+# with dozens of errors that had nothing to do with the current code. Rooting the test runner at
+# tests/ keeps a bare `bun test` honest.
+[test]
+root = "tests"

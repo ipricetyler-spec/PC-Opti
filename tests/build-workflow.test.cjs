@@ -20,7 +20,8 @@ test('release manifest labels unsigned packages and deferred monetization truthf
 
 test('private candidate verifier is read-only toward the host and pins bundled driver payloads', () => {
   const source = fs.readFileSync(path.join(__dirname, '../scripts/verify-private-candidate.cjs'), 'utf8');
-  assert.match(source, /dist-electron-current-source/);
+  assert.match(source, /Name the candidate directory to verify/, 'the candidate directory must be named, never defaulted');
+  assert.doesNotMatch(source, /process\.argv\[2\] \|\|/, 'a default would let this verify a stale build while reporting success');
   assert.match(source, /Get-AuthenticodeSignature/);
   assert.match(source, /Only the exact reviewed upstream resource payload may be bundled/);
   assert.match(source, /verifyBundledInventory\(hidusbfRoot, \{ packaged: true \}\)/);

@@ -122,10 +122,14 @@ directory:
 This closed the earlier finding that an always-elevated app could install to a
 user-writable, user-chosen directory. What's still open:
 
-- [ ] **Not yet verified on a real build.** The per-machine change is reasoned from
-      electron-builder's NSIS templates, not from an observed install — run it on a real
-      machine and confirm the install actually lands per-machine, in the fixed directory,
-      with no prompt to change it.
+- [x] **Verified on a real signed build (2026-09-20).** The installer ran per-machine into
+      `C:\Program Files\Dialed` with no prompt to change the directory. UAC showed
+      "Verified publisher: Tyler Price" for both the installer and the installed
+      `Dialed.exe`; the certificate is issued by "Microsoft ID Verified CS EOC CA 03".
+      **Smart App Control logged nothing at all** — no Code Integrity events during the whole
+      install, where the unsigned build had blocked the uninstaller twice. The installed
+      uninstaller is itself `Valid / Tyler Price`. No SmartScreen prompt appeared, which is
+      better than expected for a certificate with no reputation history.
 - [ ] Verify install, upgrade (same version and a version bump), and uninstall leave no
       orphaned files, registry keys, shortcuts, or protected-data folder in an
       inconsistent state.

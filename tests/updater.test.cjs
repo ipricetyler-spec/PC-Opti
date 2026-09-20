@@ -22,7 +22,7 @@ function fixtureTrust() {
   return { privateKey, trust: updater.normalizeUpdateTrust(trust) };
 }
 
-function signedManifest(privateKey, trust, installerBytes = Buffer.from('fixture installer bytes'), version = '2.8.0') {
+function signedManifest(privateKey, trust, installerBytes = Buffer.from('fixture installer bytes'), version = '2.8.0', signerThumbprint = trust.publisherThumbprint) {
   const fileName = `Dialed Setup ${version}.exe`;
   const payload = {
     product: 'Dialed',
@@ -37,7 +37,7 @@ function signedManifest(privateKey, trust, installerBytes = Buffer.from('fixture
         sizeBytes: installerBytes.length,
         sha256: crypto.createHash('sha256').update(installerBytes).digest('hex'),
         signerSubject: trust.publisherSubject,
-        signerThumbprint: trust.publisherThumbprint,
+        signerThumbprint,
       },
     },
   };
@@ -54,9 +54,11 @@ test('update trust is explicitly unavailable until every release-owned value exi
   const result = updater.normalizeUpdateTrust({ channel: 'stable' });
   assert.equal(result.status, 'UNCONFIGURED');
   assert.equal(result.configured, false);
+  // publisherThumbprint is not required: with a rotating signing certificate it belongs in the
+  // signed manifest, per release, not pinned once at build time.
   assert.deepEqual(result.missingFields, [
     'feedUrl', 'manifestKeyId', 'manifestPublicKeySpkiBase64',
-    'publisherSubject', 'publisherThumbprint', 'allowedInstallerHosts',
+    'publisherSubject', 'allowedInstallerHosts',
   ]);
 });
 
@@ -233,4 +235,48 @@ test('production update request refuses private resolution before opening HTTPS'
     httpsRequest: () => { requests += 1; },
   }), /private address blocked/);
   assert.equal(requests, 0);
+});
+
+// A rotating signing certificate is the normal case for Azure Trusted Signing: the account used
+// for Dialed issues certificates that expire in about three days. These tests pin the behaviour
+// that makes rotation survivable without weakening what is checked.
+test('a release signed by a rotated certificate is accepted, and the manifest states which one', () => {
+  const { privateKey, trust } = fixtureTrust();
+  const rotated = { ...trust, publisherThumbprint: '' };
+  const manifest = signedManifest(privateKey, rotated, Buffer.from('fixture installer bytes'), '2.9.0', 'AABBCCDDEEFF00112233445566778899AABBCCDD');
+  const result = updater.verifyUpdateManifest(manifest, updater.normalizeUpdateTrust({ ...rotated }));
+  assert.equal(result.version, '2.9.0');
+  assert.equal(result.installer.signerThumbprint, 'AABBCCDDEEFF00112233445566778899AABBCCDD', 'the thumbprint travels with the release');
+});
+
+test('a manifest without a usable certificate thumbprint is refused', () => {
+  const { privateKey, trust } = fixtureTrust();
+  const open = updater.normalizeUpdateTrust({ ...trust, publisherThumbprint: '' });
+  for (const bad of ['', 'not-a-thumbprint', 'AABB']) {
+    assert.throws(
+      () => updater.verifyUpdateManifest(signedManifest(privateKey, open, Buffer.from('fixture installer bytes'), '2.9.0', bad), open),
+      /valid installer certificate thumbprint/,
+      `accepted a manifest whose thumbprint was ${JSON.stringify(bad)}`,
+    );
+  }
+});
+
+test('a build-time pinned thumbprint still overrides the manifest when one is configured', () => {
+  const { privateKey, trust } = fixtureTrust();
+  assert.throws(
+    () => updater.verifyUpdateManifest(signedManifest(privateKey, trust, Buffer.from('fixture installer bytes'), '2.9.0', 'AABBCCDDEEFF00112233445566778899AABBCCDD'), trust),
+    /does not match the build-time trust value/,
+  );
+});
+
+test('the publisher name stays pinned at build time, whatever the manifest claims', () => {
+  const { privateKey, trust } = fixtureTrust();
+  const open = updater.normalizeUpdateTrust({ ...trust, publisherThumbprint: '' });
+  const manifest = JSON.parse(signedManifest(privateKey, open).toString('utf8'));
+  const payload = JSON.parse(Buffer.from(manifest.signed, 'base64').toString('utf8'));
+  payload.release.installer.signerSubject = 'CN=Someone Else, O=Not Dialed, C=US';
+  const bytes = Buffer.from(JSON.stringify(payload), 'utf8');
+  manifest.signed = bytes.toString('base64');
+  manifest.signature = { algorithm: 'Ed25519', keyId: open.manifestKeyId, value: crypto.sign(null, bytes, privateKey).toString('base64') };
+  assert.throws(() => updater.verifyUpdateManifest(Buffer.from(JSON.stringify(manifest), 'utf8'), open), /publisher subject does not match/);
 });

@@ -72,26 +72,27 @@ Signing: every artifact is timestamped, so signatures remain valid after the cer
       for the matching publisher and refuses a different thumbprint with the expected message.
       The rename-and-launch half is still unexercised, because exercising it means running an
       installer.
-- [ ] `package.json` → `dialed.update` stays empty, and signing did **not** unblock it.
-      **Thumbprint pinning is incompatible with Trusted Signing.** The updater requires an
-      exact 40-character SHA-1 thumbprint match (`src/main/updater/index.cjs`), but Trusted
-      Signing issues short-lived certificates — this account's expire about three days after
-      issue, and today's build is already the third certificate this week. Pinning today's
-      thumbprint would make the updater refuse every future release, and refuse it with a
-      message that reads like an attack rather than a rotation.
+- [x] **Certificate rotation is handled (2026-09-20).** The updater used to demand an exact
+      SHA-1 thumbprint pinned at build time, which is incompatible with Trusted Signing: this
+      account's certificates expire about three days after issue, so the pin would have refused
+      every future release, with a message that reads like an attack rather than a rotation.
 
-      Decide before enabling updates:
-      1. **Pin the subject, not the thumbprint**, and additionally require the chain to
-         Microsoft's Trusted Signing root. Simplest, slightly weaker than a thumbprint pin.
-      2. **Carry the expected thumbprint per release in the update manifest**, which is already
-         Ed25519-signed by us, so the pin travels with the release it describes. Keeps
-         thumbprint-strength pinning and survives rotation; more moving parts.
-      3. Keep the current pin and re-release the app on every certificate rotation. Impractical
-         at a three-day cadence.
+      The expected thumbprint now travels **per release inside the update manifest**, which
+      Dialed signs with its own Ed25519 key and verifies before reading. So the release states
+      which certificate signed it, and rotation is normal rather than suspicious. What did not
+      change: the publisher **name** is still pinned at build time, the manifest signature is
+      still required, a manifest that states no usable thumbprint is refused, and a build-time
+      pinned thumbprint — for a deployment using one long-lived certificate — is still enforced
+      when set. The running executable is now held to the pinned name plus a valid, timestamped
+      signature, because its own certificate has usually rotated by the time an update appears.
 
-      Option 2 is the recommendation. Until this is decided, updates remain disabled, which is
-      the safe state. The feed URL, allowed hosts and Ed25519 manifest key are still unknown
-      independently of this, since nothing is published yet.
+      `scripts/generate-update-feed.cjs` records the certificate that actually signed the
+      installer instead of copying the pinned value.
+
+- [ ] `package.json` → `dialed.update` is still empty, now only for want of published
+      infrastructure: the feed URL, the allowed installer hosts and the Ed25519 manifest key
+      pair. `publisherSubject` is known — `CN=Tyler Price, O=Tyler Price, L=Lewisburg, S=tn,
+      C=US` — and `publisherThumbprint` should be left empty on purpose.
 
 ## Installer
 

@@ -60,11 +60,18 @@ function main() {
   if (!signatureCheck.valid) throw new Error(`SignTool did not validate the installer: ${signatureCheck.error}`);
   const authenticode = readAuthenticode(installerPath);
   const thumbprint = String(authenticode.signerThumbprint || '').replace(/[^a-f0-9]/gi, '').toUpperCase();
+  // The publisher name and a timestamp are required. The thumbprint is recorded rather than
+  // compared, because Trusted Signing rotates certificates every few days: the manifest states
+  // which certificate signed this release, and the app checks the installer against that.
+  // A build-time pinned thumbprint, when one is configured, is still enforced.
   if (String(authenticode.status).toLowerCase() !== 'valid'
     || authenticode.signerSubject !== trust.publisherSubject
-    || thumbprint !== trust.publisherThumbprint
     || !authenticode.timestampSubject) {
-    throw new Error('Installer Authenticode publisher, thumbprint or timestamp does not match the pinned update trust.');
+    throw new Error('Installer Authenticode publisher or timestamp does not match the pinned update trust.');
+  }
+  if (!/^[A-F0-9]{40}$/.test(thumbprint)) throw new Error('Installer has no usable certificate thumbprint to record in the manifest.');
+  if (trust.publisherThumbprint && thumbprint !== trust.publisherThumbprint) {
+    throw new Error('Installer certificate thumbprint does not match the pinned update trust.');
   }
 
   const installerUrl = requiredEnvironment('DIALED_UPDATE_INSTALLER_URL');
@@ -82,7 +89,7 @@ function main() {
         sizeBytes: fs.statSync(installerPath).size,
         sha256: sha256(installerPath),
         signerSubject: trust.publisherSubject,
-        signerThumbprint: trust.publisherThumbprint,
+        signerThumbprint: thumbprint,
       },
     },
   };

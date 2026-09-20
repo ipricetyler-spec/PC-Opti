@@ -73,7 +73,12 @@ function normalizeUpdateTrust(raw = {}) {
   if (!values.manifestKeyId) missingFields.push('manifestKeyId');
   if (!values.manifestPublicKeySpkiBase64) missingFields.push('manifestPublicKeySpkiBase64');
   if (!values.publisherSubject) missingFields.push('publisherSubject');
-  if (!values.publisherThumbprint) missingFields.push('publisherThumbprint');
+  // publisherThumbprint is deliberately optional. Trusted Signing issues short-lived
+  // certificates - days, not years - so a thumbprint pinned at build time would refuse every
+  // later release as if it were an attack. The expected thumbprint travels per release inside
+  // the update manifest instead, which Dialed signs with its own key and verifies before use.
+  // Setting it here is still honoured, for a deployment that signs with one long-lived
+  // certificate and wants the stricter pin.
   if (!values.allowedInstallerHosts.length) missingFields.push('allowedInstallerHosts');
   if (missingFields.length) {
     return { status: 'UNCONFIGURED', configured: false, missingFields, errors: [], feedHost: '', ...values };
@@ -84,7 +89,7 @@ function normalizeUpdateTrust(raw = {}) {
   try { feedHost = safeHttpsUrl(values.feedUrl, 'Update feed URL').hostname.toLowerCase(); } catch (error) { errors.push(error.message); }
   if (!/^[a-z0-9][a-z0-9._-]{2,63}$/i.test(values.manifestKeyId)) errors.push('Manifest key id is invalid.');
   if (values.channel !== 'stable') errors.push('Only the stable update channel is supported in this build.');
-  if (!/^[A-F0-9]{40}$/.test(values.publisherThumbprint)) errors.push('Publisher thumbprint must be a 40-character SHA-1 certificate thumbprint.');
+  if (values.publisherThumbprint && !/^[A-F0-9]{40}$/.test(values.publisherThumbprint)) errors.push('Publisher thumbprint must be a 40-character SHA-1 certificate thumbprint.');
   if (values.allowedInstallerHosts.some((host) => !/^[a-z0-9.-]+$/i.test(host) || host.startsWith('.') || host.endsWith('.'))) {
     errors.push('One or more installer hosts are invalid.');
   }
@@ -146,7 +151,12 @@ function validateSignedPayload(payload, trust) {
   const sha256 = cleanText(installer.sha256).toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('Installer SHA-256 is invalid.');
   if (cleanText(installer.signerSubject) !== trust.publisherSubject) throw new Error('Signed installer publisher subject does not match the build-time trust value.');
-  if (normalizeThumbprint(installer.signerThumbprint) !== trust.publisherThumbprint) throw new Error('Signed installer publisher thumbprint does not match the build-time trust value.');
+  // The publisher name stays pinned at build time. The certificate thumbprint comes from this
+  // manifest, whose signature has already been verified against the build-time manifest key, so
+  // the release states which certificate signed it and rotation does not look like tampering.
+  const signerThumbprint = normalizeThumbprint(installer.signerThumbprint);
+  if (!/^[A-F0-9]{40}$/.test(signerThumbprint)) throw new Error('Signed update payload does not state a valid installer certificate thumbprint.');
+  if (trust.publisherThumbprint && signerThumbprint !== trust.publisherThumbprint) throw new Error('Signed installer publisher thumbprint does not match the build-time trust value.');
   let notesUrl = '';
   if (release.notesUrl) notesUrl = safeHttpsUrl(release.notesUrl, 'Release notes URL').toString();
   return {
@@ -155,7 +165,7 @@ function validateSignedPayload(payload, trust) {
     notesUrl,
     installer: {
       url: installerUrl.toString(), fileName, sizeBytes, sha256,
-      signerSubject: trust.publisherSubject, signerThumbprint: trust.publisherThumbprint,
+      signerSubject: trust.publisherSubject, signerThumbprint,
     },
   };
 }
@@ -311,9 +321,9 @@ async function verifyInstallerFile(filePath, release, trust, updateRoot, depende
   const signature = await (dependencies.readAuthenticode || readAuthenticode)(filePath, dependencies);
   if (cleanText(signature.status).toLowerCase() !== 'valid') throw new Error('Windows does not report the downloaded installer signature as Valid.');
   if (cleanText(signature.signerSubject) !== trust.publisherSubject) throw new Error('Downloaded installer publisher subject does not match the pinned publisher.');
-  if (normalizeThumbprint(signature.signerThumbprint) !== trust.publisherThumbprint) throw new Error('Downloaded installer certificate thumbprint does not match the pinned publisher.');
+  if (normalizeThumbprint(signature.signerThumbprint) !== normalizeThumbprint(release.installer.signerThumbprint)) throw new Error('Downloaded installer certificate thumbprint does not match the one stated in the signed manifest.');
   if (!cleanText(signature.timestampSubject)) throw new Error('Downloaded installer has no Authenticode timestamp evidence.');
-  return { status: 'VALID', signerSubject: trust.publisherSubject, signerThumbprint: trust.publisherThumbprint, timestampSubject: cleanText(signature.timestampSubject) };
+  return { status: 'VALID', signerSubject: trust.publisherSubject, signerThumbprint: normalizeThumbprint(release.installer.signerThumbprint), timestampSubject: cleanText(signature.timestampSubject) };
 }
 
 function atomicWriteJson(filePath, value, fileSystem = fs) {
@@ -347,9 +357,12 @@ function createUpdaterService(options, dependencies = {}) {
 
   async function assertRunningPublisher() {
     const signature = await (dependencies.readAuthenticode || readAuthenticode)(options.runningExecutablePath, dependencies);
+    // This build's own certificate has usually rotated by the time an update is offered, so the
+    // running executable is held to the pinned publisher name, a valid signature and a timestamp
+    // - not to one certificate. A pinned thumbprint, when configured, still applies.
     if (cleanText(signature.status).toLowerCase() !== 'valid'
       || cleanText(signature.signerSubject) !== trust.publisherSubject
-      || normalizeThumbprint(signature.signerThumbprint) !== trust.publisherThumbprint
+      || (trust.publisherThumbprint && normalizeThumbprint(signature.signerThumbprint) !== trust.publisherThumbprint)
       || !cleanText(signature.timestampSubject)) {
       throw new Error('The running Dialed executable does not match the pinned, timestamped publisher identity; update access was blocked.');
     }

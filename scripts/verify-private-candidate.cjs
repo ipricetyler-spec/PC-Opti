@@ -86,7 +86,7 @@ const nativeExecutables = ['Dialed.HidusbfBroker.exe', 'Dialed.HidusbfHost.exe']
 const inspectedPaths = [portable, unpacked, presentMon, ...nativeExecutables];
 const powerShell = `@(${inspectedPaths.map(quotePowerShell).join(',')}) | ForEach-Object { `
   + `$item = Get-Item -LiteralPath $_; $signature = Get-AuthenticodeSignature -LiteralPath $_; `
-  + `[pscustomobject]@{ path = $_; fileVersion = [string]$item.VersionInfo.FileVersion; productVersion = [string]$item.VersionInfo.ProductVersion; status = [string]$signature.Status } `
+  + `[pscustomobject]@{ path = $_; fileVersion = [string]$item.VersionInfo.FileVersion; productVersion = [string]$item.VersionInfo.ProductVersion; status = [string]$signature.Status; subject = [string]$signature.SignerCertificate.Subject; thumbprint = [string]$signature.SignerCertificate.Thumbprint; timestamped = [bool]$signature.TimeStamperCertificate } `
   + `} | ConvertTo-Json -Compress`;
 const rawInspection = JSON.parse(childProcess.execFileSync('pwsh.exe', [
   '-NoProfile', '-NonInteractive', '-Command', powerShell,
@@ -97,10 +97,25 @@ const portableInspection = inspectionFor(portable);
 const unpackedInspection = inspectionFor(unpacked);
 const presentMonInspection = inspectionFor(presentMon);
 assert.ok(portableInspection && unpackedInspection && presentMonInspection, 'Authenticode inspection was incomplete.');
-assert.equal(portableInspection.status, 'NotSigned', 'Private portable unexpectedly has an Authenticode signature.');
-assert.equal(unpackedInspection.status, 'NotSigned', 'Private unpacked app unexpectedly has an Authenticode signature.');
+// A candidate may be unsigned (a private source build) or signed, but never a mixture, and a
+// signature that is present must be valid and timestamped - an expiring certificate would
+// otherwise silently invalidate the build later. Dialed's own files must all agree.
+const dialedOwn = [portable, unpacked, ...nativeExecutables];
+const ownStatuses = [...new Set(dialedOwn.map((file) => inspectionFor(file)?.status))];
+assert.equal(ownStatuses.length, 1, `Candidate mixes signed and unsigned files: ${ownStatuses.join(', ')}`);
+const [signatureStatus] = ownStatuses;
+assert.ok(signatureStatus === 'NotSigned' || signatureStatus === 'Valid', `Unexpected Authenticode status: ${signatureStatus}`);
+const signed = signatureStatus === 'Valid';
+if (signed) {
+  const publishers = [...new Set(dialedOwn.map((file) => inspectionFor(file)?.subject))];
+  assert.equal(publishers.length, 1, `Signed candidate uses more than one publisher: ${publishers.join(' | ')}`);
+  for (const file of dialedOwn) {
+    assert.ok(inspectionFor(file)?.timestamped, `Signed file is not timestamped, so its signature dies with the certificate: ${file}`);
+  }
+  const expected = String(process.env.DIALED_EXPECTED_PUBLISHER || '').trim();
+  if (expected) assert.equal(publishers[0], expected, 'Signed candidate publisher is not the expected one.');
+}
 assert.equal(presentMonInspection.status, 'Valid', 'Pinned PresentMon signature is not valid.');
-for (const native of nativeExecutables) assert.equal(inspectionFor(native)?.status, 'NotSigned', 'Native private source build unexpectedly signed.');
 assert.ok(portableInspection.fileVersion.startsWith(version), 'Portable file version drifted.');
 assert.ok(portableInspection.productVersion.startsWith(version), 'Portable product version drifted.');
 
@@ -130,8 +145,16 @@ const nativeBuild = JSON.parse(fs.readFileSync(path.join(nativeRoot, 'BUILD_MANI
 assert.equal(nativeBuild.status, 'UNSIGNED_UNCONFIGURED_SOURCE_BUILD');
 assert.equal(nativeBuild.executed, false); assert.equal(nativeBuild.signed, false); assert.equal(nativeBuild.physicalAcceptance, false);
 for (const source of nativeBuild.sources) assert.equal(hashFile(path.join(root, source.file)), source.sha256, `Native source changed after build: ${source.file}`);
+// Signing appends to an executable, so a signed packaged helper cannot match the digest its
+// build manifest recorded. Check the digest against the unsigned build output the manifest
+// describes, and let the Authenticode checks above cover the packaged copies.
+const nativeDigestRoot = signed ? path.join(root, 'output', 'hidusbf-native') : nativeRoot;
 for (const artifact of nativeBuild.artifacts) {
-  assert.equal(hashFile(path.join(nativeRoot, artifact.file)), artifact.sha256);
+  assert.equal(
+    hashFile(path.join(nativeDigestRoot, artifact.file)),
+    artifact.sha256,
+    `Native helper differs from its build manifest: ${artifact.file}`,
+  );
 }
 const bundleInventory = JSON.parse(fs.readFileSync(path.join(hidusbfRoot, 'inventory.json'), 'utf8'));
 const expectedDriverPayloads = bundleInventory.files.filter((file) => file.selected && /\.(?:inf|sys|cat)$/i.test(file.path)).map((file) => path.join(hidusbfRoot, 'payload', ...file.path.split('/'))).sort();
@@ -165,7 +188,8 @@ const report = {
   product: productName,
   version,
   generatedAt: new Date().toISOString(),
-  status: 'UNSIGNED_PRIVATE_PORTABLE_CANDIDATE',
+  status: signed ? 'SIGNED_PORTABLE_CANDIDATE' : 'UNSIGNED_PRIVATE_PORTABLE_CANDIDATE',
+  publisher: signed ? portableInspection.subject : null,
   artifact,
   unpackedExecutable,
   archive: archiveEvidence,

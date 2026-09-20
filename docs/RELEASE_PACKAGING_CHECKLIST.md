@@ -10,13 +10,43 @@ substitute for the owner's own sign-off.
 ## Signing
 
 `scripts/windows-signing.cjs` supports two signing paths, both invoked through
-`scripts/electron-builder-sign.cjs` during `electron-builder` packaging. Neither is
-configured yet — packaged builds today are intentionally unsigned.
+`scripts/electron-builder-sign.cjs` during `electron-builder` packaging. The Azure Trusted
+Signing path is configured and working; the local PFX path remains unused.
 
-- [ ] Choose a path and set `DIALED_ENABLE_SIGNING=true`. In CI, also set
+**Done on 2026-09-20: the app is signed with Azure Trusted Signing.** Publisher
+`CN=Tyler Price, O=Tyler Price, L=Lewisburg, S=tn, C=US`, from the PublicTrust profile
+`gpc-owner-beta-publictrust` on account `gpcownersign260808`. Working invocation:
+
+```
+$env:PATH = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin;" + $env:PATH
+$env:DIALED_ENABLE_SIGNING = "true"
+$env:DIALED_SIGNING_REQUIRED = "true"
+$env:DIALED_ARTIFACT_SIGNING_ENDPOINT = "https://eus.codesigning.azure.net/"
+$env:DIALED_ARTIFACT_SIGNING_ACCOUNT = "gpcownersign260808"
+$env:DIALED_ARTIFACT_SIGNING_PROFILE = "gpc-owner-beta-publictrust"
+$env:DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS = "SharedTokenCacheCredential"
+npx --no-install electron-builder --win nsis portable
+```
+
+Three things that cost an hour and will again if forgotten:
+
+1. **`ExcludeCredentials` is mandatory here.** The signing library walks Azure's default
+   credential chain, whose first entry, `SharedTokenCacheCredential`, throws
+   "Windows Data Protection API (DPAPI) is not supported on this platform" and aborts the
+   whole chain before reaching the Azure CLI login. Excluding it is what makes signing work.
+2. **`az` must be on PATH in the Windows sense.** Git Bash paths (`/c/Program Files/...`) are
+   not resolvable by signtool's child process, and a freshly installed CLI is not on PATH in
+   already-open shells. Run the signed build from PowerShell with the wbin directory prepended.
+3. **Sign in to the right tenant**: `az login --tenant itachiuchiha136yahoo.onmicrosoft.com`.
+   A plain `az login` landed in a tenant with no subscriptions.
+
+Certificates from this profile are short-lived (about three days), which is normal for Trusted
+Signing: every artifact is timestamped, so signatures remain valid after the certificate expires.
+
+- [x] Choose a path and set `DIALED_ENABLE_SIGNING=true`. In CI, also set
       `DIALED_SIGNING_REQUIRED=true` so a misconfigured run fails instead of quietly
       producing an unsigned artifact.
-- [ ] **Azure Trusted Signing** ("Artifact Signing"): set `DIALED_ARTIFACT_SIGNING_ENDPOINT`,
+- [x] **Azure Trusted Signing** ("Artifact Signing"): set `DIALED_ARTIFACT_SIGNING_ENDPOINT`,
       `DIALED_ARTIFACT_SIGNING_ACCOUNT`, and `DIALED_ARTIFACT_SIGNING_PROFILE` (or point
       `DIALED_ARTIFACT_SIGNING_METADATA_PATH` at a prepared metadata JSON file instead),
       and make sure the Azure Code Signing client library is present — the default path is
@@ -25,12 +55,16 @@ configured yet — packaged builds today are intentionally unsigned.
 - [ ] **Local PFX** (the alternative path): set `DIALED_CODESIGN_PFX_PATH` and
       `DIALED_CODESIGN_PFX_PASSWORD`. Both must point outside the repository and outside
       any cloud-synced folder.
-- [ ] Confirm `signtool.exe` resolves — either set `DIALED_CODESIGN_TOOL_PATH` explicitly,
+- [x] Confirm `signtool.exe` resolves — either set `DIALED_CODESIGN_TOOL_PATH` explicitly,
       or confirm a Windows 10 SDK is installed so the script finds it under
       `%ProgramFiles(x86)%\Windows Kits\10\bin`.
-- [ ] Build, sign, and then **independently** verify the signature and timestamp on all
+- [x] Build, sign, and then **independently** verify the signature and timestamp on all
       three artifacts electron-builder produces — the NSIS installer, the portable
-      executable, and the unpacked app — not just that the build exited 0.
+      executable, and the unpacked app — not just that the build exited 0. Done 2026-09-20:
+      installer, portable, unpacked app, both HIDUSBF helpers and `elevate.exe` all report
+      `Valid`, signed by Tyler Price and timestamped by Microsoft's Public RSA Time Stamping
+      Authority. PresentMon keeps Intel's own signature. `verify-private-candidate.cjs` now
+      understands signed candidates and reports `SIGNED_PORTABLE_CANDIDATE`.
 - [ ] The installer's own TOCTOU protection (verified file renamed to a random name,
       re-verified, then launched — `src/main/updater/index.cjs`) is implemented and
       covered by fixture tests, but has never run against a real signed installer.

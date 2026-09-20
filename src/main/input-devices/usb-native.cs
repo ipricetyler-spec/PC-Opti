@@ -431,6 +431,8 @@ namespace Dialed.Input {
     [DllImport("user32.dll",SetLastError=true)] static extern bool RegisterRawInputDevices(RawDevice[] devices,uint count,uint size);
     [DllImport("user32.dll",SetLastError=true)] static extern uint GetRawInputData(IntPtr input,uint command,IntPtr data,ref uint size,uint headerSize);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window,int command);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr window,StringBuilder text,int count);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window,out uint processId);
     [DllImport("user32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern uint GetRawInputDeviceInfo(IntPtr device,uint command,StringBuilder data,ref uint size);
@@ -462,7 +464,8 @@ namespace Dialed.Input {
     readonly Label feedback=new Label { Dock=DockStyle.Bottom, Height=70, TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
     readonly Stopwatch clock=Stopwatch.StartNew();
     int sampleCount, reportCount;
-    bool started, completed, focusLost, connectionLost;
+    bool started, completed, focusLost, connectionLost, foregroundRefused;
+    int foreignTicks;
     string focusTaker="";
     string ResolveName(IntPtr handle) {
       string id; if(names.TryGetValue(handle,out id)) return id;
@@ -488,6 +491,10 @@ namespace Dialed.Input {
       for(int i=0;i<count;i++) { var item=handles[i]; string id=ResolveName(item.handle); if(!allowed.Contains(id)) continue; selectedHandles.Add(item.handle); if(item.type==1) { keyboardIds.Add(id); keyboard=true; } else if(item.type==0) mouse=true; else controller=true; }
       if(ids.Length>0 && selectedHandles.Count==0) throw new InvalidOperationException("Selected input handles disappeared. Rescan first.");
       Text="Dialed input activity check - keep this window focused";
+      // Dialed's own window is usually maximised behind this one. Without TopMost the check
+      // window opens behind it: invisible, so the first click lands on Dialed and cancels
+      // the check. ShowInTaskbar keeps a way back to it if anything still covers it.
+      TopMost=true; ShowInTaskbar=true;
       Width=700; Height=340; StartPosition=FormStartPosition.CenterScreen;
       BackColor=System.Drawing.Color.FromArgb(16,22,34); ForeColor=System.Drawing.Color.WhiteSmoke;
       Font=new System.Drawing.Font("Segoe UI",10); Padding=new Padding(16);
@@ -495,8 +502,24 @@ namespace Dialed.Input {
       var instructions=new Label { Dock=DockStyle.Fill, Text=Instructions(mouse,keyboard,controller), TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
       Controls.Add(instructions); Controls.Add(feedback);
       UpdateFeedback();
-      Shown+=(sender,args)=>{ Activate(); clock.Restart(); started=true; };
-      Deactivate+=(sender,args)=>{ if(started && !completed) { focusLost=true; focusTaker=DescribeForeground(); Close(); } };
+      // A background process cannot simply take the foreground, so ask for it explicitly and
+      // only start the clock once this window actually holds it. Starting while Dialed still
+      // owned the foreground is what made the check die on the reader's first click.
+      Shown+=(sender,args)=>{
+        // Dialed starts this process with the console hidden, and Windows applies that same
+        // hide flag to the first top-level window the process creates - this one. WinForms
+        // then reports Visible=true for a window Windows never draws, so the check ran
+        // invisibly and every click went to whatever was behind it. SW_SHOWNORMAL undoes it.
+        ShowWindow(Handle,1);
+        Activate(); BringToFront(); SetForegroundWindow(Handle);
+        for(int attempt=0; attempt<20 && GetForegroundWindow()!=Handle; attempt++) { Application.DoEvents(); System.Threading.Thread.Sleep(25); SetForegroundWindow(Handle); }
+        if(GetForegroundWindow()!=Handle) { foregroundRefused=true; Close(); return; }
+        clock.Restart(); started=true;
+      };
+      // Deactivation alone does not mean the reader switched away: Windows also reports it
+      // while the foreground is changing hands, when no window owns it at all. Record who has
+      // it and let the timer decide, so a momentary transition cannot end a valid check.
+      Deactivate+=(sender,args)=>{ if(started && !completed) focusTaker=DescribeForeground(); };
       var list=new List<RawDevice>();
       // Read headers first; only exact selected-device payloads reach the decoder.
       // Foreground registration avoids Windows background raw-mouse throttling.
@@ -571,7 +594,17 @@ namespace Dialed.Input {
           timer.Interval=50;
           timer.Tick+=(sender,args)=>{
             if(!window.started) return;
-            if(GetForegroundWindow()!=window.Handle) { window.focusLost=true; if(window.focusTaker.Length==0) window.focusTaker=DescribeForeground(); window.Close(); return; }
+            // A null foreground means the foreground is in transition and belongs to nobody;
+            // that is not the reader switching away. Only a window that is not ours, and
+            // keeps the foreground across three ticks (about 150ms), ends the check. One
+            // attempt is made to take it back first.
+            IntPtr foreground=GetForegroundWindow();
+            if(foreground==IntPtr.Zero || foreground==window.Handle) window.foreignTicks=0;
+            else {
+              window.foreignTicks++;
+              if(window.foreignTicks==1) { window.focusTaker=DescribeForeground(); SetForegroundWindow(window.Handle); }
+              if(window.foreignTicks>=3) { window.focusLost=true; window.Close(); return; }
+            }
             window.UpdateFeedback();
             if(window.clock.Elapsed.TotalSeconds>=8) { window.completed=true; window.Close(); }
           };
@@ -579,6 +612,7 @@ namespace Dialed.Input {
           Application.Run(window);
           timer.Stop();
         }
+        if(window.foregroundRefused) throw new InvalidOperationException("The check window could not come to the front, so nothing was measured. Minimize other windows and try again.");
         if(window.focusLost) throw new InvalidOperationException("The capture window lost focus, so the check stopped. "+(window.focusTaker.Length>0?"Focus went to "+window.focusTaker+". ":"")+"Close or quiet whatever took focus, then run the check again and keep the capture window in front.");
         if(window.connectionLost) throw new InvalidOperationException("An input connection was removed during the check. Rescan and try again; results were discarded.");
         if(!window.completed) throw new InvalidOperationException("Input check canceled or sample limit reached. No cadence result was accepted.");

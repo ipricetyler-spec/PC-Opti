@@ -2,5 +2,9 @@
 # output/. Those hold copies of older source whose imports no longer resolve, so a bare run failed
 # with dozens of errors that had nothing to do with the current code. Rooting the test runner at
 # tests/ keeps a bare `bun test` honest.
+#
+# Note that a bare `bun test` also picks up the .cjs tests, which are written for Node and fail
+# under bun for unrelated reasons (no pwsh on its PATH, a deliberate "must not run" guard). Bun
+# owns the TypeScript tests: run `npm run test:ts`. Node owns the rest: `npm test`.
 [test]
 root = "tests"

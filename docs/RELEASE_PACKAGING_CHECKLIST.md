@@ -52,9 +52,10 @@ Signing: every artifact is timestamped, so signatures remain valid after the cer
       and make sure the Azure Code Signing client library is present — the default path is
       `%LOCALAPPDATA%\Microsoft\MicrosoftArtifactSigningClientTools\Azure.CodeSigning.Dlib.dll`,
       overridable with `DIALED_ARTIFACT_SIGNING_DLIB_PATH`.
-- [ ] **Local PFX** (the alternative path): set `DIALED_CODESIGN_PFX_PATH` and
-      `DIALED_CODESIGN_PFX_PASSWORD`. Both must point outside the repository and outside
-      any cloud-synced folder.
+- [–] **Local PFX** (the alternative path): not used and not needed, now that Azure Trusted
+      Signing works. Kept in the code for a future deployment that has a PFX instead. If it is
+      ever used, `DIALED_CODESIGN_PFX_PATH` and `DIALED_CODESIGN_PFX_PASSWORD` must point
+      outside the repository and outside any cloud-synced folder.
 - [x] Confirm `signtool.exe` resolves — either set `DIALED_CODESIGN_TOOL_PATH` explicitly,
       or confirm a Windows 10 SDK is installed so the script finds it under
       `%ProgramFiles(x86)%\Windows Kits\10\bin`.
@@ -131,19 +132,20 @@ user-writable, user-chosen directory. What's still open:
       install, where the unsigned build had blocked the uninstaller twice. The installed
       uninstaller is itself `Valid / Tyler Price`. No SmartScreen prompt appeared, which is
       better than expected for a certificate with no reputation history.
-- [ ] Verify install, upgrade (same version and a version bump), and uninstall leave no
-      orphaned files, registry keys, shortcuts, or protected-data folder in an
-      inconsistent state.
+- [~] Install, upgrade and uninstall. Done on 2026-09-20 for a same-version upgrade over an
+      older 2.8.0 build and for uninstall: the install landed in `C:\Program Files\Dialed`,
+      uninstall removed it, and the protected data folder correctly survived. **Still unchecked:**
+      leftover registry keys and shortcuts after uninstall, a true clean install on a machine
+      with no previous Dialed, and a version-bump upgrade (needs a version other than 2.8.0).
 - [ ] **The portable target is still weak.** It unpacks to a predictable path under
       `%TEMP%` while running elevated, and no NSIS-style directory permission fixes a temp
       extraction. Decide whether to keep shipping it as-is, constrain what it can do until
       it's unpacked somewhere safe, or drop it. `scripts/verify-private-candidate.cjs`
       currently expects a portable artifact in five places — dropping it means updating
       that script too, not just the `build.win.target` list.
-- [ ] Confirm `requestedExecutionLevel: requireAdministrator` (set on both `build.win` and
-      `build.portable`) still produces the expected UAC prompt on a machine that isn't
-      already running elevated — the every-day dev loop runs elevated already and won't
-      catch a regression here.
+- [x] Confirmed 2026-09-20. Both the installer and the installed `Dialed.exe` produced a UAC
+      prompt reading "Verified publisher: Tyler Price". The portable executable's prompt has not
+      been exercised separately.
 
 ## Electron fuses
 
@@ -166,10 +168,11 @@ user-writable, user-chosen directory. What's still open:
       integrity validation on, and `onlyLoadAppFromAsar` on — all six as configured.
       (`GrantFileProtocolExtraPrivileges` is left at Electron's default, on.) Re-check this
       after any Electron upgrade; the config key alone never proves the fuse was set.
-- [ ] Confirm the packaged app still starts and every native capability still works with
-      the fuses on. `onlyLoadAppFromAsar` in particular can break anything that expects to
-      read a file next to the app outside the asar — check `extraResources` (HIDUSBF
-      native helpers, PresentMon, the `.env`-free config) still load correctly.
+- [~] Partly confirmed. The packaged app starts with the fuses on, and the input activity
+      check ran from the installed copy on 2026-09-19 — which means the native input path and its
+      `extraResources` load correctly under `onlyLoadAppFromAsar`. **Still unchecked:** PresentMon
+      capture, the HIDUSBF broker/host handshake, and the protected change-log folder, all from a
+      packaged signed build.
 - [ ] Decide whether a startup self-integrity check over the asar is still worth adding on
       top of `enableEmbeddedAsarIntegrityValidation`, and if not, record that decision here
       so it isn't re-opened as an unexplained gap later.

@@ -145,7 +145,7 @@
     "lint": "tsc --noEmit",
     "check:clean-room-parity": "node scripts/check-clean-room-parity.cjs",
     "test": "node --test \"tests/**/*.test.cjs\"",
-    "test:ts": "bun test --config bunfig.toml tests",
+    "test:ts": "bun test .test.ts",
     "test:ui:fixtures": "node scripts/check-ui-fixtures.cjs",
     "sbom": "node scripts/generate-sbom.cjs",
     "license:inventory": "bun scripts/generate-license-inventory.cjs",

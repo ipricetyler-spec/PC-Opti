@@ -431,7 +431,25 @@ namespace Dialed.Input {
     [DllImport("user32.dll",SetLastError=true)] static extern bool RegisterRawInputDevices(RawDevice[] devices,uint count,uint size);
     [DllImport("user32.dll",SetLastError=true)] static extern uint GetRawInputData(IntPtr input,uint command,IntPtr data,ref uint size,uint headerSize);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr window,StringBuilder text,int count);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window,out uint processId);
     [DllImport("user32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern uint GetRawInputDeviceInfo(IntPtr device,uint command,StringBuilder data,ref uint size);
+    // Says which window took the foreground, so a cancelled check names the culprit instead
+    // of leaving the reader to guess. Titles can hold anything, so only a short, single-line,
+    // printable form is kept, and nothing here is written to disk.
+    static string DescribeForeground() {
+      IntPtr window=GetForegroundWindow();
+      if(window==IntPtr.Zero) return "no window (the desktop had focus)";
+      string process="";
+      try { uint id; GetWindowThreadProcessId(window,out id); if(id!=0) process=System.Diagnostics.Process.GetProcessById((int)id).ProcessName; } catch { }
+      var title=new StringBuilder(160); GetWindowText(window,title,title.Capacity);
+      var clean=new StringBuilder();
+      foreach(char letter in title.ToString()) { if(clean.Length>=60) break; clean.Append(letter<' '||letter==127?' ':letter); }
+      string text=clean.ToString().Trim();
+      if(process.Length>0 && text.Length>0) return process+" (\""+text+"\")";
+      if(process.Length>0) return process;
+      return text.Length>0?"\""+text+"\"":"an unnamed window";
+    }
     readonly HashSet<string> allowed;
     readonly HashSet<IntPtr> selectedHandles=new HashSet<IntPtr>(),failedHandles=new HashSet<IntPtr>();
     readonly HashSet<string> keyboardIds=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -445,6 +463,7 @@ namespace Dialed.Input {
     readonly Stopwatch clock=Stopwatch.StartNew();
     int sampleCount, reportCount;
     bool started, completed, focusLost, connectionLost;
+    string focusTaker="";
     string ResolveName(IntPtr handle) {
       string id; if(names.TryGetValue(handle,out id)) return id;
       uint length=2048; var name=new StringBuilder((int)length);
@@ -477,7 +496,7 @@ namespace Dialed.Input {
       Controls.Add(instructions); Controls.Add(feedback);
       UpdateFeedback();
       Shown+=(sender,args)=>{ Activate(); clock.Restart(); started=true; };
-      Deactivate+=(sender,args)=>{ if(started && !completed) { focusLost=true; Close(); } };
+      Deactivate+=(sender,args)=>{ if(started && !completed) { focusLost=true; focusTaker=DescribeForeground(); Close(); } };
       var list=new List<RawDevice>();
       // Read headers first; only exact selected-device payloads reach the decoder.
       // Foreground registration avoids Windows background raw-mouse throttling.
@@ -552,7 +571,7 @@ namespace Dialed.Input {
           timer.Interval=50;
           timer.Tick+=(sender,args)=>{
             if(!window.started) return;
-            if(GetForegroundWindow()!=window.Handle) { window.focusLost=true; window.Close(); return; }
+            if(GetForegroundWindow()!=window.Handle) { window.focusLost=true; if(window.focusTaker.Length==0) window.focusTaker=DescribeForeground(); window.Close(); return; }
             window.UpdateFeedback();
             if(window.clock.Elapsed.TotalSeconds>=8) { window.completed=true; window.Close(); }
           };
@@ -560,7 +579,7 @@ namespace Dialed.Input {
           Application.Run(window);
           timer.Stop();
         }
-        if(window.focusLost) throw new InvalidOperationException("The capture window lost focus. Keep it focused for the full check and try again.");
+        if(window.focusLost) throw new InvalidOperationException("The capture window lost focus, so the check stopped. "+(window.focusTaker.Length>0?"Focus went to "+window.focusTaker+". ":"")+"Close or quiet whatever took focus, then run the check again and keep the capture window in front.");
         if(window.connectionLost) throw new InvalidOperationException("An input connection was removed during the check. Rescan and try again; results were discarded.");
         if(!window.completed) throw new InvalidOperationException("Input check canceled or sample limit reached. No cadence result was accepted.");
         var result=new List<EventChannel>(); foreach(var item in window.times) result.Add(new EventChannel { id=item.Key,keyboard=window.keyboardIds.Contains(item.Key),messageCount=item.Value.Count,spanMs=item.Value.Count>1?item.Value[item.Value.Count-1]-item.Value[0]:0,timesMs=window.keyboardIds.Contains(item.Key)?new double[0]:item.Value.ToArray(),motionTimesMs=window.motionTimes.ContainsKey(item.Key)?window.motionTimes[item.Key].ToArray():new double[0],activity=window.activity[item.Key].Result,hidReports=window.activity[item.Key].Result.hidReports,firstHidReports=window.firstHidReports[item.Key] }); return result.ToArray();

@@ -30,14 +30,35 @@ const RULES: Array<[RegExp, string]> = [
     'Dialed could not reach the server. Check your internet connection and try again.'],
 ];
 
+// Dialed's own plain sentences often arrive wrapped in layers of machinery: Electron's IPC
+// wrapper around PowerShell's "Exception calling ..." around the message the helper actually
+// wrote. Pull that innermost sentence back out, so a message written for the reader is not
+// hidden behind a stack trace it happens to be quoted inside.
+const WRAPPERS: RegExp[] = [
+  /Exception calling "[^"]+" with "\d+" argument\(s\): "([\s\S]*?)"(?=\s*(?:At line:\d|$))/i,
+  /Error invoking remote method '[^']*': (?:\w*Error: )?([\s\S]*?)(?=\s*(?:At line:\d|$))/i,
+];
+
+function wrappedMessage(text: string): string | null {
+  for (const pattern of WRAPPERS) {
+    const found = pattern.exec(text)?.[1]?.trim();
+    // Only worth surfacing if what's inside is itself plain — otherwise it's more machinery.
+    if (found && found.length <= 260 && !RAW.test(found)) return found;
+  }
+  return null;
+}
+
 export function friendlyError(raw: string | null | undefined): FriendlyError {
   const text = (raw ?? '').trim();
   if (!text) return { message: '', technical: null };
   const isRaw = RAW.test(text) || text.length > 260;
   if (!isRaw) return { message: text, technical: null };
+  // A specific rule beats the original wording: it says what to do about it.
   for (const [pattern, message] of RULES) {
     if (pattern.test(text)) return { message, technical: text };
   }
+  const inner = wrappedMessage(text);
+  if (inner) return { message: inner, technical: text };
   return { message: 'Windows reported a problem with this step.', technical: text };
 }
 

@@ -36,3 +36,20 @@ test('the other common causes each get their own sentence', () => {
   assert.match(friendlyError('getaddrinfo ENOTFOUND speed.cloudflare.com').message, /could not reach the server/);
   assert.match(friendlyError('ENOSPC: no space left on device, write').message, /drive is full/);
 });
+
+test('a plain sentence wrapped in IPC and PowerShell machinery is shown, not the wrapper', () => {
+  const raw = `Error invoking remote method 'pc-opti:test-input-device': Error: Exception calling "CaptureEvents" with "1" argument(s): "The capture window lost focus. Keep it focused for the full check and try again."At line:193 char:5+     $captured = @([Dialed.Input.TimingWindow]::CaptureEvents([string[ ...+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    + CategoryInfo          : NotSpecified: (:) [], ParentContainsErrorRecordException    + FullyQualifiedErrorId : InvalidOperationException`;
+  const result = friendlyError(raw);
+  assert.equal(result.message, 'The capture window lost focus. Keep it focused for the full check and try again.');
+  assert.equal(result.technical, raw);
+});
+
+test('a rule still wins over the wrapped wording, because it says what to do', () => {
+  const raw = 'Error invoking remote method \'pc-opti:set-user-setting\': Error: Exception calling "Write" with "2" argument(s): "Access is denied."At line:12 char:3    + FullyQualifiedErrorId : InvalidOperationException';
+  assert.match(friendlyError(raw).message, /running as administrator/);
+});
+
+test('machinery wrapped inside machinery falls back to the plain first line', () => {
+  const raw = 'Error invoking remote method \'pc-opti:scan\': Error: Exception calling "Run" with "0" argument(s): "System.Management.Automation.CmdletInvocationException: 0x80070002"At line:4 char:1    + CategoryInfo : NotSpecified';
+  assert.equal(friendlyError(raw).message, 'Windows reported a problem with this step.');
+});

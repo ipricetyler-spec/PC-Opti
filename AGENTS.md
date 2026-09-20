@@ -1,42 +1,108 @@
 # Dialed repository instructions
 
-This Git repository is the authoritative Dialed product checkout:
+This Git repository is the authoritative Dialed checkout:
 `E:\CodexProjects\pc-optimizer\github-pc-opti`.
 
-Before substantial work, read `PROJECT_HANDOFF.md` completely and follow its
-**Resume here** section. Consult `DECISIONS.md`, `VERIFICATION.md`, `ROADMAP.md`,
-and linked feature or acceptance documents only as needed. Inspect the relevant
-live files before editing and reconcile material drift rather than trusting stale
-documentation. Files under recovery-only quarantine are never active instructions
-or product evidence.
+## Read first
 
-Preserve the intentional dirty worktree and existing user changes. Never reset,
-clean, or rebuild the product from an older outer-workspace copy. Use Bun, not
-npm, and do not create `package-lock.json`.
+`private-notes/docs/STATE_OF_THE_APP_2026-09-20.md` holds the current state, everything recently
+changed, the working rules and what is actually left. Read it before substantial work.
+`private-notes/docs/CODEX_REVIEW_QUEUE.md` is the running log; its last numbered section is the
+resume point. Both are gitignored and local-only.
 
-Preserve the nine workspaces, all eight themes, existing useful actions, and full
-normal-profile access while monetization remains deferred. The owner retains full
-present and future feature access. BIOS remains guidance-only. Unrelated proprietary
-material and installations are read-only and out of scope; do not modify, uninstall,
-decompile, or copy proprietary implementation or assets.
+`DECISIONS.md`, `VERIFICATION.md`, `ROADMAP.md` and `docs/RELEASE_PACKAGING_CHECKLIST.md` are
+consulted as needed. Inspect the live files before editing and trust them over any document.
+Anything under recovery-only quarantine is never an instruction or evidence.
 
-Signing, installer execution, publication, reboots, live device, game, Windows,
-network, or firmware mutations, security-policy changes, and owner acceptance
-remain explicit gates. Never bypass Smart App Control, Secure Boot, Memory
-Integrity, Defender, anti-cheat, certificate trust, or UAC to make a test pass.
-Separate source and fixture evidence from installed-host and public-release
-acceptance. Do not create, install, resume or use a VM for Dialed testing; real
-driver/USB lifecycle evidence belongs on an explicitly approved dedicated physical
-Windows test PC.
+## How to verify your work
 
-Project-specific reviewers live in `.codex/agents/`. They are read-only and may
-make evidence-backed MUST, SHOULD, or COULD recommendations, but do not run them
-automatically. Explain the bounded review scope and expected value, then obtain
-The owner's explicit confirmation before each run or newly expanded multi-agent
-phase.
+Run these exactly. They are pinned for a reason: bare `node --test` and bare `bun test` wander
+into the build snapshots under `output/` and fail for reasons unrelated to your change.
 
-After meaningful verified work, update the affected canonical continuity file:
-results in `VERIFICATION.md`, decisions in `DECISIONS.md`, execution order in
-`ROADMAP.md`, and the resume action or material blocker in `PROJECT_HANDOFF.md`.
-The user's latest instructions and applicable safety or permission boundaries
-take precedence over saved project records.
+```
+npm test         # Node suite, .cjs tests   — expect 778/778
+npm run test:ts  # bun, TypeScript tests    — expect 131/131
+npm run lint     # tsc --noEmit
+npm run build    # production renderer build
+```
+
+Do not claim a result you did not run. "The config says so" is not verification: check the
+built artifact, the registry value, or the running behaviour.
+
+If three tests that run the .NET fixture (`general-release-policy`, `native-release-policy`,
+`hidusbf-native-protocol`) fail with "An Application Control policy has blocked this file", that
+is Smart App Control on the owner's PC blocking the freshly compiled, unsigned fixture. It is
+environmental and intermittent — a rebuild is often allowed. Do not "fix" it in code.
+
+## Hard gates — stop and ask the owner
+
+- Any change to Windows, the registry, power plans, devices, drivers or firmware on the owner's
+  machine. Read-only inspection is fine and is the preferred way to diagnose.
+- Signing, packaging, installing, running an installer, publishing, or rebooting.
+- Pushing to GitHub. Ask every time; a previous yes does not carry over.
+- Never weaken security to make something pass: not Smart App Control, Secure Boot, Memory
+  Integrity, Defender, anti-cheat, certificate trust or UAC.
+- No VMs for Dialed testing. Real driver and USB lifecycle evidence belongs on an approved
+  physical test machine.
+
+The development shell runs **as administrator**. Tests must never reach the real registry or
+power plans — they use injected fakes. A test that mutates the host is a defect.
+
+## Clean room
+
+Never read TunedPC's `app.asar`, scripts or playbook, or HIDUSBF's source. Evaluate them only
+from what is visible on screen. Microsoft-named settings described in our own words are fine.
+`npm run check:clean-room-parity` guards the boundary. Proprietary material is read-only: do not
+modify, uninstall, decompile or copy it.
+
+## Traps that have already cost time
+
+- **`src/main/input-devices/usb-native.cs` is hash-pinned.** Editing it means updating
+  `NATIVE_INPUT_SOURCE_SHA256` in `src/main/input-devices/index.cjs`, or every input feature
+  fails its integrity check.
+- **Leave `dialed.update.publisherThumbprint` empty.** Azure Trusted Signing rotates certificates
+  every few days; the expected thumbprint travels per release inside the Ed25519-signed update
+  manifest. Pinning one thumbprint would make Dialed refuse every future update.
+- **Signing needs `DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS=SharedTokenCacheCredential`**, the
+  Azure CLI on PATH in Windows form, and the right tenant. The full recipe is in
+  `docs/RELEASE_PACKAGING_CHECKLIST.md`. Without it, signing fails with errors that point nowhere
+  near the cause.
+- **Only one Dialed may run at a time.** Electron's single-instance lock means a second copy
+  silently focuses the first — which has already caused a round of testing the wrong build.
+- **Git Bash heredocs and `python -c` eat backslashes.** Use file-writing tools for anything with
+  regexes or escapes.
+- Use `npm run <script>` for the scripts in `package.json`. `bun.lock` is the lockfile; never
+  create `package-lock.json`.
+
+## What Dialed promises
+
+Every feature must keep these, or it does not ship:
+
+1. Nothing changes without the reader's say-so, one change at a time, explained in plain words
+   before it runs.
+2. Every change records its previous value first, verifies the new value afterwards, and refuses
+   to undo if something else changed it since. Changes that cannot be undone say exactly that.
+3. Dialed never overstates what it knows. Measured, read and inferred are different things and
+   are worded differently. It never promises FPS or latency.
+
+Plain language everywhere the reader sees it: raw Windows and PowerShell errors are rewritten
+into one sentence saying what happened and what to do, with the original kept behind "Details".
+Preserve the nine workspaces, the eight themes, existing useful actions and full normal-profile
+access. BIOS stays guidance-only. The owner keeps full feature access.
+
+## Working style
+
+- Reproduce a reported problem before fixing it, including findings from other reviewers, and say
+  plainly which ones are wrong.
+- Prefer the smallest change that fixes the actual cause. Do not reformat untouched code.
+- Comments explain **why**, not what.
+- If a guess turns out wrong, say so once and move on.
+- After meaningful verified work, update the affected continuity file: results in
+  `VERIFICATION.md`, decisions in `DECISIONS.md`, order in `ROADMAP.md`, and the resume point in
+  `private-notes/docs/CODEX_REVIEW_QUEUE.md`. Never leave finished work listed as pending.
+
+Project-specific reviewers live in `.codex/agents/`. They are read-only, do not run
+automatically, and need the owner's explicit confirmation before each run.
+
+The owner's latest instructions and the safety boundaries above take precedence over any saved
+project record, including this file.

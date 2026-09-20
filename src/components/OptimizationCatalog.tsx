@@ -142,6 +142,12 @@ export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected }
       <button type="button" onClick={() => setSelected([])} disabled={selected.length === 0 || running} className="rounded-lg border border-slate-700 px-3 py-2 text-[11px] font-semibold text-slate-300 disabled:opacity-50">Clear</button>
     </div>
 
+    {/* Kept above the list, and sticky, so "Run selected" stays in reach however far the list is scrolled. */}
+    <div className="sticky top-2 z-10 mt-4 flex flex-col justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/95 p-3 sm:flex-row sm:items-center">
+      <div className="flex items-center gap-2 text-xs text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" /><span><strong className="text-slate-200">{selectedItems.length}</strong> selected · {items.length} available{log.length > 0 ? ` · ${runSummary.finished}/${runSummary.total} finished` : ''}</span></div>
+      <button type="button" onClick={() => void runSelected()} disabled={selectedItems.length === 0 || running} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-5 py-2 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{running ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}{running ? `Running selected (${selectedItems.length})` : `Run selected (${selectedItems.length})`}</button>
+    </div>
+
     <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
       {visible.map((item) => {
         const isSelected = selected.includes(item.id);
@@ -166,11 +172,6 @@ export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected }
       })}
     </div>
     {!loading && items.length === 0 ? <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-950/15 p-4 text-xs text-amber-100/80"><AlertTriangle className="mr-2 inline h-4 w-4 text-amber-300" />Nothing to fix right now. Settings already in place are not shown.</div> : null}
-
-    <div className="mt-4 flex flex-col justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 p-3 sm:flex-row sm:items-center">
-      <div className="flex items-center gap-2 text-xs text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" /><span><strong className="text-slate-200">{selectedItems.length}</strong> selected · {items.length} available{log.length > 0 ? ` · ${runSummary.finished}/${runSummary.total} finished` : ''}</span></div>
-      <button type="button" onClick={() => void runSelected()} disabled={selectedItems.length === 0 || running} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-5 py-2 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{running ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}{running ? `Running selected (${selectedItems.length})` : `Run selected (${selectedItems.length})`}</button>
-    </div>
 
     {log.length > 0 ? <div role="log" aria-live="polite" aria-labelledby="optimization-run-log-heading" className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-[#080a0d]">
       <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3"><div><h4 id="optimization-run-log-heading" className="text-xs font-semibold text-slate-200">Results</h4><p className="mt-0.5 text-[11px] text-slate-500">Each fix's result. Everything is also recorded in Restore › Recovery & history.</p></div><span className={`shrink-0 text-right text-[11px] font-semibold ${summaryToneClass}`}>{runSummary.label}</span></div>

@@ -5,7 +5,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { buildScopeEvidence } = require('../scripts/collect-native-policy-scope.cjs');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
+const { runHidusbfFixture } = require('./helpers/hidusbf-fixture.cjs');
 const dotnet = spawnSync('dotnet', ['--version'], { windowsHide: true, encoding: 'utf8', timeout: 10000 });
 test('native framing, preview refusals, scope construction and journal survive closed fixtures without device or service access', { skip: process.platform !== 'win32' || dotnet.status !== 0 ? 'Windows .NET SDK unavailable; native fixture not run' : false }, (context) => {
   const platform = { machine: 'FIXTURE', os: '10.0.26200.0', codeIntegrityOptions: 57349, secureBoot: 1, usbXhci: 'a'.repeat(64), usbPort: 'b'.repeat(64) };
@@ -42,7 +43,7 @@ test('native framing, preview refusals, scope construction and journal survive c
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'corpus.json');
   fs.writeFileSync(file, JSON.stringify(corpus), { flag: 'wx' });
-  const output = execFileSync('dotnet', ['run', '--project', path.resolve(__dirname, '../native/hidusbf-helper-fixture/Dialed.HidusbfProtocolFixture.csproj'), '--configuration', 'Release', '--verbosity', 'quiet', '--', '--digest-corpus', file], { encoding: 'utf8', windowsHide: true, timeout: 60000 });
+  const output = runHidusbfFixture(['--digest-corpus', file], { timeout: 60000 });
   assert.match(output, /closed-native-protocol-pass:140\b/);
   assert.match(output, /closed-boot-recovery-pass:61/);
   assert.match(output, /closed-boot-session-pass:\d+/);

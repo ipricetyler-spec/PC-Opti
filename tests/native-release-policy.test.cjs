@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
+const { runHidusbfFixture } = require('./helpers/hidusbf-fixture.cjs');
 const { verifyPolicy, readNativeBrokerStatus } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 const workflow = require('../scripts/native-release-policy.cjs');
 const root = path.resolve(__dirname, '..');
@@ -234,6 +235,6 @@ test('JavaScript signed-policy verdicts match the actual C# contract on the same
   const weak = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   add('weak-rsa', review, false, crypto.sign('sha256', review, { key: weak.privateKey, padding: crypto.constants.RSA_PKCS1_PSS_PADDING, saltLength: 32 }), weak.publicKey.export({ type: 'spki', format: 'pem' }));
   const file = path.join(temporary, 'public-only-corpus.json'); fs.writeFileSync(file, JSON.stringify(corpus));
-  const result = execFileSync('dotnet', ['run', '--project', path.join(root, 'native/hidusbf-helper-fixture/Dialed.HidusbfProtocolFixture.csproj'), '--configuration', 'Release', '--verbosity', 'quiet', '--', '--verify-policy-corpus', file], { encoding: 'utf8', windowsHide: true, timeout: 60000 });
+  const result = runHidusbfFixture(['--verify-policy-corpus', file], { timeout: 60000 });
   assert.ok(result.includes(`closed-policy-corpus-pass:${corpus.length}`));
 });

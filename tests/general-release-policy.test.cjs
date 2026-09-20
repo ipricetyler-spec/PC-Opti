@@ -4,13 +4,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { runHidusbfFixture } = require('./helpers/hidusbf-fixture.cjs');
 const { verifyPolicy } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 const { parseGeneralPolicy, parsePolicy, isGeneralRelease } = require('../src/main/input-driver-lifecycle/release-policy-contract.cjs');
 const workflow = require('../scripts/native-release-policy.cjs');
 
 // Schema 2: the general release policy. Ephemeral test keys only.
-const root = path.resolve(__dirname, '..');
 const temporary = tempDir('dialed-general-policy-');
 const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 3072 });
 const pem = pair.publicKey.export({ type: 'spki', format: 'pem' });
@@ -94,6 +93,6 @@ test('JavaScript and the compiled C# helper agree on every general-release verdi
   add('general-duplicate-field', Buffer.from(raw(general).toString().replace('"SchemaVersion":2', '"SchemaVersion":2,"SchemaVersion":2')), false);
   const file = path.join(temporary, 'general-corpus.json');
   fs.writeFileSync(file, JSON.stringify(corpus));
-  const result = execFileSync('dotnet', ['run', '--project', path.join(root, 'native/hidusbf-helper-fixture/Dialed.HidusbfProtocolFixture.csproj'), '--configuration', 'Release', '--verbosity', 'quiet', '--', '--verify-policy-corpus', file], { encoding: 'utf8', windowsHide: true });
+  const result = runHidusbfFixture(['--verify-policy-corpus', file]);
   assert.ok(result.includes(`closed-policy-corpus-pass:${corpus.length}`), result);
 });

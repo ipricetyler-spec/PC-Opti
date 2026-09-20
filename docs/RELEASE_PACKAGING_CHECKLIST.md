@@ -43,6 +43,17 @@ configured yet — packaged builds today are intentionally unsigned.
 
 ## Installer
 
+A full unsigned packaging run was done on 2026-09-19: `electron-builder --win nsis portable`
+produced the NSIS installer, the portable executable and the unpacked app, and
+`scripts/verify-private-candidate.cjs dist-electron` passed over them. Nothing was installed
+or launched — everything below about install, upgrade and uninstall behaviour is still open.
+
+That run also found and fixed two things: the app archive had picked up a `node_modules`
+copy of the four font packages (they are bundled into `dist` by Vite at build time, so they
+are development dependencies now, and the archive dropped from 767 entries to 190), and the
+verifier's pinned list of packaged input-framework files predated
+`release-policy-contract.cjs`.
+
 `package.json` → `build.nsis` is already configured per-machine, with a fixed install
 directory:
 
@@ -92,10 +103,12 @@ user-writable, user-chosen directory. What's still open:
 }
 ```
 
-- [ ] **Not yet verified in a packaged build.** Fuses are patched into the Electron binary
-      by electron-builder as a post-build step; the config key being present doesn't prove
-      the fuse was actually set. Check the packaged executable's fuse wire (electron-builder
-      or `@electron/fuses` can read it back) rather than trusting the source config.
+- [x] **Verified in a packaged build (2026-09-19).** The fuse wire was read back out of
+      `dist-electron/win-unpacked/Dialed.exe` with `@electron/fuses`: RunAsNode off,
+      cookie encryption on, `NODE_OPTIONS` off, CLI inspect arguments off, embedded asar
+      integrity validation on, and `onlyLoadAppFromAsar` on — all six as configured.
+      (`GrantFileProtocolExtraPrivileges` is left at Electron's default, on.) Re-check this
+      after any Electron upgrade; the config key alone never proves the fuse was set.
 - [ ] Confirm the packaged app still starts and every native capability still works with
       the fuses on. `onlyLoadAppFromAsar` in particular can break anything that expects to
       read a file next to the app outside the asar — check `extraResources` (HIDUSBF

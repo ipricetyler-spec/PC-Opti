@@ -110,7 +110,7 @@ function collectDriverPayloads(directoryPath) {
 collectDriverPayloads(directory);
 assert.deepEqual(lifecycleFiles.map(({ relativePath }) => path.posix.basename(relativePath)).sort(), [
   'bundled-inventory.cjs', 'bundled-status.cjs', 'legacy-service-contract.cjs', 'legacy-service.cjs',
-  'native-broker.cjs',
+  'native-broker.cjs', 'release-policy-contract.cjs',
   'driver-package-manifest.example.json', 'driver-package-manifest.schema.json',
   'helper-protocol.cjs', 'index.cjs', 'upstream-adapter.cjs',
   'upstream-package-evidence.cjs', 'upstream-package-evidence.example.json',

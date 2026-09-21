@@ -101,6 +101,23 @@ access. BIOS stays guidance-only. The owner keeps full feature access.
   `VERIFICATION.md`, decisions in `DECISIONS.md`, order in `ROADMAP.md`, and the resume point in
   `private-notes/docs/CODEX_REVIEW_QUEUE.md`. Never leave finished work listed as pending.
 
+## What "done" means
+
+- **Done means committed**, when the task says to commit. If anything is left uncommitted, say
+  which files and why. Never report a task complete while its changes sit in the working tree.
+- **A test that matches source text does not prove behaviour.** A regex finding `Text="Cancel"`
+  shows the text exists, not that the control works. For anything a person interacts with —
+  windows, buttons, keys, focus — reason through the interaction and, where possible, exercise it
+  in a throwaway probe. Example from 2026-09-21: a WinForms `Button` added to the input capture
+  window took keyboard focus on open, so Space, Enter and Escape all cancelled a keyboard check.
+  Every source test passed. A probe that sent real keystrokes caught it.
+- **In the input capture window, every key belongs to the check.** No control there may be
+  reachable by keyboard, and no keyboard shortcut may cancel it.
+- **Keep the expected counts current.** Adding or removing a test changes the numbers above and in
+  `PROJECT_HANDOFF.md`; update both in the same commit.
+- **End with what you verified and what you did not**, in the reply as well as in
+  `VERIFICATION.md`. "Completed" alone is not a report.
+
 Project-specific reviewers live in `.codex/agents/`. They are read-only, do not run
 automatically, and need the owner's explicit confirmation before each run.
 

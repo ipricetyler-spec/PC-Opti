@@ -329,7 +329,6 @@ export function InputDevicesCenter() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" disabled={setupOpen || !!busy || !selected.canTest || !api?.testInputDevice} className={button} onClick={testDevice}><Activity className="h-4 w-4" />Run 8-second input check</button>
-              {isInputTesting && <button type="button" className={button} onClick={() => void api?.cancelInputTest().catch((caught) => setError(String(caught)))}>Cancel test</button>}
             </div>
             {isInputTesting ? <p role="status" aria-live="polite" className="mt-3 flex items-start gap-2 rounded-lg border border-cyan-400/25 bg-cyan-400/10 p-3 text-xs text-cyan-100"><LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /><span><strong>Testing {selected.name} now.</strong> Keep using only this exact device until the 8-second check finishes.</span></p> : null}
             {!selected.canTest && <p className="mt-2 text-[11px] text-slate-500">No supported mouse, keyboard, or game-controller message channel was detected for this device.</p>}

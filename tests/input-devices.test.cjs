@@ -111,6 +111,20 @@ test('native source loader accepts only the pinned ASAR or development bytes', (
   assert.throws(() => input.loadNativeInputSource({ moduleDirectory }), /missing from this package/);
 });
 
+test('the foreground input capture window owns a cancellation control because Dialed is disabled during the check', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/input-devices/usb-native.cs'), 'utf8');
+  const center = fs.readFileSync(path.join(__dirname, '../src/components/InputDevicesCenter.tsx'), 'utf8');
+  assert.match(source, /Text="Cancel check"/);
+  assert.match(source, /cancelButton\.Click.*canceled=true; Close\(\)/);
+  // It must not be keyboard-reachable: a focused Button is pressed by Space and Enter, which
+  // cancelled keyboard checks on the first Space. Probed against a real WinForms window.
+  assert.match(source, /readonly Label cancelButton=new Label/, 'cancel must be a non-focusable Label');
+  assert.doesNotMatch(source, /readonly Button cancelButton/, 'a Button takes focus and is pressed by Space');
+  assert.doesNotMatch(source, /CancelButton=cancelButton/, 'Escape must not cancel; every key belongs to the check');
+  assert.match(source, /if\(window\.canceled\) throw new InvalidOperationException\("Input check canceled\. Results were discarded\."\)/);
+  assert.doesNotMatch(center, />Cancel test</);
+});
+
 test('native bootstrap uses ASCII stdin instead of command arguments, paths, or environment payloads', () => {
   const inputSource = input.loadNativeInputSource();
   const bootstrap = input.createNativeBootstrap('TierChange', { scope: 'x'.repeat(32_768) }, inputSource);

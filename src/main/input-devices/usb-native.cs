@@ -462,9 +462,13 @@ namespace Dialed.Input {
     readonly Dictionary<string,ActivityTracker> activity=new Dictionary<string,ActivityTracker>();
     readonly Dictionary<IntPtr,HidActivityDecoder> decoders=new Dictionary<IntPtr,HidActivityDecoder>();
     readonly Label feedback=new Label { Dock=DockStyle.Bottom, Height=70, TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
+    // A Label, not a Button, on purpose: a Button takes keyboard focus the moment the window
+    // opens, and a focused Button is pressed by Space and Enter - so a keyboard check would cancel
+    // itself on the first Space. A Label cannot take focus and answers only to a mouse click.
+    readonly Label cancelButton=new Label { Dock=DockStyle.Bottom, Height=36, Text="Cancel check", TextAlign=System.Drawing.ContentAlignment.MiddleCenter, Cursor=Cursors.Hand, BackColor=System.Drawing.Color.FromArgb(67,32,42), ForeColor=System.Drawing.Color.WhiteSmoke };
     readonly Stopwatch clock=Stopwatch.StartNew();
     int sampleCount, reportCount;
-    bool started, completed, focusLost, connectionLost, foregroundRefused;
+    bool started, completed, canceled, focusLost, connectionLost, foregroundRefused;
     int foreignTicks;
     string focusTaker="";
     string ResolveName(IntPtr handle) {
@@ -479,7 +483,7 @@ namespace Dialed.Input {
       if(controller) text+="Hold sticks/triggers still for one second, then move them and use buttons/D-pad.\r\n";
       if(mouse) text+="Move the mouse steadily, click buttons and use the wheel.\r\n";
       if(keyboard) text+="Press and release different keys. Key polling rate is not measured.\r\n";
-      return text+"Raw reports and key identities are not saved.\r\nKeep this window focused. Closing it cancels the check.";
+      return text+"Raw reports and key identities are not saved.\r\nKeep this window focused. Click Cancel check or close this window to cancel.";
     }
     public TimingWindow(string[] ids) {
       allowed=new HashSet<string>(ids,StringComparer.OrdinalIgnoreCase);
@@ -500,7 +504,10 @@ namespace Dialed.Input {
       Font=new System.Drawing.Font("Segoe UI",10); Padding=new Padding(16);
       feedback.Height=90; feedback.ForeColor=System.Drawing.Color.LightSkyBlue;
       var instructions=new Label { Dock=DockStyle.Fill, Text=Instructions(mouse,keyboard,controller), TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
-      Controls.Add(instructions); Controls.Add(feedback);
+      // Dialed disables its main window during capture, so cancellation must be available here.
+      // No keyboard shortcut, Escape included: every key belongs to the check.
+      cancelButton.Click+=(sender,args)=>{ canceled=true; Close(); };
+      Controls.Add(instructions); Controls.Add(feedback); Controls.Add(cancelButton);
       UpdateFeedback();
       // A background process cannot simply take the foreground, so ask for it explicitly and
       // only start the clock once this window actually holds it. Starting while Dialed still
@@ -615,6 +622,7 @@ namespace Dialed.Input {
         if(window.foregroundRefused) throw new InvalidOperationException("The check window could not come to the front, so nothing was measured. Minimize other windows and try again.");
         if(window.focusLost) throw new InvalidOperationException("The capture window lost focus, so the check stopped. "+(window.focusTaker.Length>0?"Focus went to "+window.focusTaker+". ":"")+"Close or quiet whatever took focus, then run the check again and keep the capture window in front.");
         if(window.connectionLost) throw new InvalidOperationException("An input connection was removed during the check. Rescan and try again; results were discarded.");
+        if(window.canceled) throw new InvalidOperationException("Input check canceled. Results were discarded.");
         if(!window.completed) throw new InvalidOperationException("Input check canceled or sample limit reached. No cadence result was accepted.");
         var result=new List<EventChannel>(); foreach(var item in window.times) result.Add(new EventChannel { id=item.Key,keyboard=window.keyboardIds.Contains(item.Key),messageCount=item.Value.Count,spanMs=item.Value.Count>1?item.Value[item.Value.Count-1]-item.Value[0]:0,timesMs=window.keyboardIds.Contains(item.Key)?new double[0]:item.Value.ToArray(),motionTimesMs=window.motionTimes.ContainsKey(item.Key)?window.motionTimes[item.Key].ToArray():new double[0],activity=window.activity[item.Key].Result,hidReports=window.activity[item.Key].Result.hidReports,firstHidReports=window.firstHidReports[item.Key] }); return result.ToArray();
       }

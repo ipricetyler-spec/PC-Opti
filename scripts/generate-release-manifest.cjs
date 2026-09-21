@@ -24,7 +24,6 @@ const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
 const productName = String(packageJson.build?.productName || packageJson.name || '').trim();
 const version = String(packageJson.version || '').trim();
 const currentArtifacts = new Set([
-  `${productName} ${version}.exe`,
   `${productName} Setup ${version}.exe`,
   `${productName} ${version}.msi`,
   `${productName} ${version}.zip`,

@@ -20,13 +20,13 @@ if (!process.argv[2]) {
   throw new Error('Name the candidate directory to verify, for example: node scripts/verify-private-candidate.cjs dist-electron');
 }
 const directory = path.resolve(root, process.argv[2]);
-const portableName = `${productName} ${version}.exe`;
-const portable = path.join(directory, portableName);
+const installerName = `${productName} Setup ${version}.exe`;
+const installer = path.join(directory, installerName);
 const unpacked = path.join(directory, 'win-unpacked', `${productName}.exe`);
 const archive = path.join(directory, 'win-unpacked', 'resources', 'app.asar');
 const presentMon = path.join(directory, 'win-unpacked', 'resources', 'presentmon', 'PresentMon-2.5.1-x64.exe');
 
-for (const required of [portable, unpacked, archive, presentMon]) {
+for (const required of [installer, unpacked, archive, presentMon]) {
   assert.ok(fs.statSync(required).isFile(), `Required candidate file is missing: ${required}`);
 }
 
@@ -83,7 +83,7 @@ assert.equal(fs.existsSync(path.join(directory, 'win-unpacked', 'resources', 'in
 
 const quotePowerShell = (value) => `'${value.replace(/'/g, "''")}'`;
 const nativeExecutables = ['Dialed.HidusbfBroker.exe', 'Dialed.HidusbfHost.exe'].map(name => path.join(directory, 'win-unpacked', 'resources', 'hidusbf-native', name));
-const inspectedPaths = [portable, unpacked, presentMon, ...nativeExecutables];
+const inspectedPaths = [installer, unpacked, presentMon, ...nativeExecutables];
 const powerShell = `@(${inspectedPaths.map(quotePowerShell).join(',')}) | ForEach-Object { `
   + `$item = Get-Item -LiteralPath $_; $signature = Get-AuthenticodeSignature -LiteralPath $_; `
   + `[pscustomobject]@{ path = $_; fileVersion = [string]$item.VersionInfo.FileVersion; productVersion = [string]$item.VersionInfo.ProductVersion; status = [string]$signature.Status; subject = [string]$signature.SignerCertificate.Subject; thumbprint = [string]$signature.SignerCertificate.Thumbprint; timestamped = [bool]$signature.TimeStamperCertificate } `
@@ -93,14 +93,14 @@ const rawInspection = JSON.parse(childProcess.execFileSync('pwsh.exe', [
 ], { encoding: 'utf8', windowsHide: true, timeout: 30000 }));
 const inspections = Array.isArray(rawInspection) ? rawInspection : [rawInspection];
 const inspectionFor = (file) => inspections.find((item) => path.resolve(item.path) === path.resolve(file));
-const portableInspection = inspectionFor(portable);
+const installerInspection = inspectionFor(installer);
 const unpackedInspection = inspectionFor(unpacked);
 const presentMonInspection = inspectionFor(presentMon);
-assert.ok(portableInspection && unpackedInspection && presentMonInspection, 'Authenticode inspection was incomplete.');
+assert.ok(installerInspection && unpackedInspection && presentMonInspection, 'Authenticode inspection was incomplete.');
 // A candidate may be unsigned (a private source build) or signed, but never a mixture, and a
 // signature that is present must be valid and timestamped - an expiring certificate would
 // otherwise silently invalidate the build later. Dialed's own files must all agree.
-const dialedOwn = [portable, unpacked, ...nativeExecutables];
+const dialedOwn = [installer, unpacked, ...nativeExecutables];
 const ownStatuses = [...new Set(dialedOwn.map((file) => inspectionFor(file)?.status))];
 assert.equal(ownStatuses.length, 1, `Candidate mixes signed and unsigned files: ${ownStatuses.join(', ')}`);
 const [signatureStatus] = ownStatuses;
@@ -116,8 +116,10 @@ if (signed) {
   if (expected) assert.equal(publishers[0], expected, 'Signed candidate publisher is not the expected one.');
 }
 assert.equal(presentMonInspection.status, 'Valid', 'Pinned PresentMon signature is not valid.');
-assert.ok(portableInspection.fileVersion.startsWith(version), 'Portable file version drifted.');
-assert.ok(portableInspection.productVersion.startsWith(version), 'Portable product version drifted.');
+assert.ok(installerInspection.fileVersion.startsWith(version), 'Installer file version drifted.');
+assert.ok(installerInspection.productVersion.startsWith(version), 'Installer product version drifted.');
+assert.ok(unpackedInspection.fileVersion.startsWith(version), 'Unpacked app file version drifted.');
+assert.ok(unpackedInspection.productVersion.startsWith(version), 'Unpacked app product version drifted.');
 
 const lifecycleFiles = fileEntries.filter(({ relativePath }) => relativePath.startsWith('src/main/input-driver-lifecycle/'));
 const driverPayloadFiles = [];
@@ -161,18 +163,20 @@ const expectedDriverPayloads = bundleInventory.files.filter((file) => file.selec
 assert.deepEqual(driverPayloadFiles.sort(), expectedDriverPayloads, 'Only the exact reviewed upstream resource payload may be bundled.');
 assert.equal(fs.readFileSync(path.join(hidusbfRoot, 'README.md'), 'utf8'), fs.readFileSync(path.join(root, 'vendor/hidusbf/README.md'), 'utf8'), 'Bundled credit/update policy drifted.');
 
-const artifact = {
-  fileName: portableName,
-  bytes: fs.statSync(portable).size,
-  sha256: hashFile(portable),
-  fileVersion: portableInspection.fileVersion,
-  productVersion: portableInspection.productVersion,
-  authenticode: portableInspection.status,
+const installerArtifact = {
+  fileName: installerName,
+  bytes: fs.statSync(installer).size,
+  sha256: hashFile(installer),
+  fileVersion: installerInspection.fileVersion,
+  productVersion: installerInspection.productVersion,
+  authenticode: installerInspection.status,
 };
 const unpackedExecutable = {
   fileName: `win-unpacked/${productName}.exe`,
   bytes: fs.statSync(unpacked).size,
   sha256: hashFile(unpacked),
+  fileVersion: unpackedInspection.fileVersion,
+  productVersion: unpackedInspection.productVersion,
   authenticode: unpackedInspection.status,
 };
 const archiveEvidence = {
@@ -188,9 +192,9 @@ const report = {
   product: productName,
   version,
   generatedAt: new Date().toISOString(),
-  status: signed ? 'SIGNED_PORTABLE_CANDIDATE' : 'UNSIGNED_PRIVATE_PORTABLE_CANDIDATE',
-  publisher: signed ? portableInspection.subject : null,
-  artifact,
+  status: signed ? 'SIGNED_INSTALLER_CANDIDATE' : 'UNSIGNED_PRIVATE_INSTALLER_CANDIDATE',
+  publisher: signed ? installerInspection.subject : null,
+  installer: installerArtifact,
   unpackedExecutable,
   archive: archiveEvidence,
   inputDriverLifecycle: {
@@ -219,14 +223,14 @@ const report = {
     cleanRoomParity: 'NOT_RUN_BY_THIS_VERIFIER',
     bunAudit: 'NOT_RUN_BY_THIS_VERIFIER',
     nativeLaunch: 'NOT_RUN',
-    installer: 'NOT_BUILT_OR_RUN',
+    installer: 'PACKAGED_OUTPUT_INSPECTED_NOT_RUN',
     signingOperations: 0,
     publicationApproved: false,
   },
 };
 
 fs.writeFileSync(path.join(directory, 'CANDIDATE_MANIFEST.json'), `${JSON.stringify(report, null, 2)}\n`);
-const sums = [artifact, unpackedExecutable, archiveEvidence]
+const sums = [installerArtifact, unpackedExecutable, archiveEvidence]
   .map((item) => `${item.sha256}  ${item.fileName}`)
   .join('\n');
 fs.writeFileSync(path.join(directory, 'SHA256SUMS.txt'), `${sums}\n`);

@@ -745,7 +745,8 @@ test('packaging preserves the owner-selected administrator launch and rejects a 
   const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   const mainSource = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.equal(packageJson.build.win.requestedExecutionLevel, 'requireAdministrator');
-  assert.equal(packageJson.build.portable.requestExecutionLevel, 'admin');
+  assert.deepEqual(packageJson.build.win.target, ['nsis']);
+  assert.equal(packageJson.build.portable, undefined);
   assert.doesNotMatch(mainSource, /loadURL\(['"]http:\/\/127\.0\.0\.1/);
   assert.match(mainSource, /loadFile\(/);
 });

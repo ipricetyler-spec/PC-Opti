@@ -74,8 +74,7 @@
     "win": {
       "icon": "build/dialed-icon.svg",
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "signtoolOptions": {
         "sign": "./scripts/electron-builder-sign.cjs",
@@ -84,9 +83,6 @@
         ]
       },
       "requestedExecutionLevel": "requireAdministrator"
-    },
-    "portable": {
-      "requestExecutionLevel": "admin"
     },
     "nsis": {
       "oneClick": false,
@@ -157,7 +153,7 @@
     "release:verify": "bun run release:checksums && bun run release:manifest && node scripts/verify-release-manifest.cjs",
     "candidate:verify": "node scripts/verify-private-candidate.cjs",
     "electron:dev": "bun run build && electron .",
-    "electron:build": "bun run build:hidusbf-native && bun run build && bun run sbom && bun run license:inventory && electron-builder --win nsis portable && bun run release:checksums && bun run release:sign && bun run release:manifest"
+    "electron:build": "bun run build:hidusbf-native && bun run build && bun run sbom && bun run license:inventory && electron-builder --win nsis && bun run release:checksums && bun run release:sign && bun run release:manifest"
   },
   "type": "module"
 }

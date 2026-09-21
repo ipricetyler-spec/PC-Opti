@@ -15,8 +15,7 @@ const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 function isCurrentReleaseArtifact(name) {
   const productName = String(PACKAGE.build?.productName || PACKAGE.name || '').trim();
   const version = String(PACKAGE.version || '').trim();
-  return name === `${productName} ${version}.exe`
-    || name === `${productName} Setup ${version}.exe`
+  return name === `${productName} Setup ${version}.exe`
     || name === `${productName} ${version}.msi`;
 }
 

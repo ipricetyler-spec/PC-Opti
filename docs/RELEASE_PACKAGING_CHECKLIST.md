@@ -25,7 +25,7 @@ $env:DIALED_ARTIFACT_SIGNING_ENDPOINT = "https://eus.codesigning.azure.net/"
 $env:DIALED_ARTIFACT_SIGNING_ACCOUNT = "gpcownersign260808"
 $env:DIALED_ARTIFACT_SIGNING_PROFILE = "gpc-owner-beta-publictrust"
 $env:DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS = "SharedTokenCacheCredential"
-npx --no-install electron-builder --win nsis portable
+npx --no-install electron-builder --win nsis
 ```
 
 Three things that cost an hour and will again if forgotten:
@@ -59,13 +59,14 @@ Signing: every artifact is timestamped, so signatures remain valid after the cer
 - [x] Confirm `signtool.exe` resolves — either set `DIALED_CODESIGN_TOOL_PATH` explicitly,
       or confirm a Windows 10 SDK is installed so the script finds it under
       `%ProgramFiles(x86)%\Windows Kits\10\bin`.
-- [x] Build, sign, and then **independently** verify the signature and timestamp on all
-      three artifacts electron-builder produces — the NSIS installer, the portable
-      executable, and the unpacked app — not just that the build exited 0. Done 2026-09-20:
-      installer, portable, unpacked app, both HIDUSBF helpers and `elevate.exe` all report
+- [x] Build, sign, and then **independently** verify the signature and timestamp on the NSIS
+      installer and unpacked app — not just that the build exited 0. The 2026-09-20 validation
+      also covered the now-retired portable executable. The installer, unpacked app, both
+      HIDUSBF helpers and `elevate.exe` all report
       `Valid`, signed by Tyler Price and timestamped by Microsoft's Public RSA Time Stamping
       Authority. PresentMon keeps Intel's own signature. `verify-private-candidate.cjs` now
-      understands signed candidates and reports `SIGNED_PORTABLE_CANDIDATE`.
+      understands signed installer candidates and reports `SIGNED_INSTALLER_CANDIDATE` on a
+      fresh candidate.
 - [~] The installer's own TOCTOU protection (verified file renamed to a random name,
       re-verified, then launched — `src/main/updater/index.cjs`). Partly exercised on
       2026-09-20 against the real signed installer: `readAuthenticode` reports `Valid` with the
@@ -101,6 +102,7 @@ A full unsigned packaging run was done on 2026-09-19: `electron-builder --win ns
 produced the NSIS installer, the portable executable and the unpacked app, and
 `scripts/verify-private-candidate.cjs dist-electron` passed over them. Nothing was installed
 or launched — everything below about install, upgrade and uninstall behaviour is still open.
+That is historical evidence only: the portable target has since been retired.
 
 That run also found and fixed two things: the app archive had picked up a `node_modules`
 copy of the four font packages (they are bundled into `dist` by Vite at build time, so they
@@ -137,15 +139,13 @@ user-writable, user-chosen directory. What's still open:
       uninstall removed it, and the protected data folder correctly survived. **Still unchecked:**
       leftover registry keys and shortcuts after uninstall, a true clean install on a machine
       with no previous Dialed, and a version-bump upgrade (needs a version other than 2.8.0).
-- [ ] **The portable target is still weak.** It unpacks to a predictable path under
-      `%TEMP%` while running elevated, and no NSIS-style directory permission fixes a temp
-      extraction. Decide whether to keep shipping it as-is, constrain what it can do until
-      it's unpacked somewhere safe, or drop it. `scripts/verify-private-candidate.cjs`
-      currently expects a portable artifact in five places — dropping it means updating
-      that script too, not just the `build.win.target` list.
+- [x] **Portable target retired by owner decision (2026-09-21).** It unpacked to a predictable
+      path under `%TEMP%` while running elevated, and no directory permission can secure that
+      temporary extraction. The per-machine installer covers the use case with a working
+      uninstaller and verified updates. Packaging and candidate verification now cover the
+      installer and unpacked app instead.
 - [x] Confirmed 2026-09-20. Both the installer and the installed `Dialed.exe` produced a UAC
-      prompt reading "Verified publisher: Tyler Price". The portable executable's prompt has not
-      been exercised separately.
+      prompt reading "Verified publisher: Tyler Price".
 
 ## Electron fuses
 

@@ -145,10 +145,12 @@ test('candidate packaging retains administrator manifests while disabling rebuil
   assert.equal(staged.build.win.signAndEditExecutable, true);
   assert.equal(staged.build.win.signExecutable, false);
   assert.equal(staged.build.win.requestedExecutionLevel, 'requireAdministrator');
-  assert.equal(staged.build.portable.requestExecutionLevel, 'admin');
+  assert.deepEqual(staged.build.win.target, ['nsis']);
+  assert.equal(staged.build.portable, undefined);
   assert.ok(canonical.build.win.signtoolOptions.sign);
   assert.equal(canonical.build.win.signExecutable, undefined);
   assert.equal(canonical.build.win.signAndEditExecutable, undefined);
+  assert.equal(canonical.build.portable, undefined);
   const source = fs.readFileSync(path.join(__dirname, '../scripts/prepare-native-policy-package.cjs'), 'utf8');
   assert.match(source, /--config\.npmRebuild=false/);
   assert.doesNotMatch(source, /--config\.win\.signAndEditExecutable=false/);

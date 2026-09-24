@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeUpdateTrust, verifyUpdateManifest } = require('../src/main/updater/index.cjs');
+const { assertArtifactVersion } = require('./artifact-version.cjs');
 const { resolveSigningConfiguration, verifySignature } = require('./windows-signing.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -38,6 +39,21 @@ $signature = Get-AuthenticodeSignature -LiteralPath $path -ErrorAction Stop
   return JSON.parse(result.stdout);
 }
 
+function readInstallerVersion(filePath) {
+  const encodedPath = Buffer.from(filePath, 'utf8').toString('base64');
+  const command = `
+$path = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedPath}'))
+$info = (Get-Item -LiteralPath $path -ErrorAction Stop).VersionInfo
+[pscustomobject]@{ fileVersion = [string]$info.FileVersion; productVersion = [string]$info.ProductVersion } | ConvertTo-Json -Compress
+`;
+  const result = require('node:child_process').spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], {
+    cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 60_000,
+  });
+  if (result.error || result.status !== 0) throw new Error(`Could not read the installer's version: ${result.error?.message || result.stderr || result.stdout}`);
+  const parsed = JSON.parse(result.stdout);
+  return { fileVersion: String(parsed.fileVersion || '').trim(), productVersion: String(parsed.productVersion || '').trim() };
+}
+
 function main() {
   const trust = normalizeUpdateTrust(PACKAGE.dialed?.update);
   if (!trust.configured) {
@@ -70,6 +86,11 @@ function main() {
     throw new Error('Installer Authenticode publisher or timestamp does not match the pinned update trust.');
   }
   if (!/^[A-F0-9]{40}$/.test(thumbprint)) throw new Error('Installer has no usable certificate thumbprint to record in the manifest.');
+  // The manifest's version comes from package.json, so the installer must actually be that
+  // version. Otherwise a stale but validly signed installer left in dist-electron under the
+  // current file name would be published, signed, as the new release.
+  const embedded = readInstallerVersion(installerPath);
+  assertArtifactVersion(version, embedded, 'Installer');
   if (trust.publisherThumbprint && thumbprint !== trust.publisherThumbprint) {
     throw new Error('Installer certificate thumbprint does not match the pinned update trust.');
   }

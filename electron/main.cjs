@@ -179,6 +179,9 @@ function verifiedUpdater() {
     verifiedUpdaterService = createUpdaterService({
       // Update files are staged where only administrators can change them, when available.
       userDataPath: protectedDataRoot || app.getPath('userData'),
+      // Without the protected folder, staging would be writable by ordinary processes, so the
+      // updater refuses to run rather than stage an installer an elevated Dialed will launch.
+      stagingProtected: Boolean(protectedDataRoot),
       currentVersion: app.getVersion(),
       isPackaged: app.isPackaged,
       runningExecutablePath: process.execPath,
@@ -536,7 +539,9 @@ ipcMain.handle('pc-opti:get-boot-time', () => new Date(Date.now() - require('nod
 
 ipcMain.handle('pc-opti:get-release-status', async () => {
   assertCapabilityAvailable('diagnostic:release-status');
-  const updateConfiguration = publicConfiguration(normalizeUpdateTrust(packageJson.dialed?.update));
+  // The card must not offer a check that assertOperational would refuse, so it is told whether
+  // staging is protected on this PC as well as whether release trust is configured.
+  const updateConfiguration = publicConfiguration(normalizeUpdateTrust(packageJson.dialed?.update), Boolean(protectedDataRoot));
   return readReleaseStatus({ version: app.getVersion(), isPackaged: app.isPackaged, executablePath: process.execPath, updateConfiguration });
 });
 

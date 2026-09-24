@@ -31,6 +31,9 @@ test('private candidate verifier is read-only toward the host and pins bundled d
   assert.match(source, /sourceTests: 'NOT_RUN_BY_THIS_VERIFIER'/);
   assert.doesNotMatch(source, /sourceTests:\s*\d+/);
   assert.doesNotMatch(source, /Start-Process|electron-builder|signFile|installFile|spawnSync/);
+  assert.match(source, /resources', 'elevate\.exe'/);
+  assert.match(source, /const inspectedPaths = \[installer, unpacked, presentMon, elevate,/);
+  assert.match(source, /const dialedOwn = \[installer, unpacked, elevate,/);
 });
 
 test('documented and hosted quality gates include parity, UI fixtures, audit, and release metadata checks', () => {

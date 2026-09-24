@@ -20,7 +20,7 @@ Run these exactly. They are pinned for a reason: bare `node --test` and bare `bu
 into the build snapshots under `output/` and fail for reasons unrelated to your change.
 
 ```
-npm test         # Node suite, .cjs tests   — expect 779/779
+npm test         # Node suite, .cjs tests   — expect 782/782
 npm run test:ts  # bun, TypeScript tests    — expect 131/131
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build
@@ -111,8 +111,10 @@ access. BIOS stays guidance-only. The owner keeps full feature access.
   in a throwaway probe. Example from 2026-09-21: a WinForms `Button` added to the input capture
   window took keyboard focus on open, so Space, Enter and Escape all cancelled a keyboard check.
   Every source test passed. A probe that sent real keystrokes caught it.
-- **In the input capture window, every key belongs to the check.** No control there may be
-  reachable by keyboard, and no keyboard shortcut may cancel it.
+- **In the input capture window, no ordinary key may cancel the check.** No control there may be
+  reachable by keyboard, and Dialed adds no cancel shortcut. The window's own close command — the X
+  button or Alt+F4 — still cancels, deliberately: the window is always on top while Dialed's main
+  window is disabled, so blocking it would trap the reader.
 - **Keep the expected counts current.** Adding or removing a test changes the numbers above and in
   `PROJECT_HANDOFF.md`; update both in the same commit.
 - **End with what you verified and what you did not**, in the reply as well as in

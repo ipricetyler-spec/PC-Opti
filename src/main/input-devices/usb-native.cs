@@ -505,7 +505,9 @@ namespace Dialed.Input {
       feedback.Height=90; feedback.ForeColor=System.Drawing.Color.LightSkyBlue;
       var instructions=new Label { Dock=DockStyle.Fill, Text=Instructions(mouse,keyboard,controller), TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
       // Dialed disables its main window during capture, so cancellation must be available here.
-      // No keyboard shortcut, Escape included: every key belongs to the check.
+      // No keyboard shortcut, Escape included: no ordinary key may cancel a keyboard check.
+      // The window's own close command (X or Alt+F4) still cancels on purpose - this window is
+      // always on top while Dialed's is disabled, and blocking it would trap the reader.
       cancelButton.Click+=(sender,args)=>{ canceled=true; Close(); };
       Controls.Add(instructions); Controls.Add(feedback); Controls.Add(cancelButton);
       UpdateFeedback();

@@ -8,6 +8,7 @@ const path = require('node:path');
 const asar = require('@electron/asar');
 const { NATIVE_INPUT_SOURCE_SHA256 } = require('../src/main/input-devices/index.cjs');
 const { verifyBundledInventory } = require('../src/main/input-driver-lifecycle/bundled-inventory.cjs');
+const { assertArtifactVersion } = require('./artifact-version.cjs');
 
 const root = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -25,8 +26,11 @@ const installer = path.join(directory, installerName);
 const unpacked = path.join(directory, 'win-unpacked', `${productName}.exe`);
 const archive = path.join(directory, 'win-unpacked', 'resources', 'app.asar');
 const presentMon = path.join(directory, 'win-unpacked', 'resources', 'presentmon', 'PresentMon-2.5.1-x64.exe');
+// The packaged app ships this helper in resources and signs it with the app. It is an
+// executable in the installed product, so it is held to the same signing rules as the rest.
+const elevate = path.join(directory, 'win-unpacked', 'resources', 'elevate.exe');
 
-for (const required of [installer, unpacked, archive, presentMon]) {
+for (const required of [installer, unpacked, archive, presentMon, elevate]) {
   assert.ok(fs.statSync(required).isFile(), `Required candidate file is missing: ${required}`);
 }
 
@@ -83,7 +87,7 @@ assert.equal(fs.existsSync(path.join(directory, 'win-unpacked', 'resources', 'in
 
 const quotePowerShell = (value) => `'${value.replace(/'/g, "''")}'`;
 const nativeExecutables = ['Dialed.HidusbfBroker.exe', 'Dialed.HidusbfHost.exe'].map(name => path.join(directory, 'win-unpacked', 'resources', 'hidusbf-native', name));
-const inspectedPaths = [installer, unpacked, presentMon, ...nativeExecutables];
+const inspectedPaths = [installer, unpacked, presentMon, elevate, ...nativeExecutables];
 const powerShell = `@(${inspectedPaths.map(quotePowerShell).join(',')}) | ForEach-Object { `
   + `$item = Get-Item -LiteralPath $_; $signature = Get-AuthenticodeSignature -LiteralPath $_; `
   + `[pscustomobject]@{ path = $_; fileVersion = [string]$item.VersionInfo.FileVersion; productVersion = [string]$item.VersionInfo.ProductVersion; status = [string]$signature.Status; subject = [string]$signature.SignerCertificate.Subject; thumbprint = [string]$signature.SignerCertificate.Thumbprint; timestamped = [bool]$signature.TimeStamperCertificate } `
@@ -100,7 +104,7 @@ assert.ok(installerInspection && unpackedInspection && presentMonInspection, 'Au
 // A candidate may be unsigned (a private source build) or signed, but never a mixture, and a
 // signature that is present must be valid and timestamped - an expiring certificate would
 // otherwise silently invalidate the build later. Dialed's own files must all agree.
-const dialedOwn = [installer, unpacked, ...nativeExecutables];
+const dialedOwn = [installer, unpacked, elevate, ...nativeExecutables];
 const ownStatuses = [...new Set(dialedOwn.map((file) => inspectionFor(file)?.status))];
 assert.equal(ownStatuses.length, 1, `Candidate mixes signed and unsigned files: ${ownStatuses.join(', ')}`);
 const [signatureStatus] = ownStatuses;
@@ -116,10 +120,8 @@ if (signed) {
   if (expected) assert.equal(publishers[0], expected, 'Signed candidate publisher is not the expected one.');
 }
 assert.equal(presentMonInspection.status, 'Valid', 'Pinned PresentMon signature is not valid.');
-assert.ok(installerInspection.fileVersion.startsWith(version), 'Installer file version drifted.');
-assert.ok(installerInspection.productVersion.startsWith(version), 'Installer product version drifted.');
-assert.ok(unpackedInspection.fileVersion.startsWith(version), 'Unpacked app file version drifted.');
-assert.ok(unpackedInspection.productVersion.startsWith(version), 'Unpacked app product version drifted.');
+assertArtifactVersion(version, installerInspection, 'Installer');
+assertArtifactVersion(version, unpackedInspection, 'Unpacked app');
 
 const lifecycleFiles = fileEntries.filter(({ relativePath }) => relativePath.startsWith('src/main/input-driver-lifecycle/'));
 const driverPayloadFiles = [];

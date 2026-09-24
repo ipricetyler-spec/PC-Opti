@@ -7,6 +7,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const updater = require('../src/main/updater/index.cjs');
+const artifactVersion = require('../scripts/artifact-version.cjs');
 
 function fixtureTrust() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
@@ -112,6 +113,23 @@ test('version comparison rejects invalid versions and prevents same-version or d
   assert.throws(() => updater.parseVersion('v2.8'), /semantic version/);
 });
 
+test('release artifact resource versions match the package version, with Windows zero padding only', () => {
+  assert.doesNotThrow(() => artifactVersion.assertArtifactVersion('2.8.0', {
+    fileVersion: '2.8.0',
+    productVersion: '2.8.0',
+  }, 'Installer'));
+  assert.doesNotThrow(() => artifactVersion.assertArtifactVersion('2.8.0', {
+    fileVersion: '2.8.0.0',
+    productVersion: '2.8.0.0',
+  }, 'Installer'));
+  for (const version of ['2.8.0.1', '2.8.0-preview', '2.8.01', '2.8.1', '']) {
+    assert.throws(() => artifactVersion.assertArtifactVersion('2.8.0', {
+      fileVersion: version,
+      productVersion: version,
+    }, 'Installer'), /not 2\.8\.0/);
+  }
+});
+
 test('installer verification directly rejects all six post-download tamper conditions', async (context) => {
   const temporary = tempDir('dialed-updater-tamper-');
   context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
@@ -168,6 +186,7 @@ test('service requires a signed packaged caller, consumes tokens, verifies the e
     userDataPath: temporary,
     currentVersion: '2.7.0',
     isPackaged: true,
+    stagingProtected: true,
     runningExecutablePath: path.join(temporary, 'Dialed.exe'),
     trust,
   }, {
@@ -184,10 +203,9 @@ test('service requires a signed packaged caller, consumes tokens, verifies the e
     },
     openInstaller: async (filePath) => {
       launches += 1;
-      // The installer is launched under an unpredictable name, not the published one:
-      // the staging directory is user-writable, so launching the path that was just
-      // verified would let another program running as the same user swap the bytes in
-      // between. The published name must not survive to the launch.
+      // Protected staging prevents an ordinary process from replacing the installer. The
+      // published name still must not survive to launch, so the second verification covers
+      // any unexpected change between the download and launch stages.
       assert.notEqual(path.basename(filePath), 'Dialed Setup 2.8.0.exe');
       assert.match(path.basename(filePath), /^[0-9a-f-]{36}\.exe$/i);
       assert.equal(path.dirname(filePath), path.join(temporary, 'verified-updates', '2.8.0'));
@@ -225,6 +243,21 @@ test('service performs no network or signature work when trust is unconfigured o
     readHttpsBuffer: async () => { calls += 1; },
   });
   await assert.rejects(() => service.checkForUpdates(), /not configured/);
+  assert.equal(calls, 0);
+});
+
+test('service refuses a configured packaged update unless staging is explicitly protected', async () => {
+  const { trust } = fixtureTrust();
+  let calls = 0;
+  const service = updater.createUpdaterService({
+    userDataPath: os.tmpdir(), currentVersion: '2.7.0', isPackaged: true,
+    runningExecutablePath: 'C:\\fixture.exe', trust,
+  }, {
+    readAuthenticode: async () => { calls += 1; },
+    readHttpsBuffer: async () => { calls += 1; },
+    openInstaller: async () => { calls += 1; },
+  });
+  await assert.rejects(() => service.checkForUpdates(), /protected folder/);
   assert.equal(calls, 0);
 });
 
@@ -279,4 +312,22 @@ test('the publisher name stays pinned at build time, whatever the manifest claim
   manifest.signed = bytes.toString('base64');
   manifest.signature = { algorithm: 'Ed25519', keyId: open.manifestKeyId, value: crypto.sign(null, bytes, privateKey).toString('base64') };
   assert.throws(() => updater.verifyUpdateManifest(Buffer.from(JSON.stringify(manifest), 'utf8'), open), /publisher subject does not match/);
+});
+
+test('a PC without the protected folder is told updates are off, not that they are ready', () => {
+  // The Check for updates button is enabled from this configuration. Before this, a PC whose
+  // protected folder failed was shown ready-to-update trust and only learned otherwise by
+  // pressing the button and reading an error.
+  const { trust } = fixtureTrust();
+  const ready = updater.publicConfiguration(trust, true);
+  assert.equal(ready.configured, true);
+  assert.equal(ready.status, 'READY');
+
+  const unprotected = updater.publicConfiguration(trust, false);
+  assert.equal(unprotected.configured, false, 'a check that cannot run must not look available');
+  assert.equal(unprotected.status, 'STAGING_UNPROTECTED');
+  assert.match(unprotected.errors.join(' '), /protected folder could not be prepared/);
+
+  // Callers that do not know about staging keep the old meaning.
+  assert.equal(updater.publicConfiguration(trust).configured, true);
 });

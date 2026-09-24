@@ -89,7 +89,8 @@ Signing: every artifact is timestamped, so signatures remain valid after the cer
       signature, because its own certificate has usually rotated by the time an update appears.
 
       `scripts/generate-update-feed.cjs` records the certificate that actually signed the
-      installer instead of copying the pinned value.
+      installer instead of copying the pinned value, and refuses an installer whose Windows
+      resource version is not the package version (apart from trailing zero padding).
 
 - [ ] `package.json` → `dialed.update` is still empty, now only for want of published
       infrastructure: the feed URL, the allowed installer hosts and the Ed25519 manifest key

@@ -113,14 +113,20 @@ function normalizeUpdateTrust(raw = {}) {
   };
 }
 
-function publicConfiguration(configuration) {
+function publicConfiguration(configuration, stagingProtected = null) {
+  // stagingProtected is a tri-state on purpose: null means "not asked in this context" (the
+  // release-status card reads trust alone), true and false are an answer. Only false makes the
+  // reader's answer change, and it must, because a check that cannot run should not look ready.
+  const staged = stagingProtected === null ? null : stagingProtected === true;
   return {
-    status: configuration.status,
-    configured: configuration.configured,
+    status: staged === false ? 'STAGING_UNPROTECTED' : configuration.status,
+    configured: staged === false ? false : configuration.configured,
     channel: configuration.channel,
     feedHost: configuration.feedHost,
     missingFields: configuration.missingFields,
-    errors: configuration.errors,
+    errors: staged === false
+      ? [...configuration.errors, "Dialed's protected folder could not be prepared on this PC, so there is nowhere safe to put a downloaded installer. Updates stay off until it can be."]
+      : configuration.errors,
     backgroundUpdates: false,
   };
 }
@@ -342,7 +348,7 @@ function createUpdaterService(options, dependencies = {}) {
 
   function getStatus() {
     return {
-      configuration: publicConfiguration(trust),
+      configuration: publicConfiguration(trust, options.stagingProtected === true),
       phase: installPreview && installPreview.expiresAt >= Date.now() ? 'READY_TO_INSTALL' : 'IDLE',
       downloaded: installPreview && installPreview.expiresAt >= Date.now()
         ? { version: installPreview.release.version, fileName: installPreview.release.installer.fileName, verifiedAt: installPreview.verifiedAt }
@@ -353,6 +359,12 @@ function createUpdaterService(options, dependencies = {}) {
   function assertOperational() {
     if (!trust.configured) throw new Error(trust.status === 'UNCONFIGURED' ? `Verified updates are not configured: ${trust.missingFields.join(', ')}.` : `Verified update configuration is invalid: ${trust.errors.join(' ')}`);
     if (!options.isPackaged) throw new Error('Verified updates are available only from a packaged Dialed build.');
+    // Dialed runs elevated and launches the installer it downloads. If the staging folder can be
+    // written by an ordinary process, that process can list the folder, see the installer arrive
+    // and swap it between the last check and the launch - renaming it to a random name does not
+    // help, because a directory listing reveals the name. Only the admin-only protected folder
+    // closes that gap, so updates stay off whenever it is unavailable.
+    if (options.stagingProtected !== true) throw new Error("Verified updates need Dialed's protected folder, which could not be prepared on this PC. Updates stay off until it can be; nothing was downloaded.");
   }
 
   async function assertRunningPublisher() {
@@ -452,13 +464,11 @@ function createUpdaterService(options, dependencies = {}) {
     await verifyInstallerFile(pending.filePath, pending.release, trust, updateRoot, dependencies);
     const openInstaller = dependencies.openInstaller || options.openInstaller;
     if (typeof openInstaller !== 'function') throw new Error('Installer launch is unavailable.');
-    // The staging directory sits in per-user app data, so a process running as the same
-    // user without elevation can replace the file. Verifying a path and then launching
-    // that same path leaves a window in which the bytes can be swapped for ones that
-    // were never checked, and Dialed launches installers from an already-elevated
-    // process. Moving the verified file to a name the attacker cannot predict, then
-    // re-verifying at that name, closes the window: any swap before the move is caught
-    // by the second verification, and after it there is no known path to swap.
+    // Staging is in the admin-only protected folder (assertOperational refuses otherwise), so
+    // an ordinary process cannot write here at all. The rename and second verification are
+    // defence in depth against anything that changed the file between download and launch;
+    // they are not the access control, because a random name is not secret to anyone who can
+    // list the folder.
     const sealedPath = path.join(path.dirname(pending.filePath), `${crypto.randomUUID()}.exe`);
     try {
       fileSystem.renameSync(pending.filePath, sealedPath);

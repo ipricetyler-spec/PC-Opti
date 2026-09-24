@@ -40,3 +40,20 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   closure in this environment, so it is not the relevant compile host.)
 - This is source and renderer-build evidence only. No live capture window, device, package,
   signature, or installer was run.
+
+## 2026-09-21 — updater and candidate-verifier security follow-up
+
+- An updater stages an installer only in Dialed's already verified admin-only protected folder.
+  With that folder unavailable, every check, download and launch request fails before a signature
+  read or network request. A same-user per-user-data fallback is never used for update staging.
+- Update-feed and candidate verification now require both Windows resource versions to equal the
+  package version, allowing only trailing `.0` components. This rejects a validly signed,
+  misnamed artifact such as `2.8.0.1` for package version `2.8.0`.
+- The candidate verifier now requires, inspects, and applies the common signed/unsigned,
+  publisher, and timestamp rules to `resources/elevate.exe`.
+- Focused updater/build-workflow tests: **21/21 passed**. The full required checks passed:
+  `npm test` **781/781**, `npm run test:ts` **131/131**, `npm run lint` clean, and
+  `npm run build` succeeded (the existing large-renderer-chunk warning remains).
+- The existing `dist-electron` package was not re-verified: it predates the current updater
+  source, and producing a fresh candidate requires separately approved packaging. No installer,
+  signing, installation, or live update was run.

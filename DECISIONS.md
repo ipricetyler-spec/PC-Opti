@@ -12,5 +12,8 @@ Product decisions that shape Dialed. The detailed working log is kept privately 
   extracts to a predictable `%TEMP%` path while elevated, and no directory permission can secure
   that temporary extraction. The installer covers the use case with a working uninstaller and
   verified updates.
+- Verified updates are unavailable unless Dialed has verified its admin-only protected data folder.
+  A per-user fallback could let an ordinary same-user process replace an installer before Dialed
+  launches it elevated, so it is never a valid update staging location.
 
 See [docs/DECISION_LOG.md](docs/DECISION_LOG.md) and [docs/SAFETY_MODEL.md](docs/SAFETY_MODEL.md).

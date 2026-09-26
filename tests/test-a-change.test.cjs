@@ -44,6 +44,10 @@ test('display tests keep the monitor and graphics-card check, and run through th
   const component = read('src/components/TestAChange.tsx');
   assert.match(component, /contextChanges\(baseline, \{/);
   assert.match(component, /not a like-for-like comparison/);
+  // Testing the refresh rate changes the refresh rate, so a new rate is the change working, not a
+  // mismatch. The old display-experiment model had its own rule for this; when that was removed
+  // (aa2b029) this filter was left as the only place the exception lives.
+  assert.match(component, /test\.source\.title === FIELD_LABELS\.refreshHz \? changes\.filter\(\(item\) => !\/\^The monitor is now at/);
   const guide = read('src/components/DisplaySetupGuide.tsx');
   assert.match(guide, /Step 3 · Test a display setting/);
   // Display setup starts the same test as everything else, with the setting filled in. It used

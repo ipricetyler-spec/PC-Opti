@@ -17,3 +17,25 @@ Product decisions that shape Dialed. The detailed working log is kept privately 
   launches it elevated, so it is never a valid update staging location.
 
 See [docs/DECISION_LOG.md](docs/DECISION_LOG.md) and [docs/SAFETY_MODEL.md](docs/SAFETY_MODEL.md).
+
+## Per-game power throttling exemption — declined (2026-09-26)
+
+Dialed will not add a tweak that exempts a game from Windows Power Throttling
+(`powercfg /powerthrottling disable /path <exe>`).
+
+Power throttling parks processes Windows judges to be background work on slower, more efficient
+CPU states, to save battery. `powercfg /powerthrottling list` on Windows 11 reports it under
+"Battery Usage Settings By App", which is what it is. A game rendering frames in the foreground
+is not what it targets, and on a desktop there is no battery and no efficiency-core split to be
+parked on.
+
+Checked on the owner's machine: Ryzen 7 9800X3D desktop, Ultimate Performance power plan. A
+foreground game there is already not a throttling candidate.
+
+It was declined for what it would do to the app rather than for the effort: a setting that sounds
+meaningful, that people would enable expecting more frames, and that would change nothing
+measurable, is exactly what Dialed exists not to ship. The honest card text would have read "this
+probably does nothing on a desktop".
+
+Reopen only with evidence: a before/after on a laptop, unplugged, showing a difference bigger than
+run-to-run variation. Dialed can now measure precisely that.

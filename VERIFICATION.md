@@ -154,3 +154,22 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
 - `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.
 - Not verified: the new Saved tests link and the lighter faint text were exercised only in the
   browser fixture, not in the installed app (which predates this work).
+
+## 2026-09-26 — renderer bundle split by section
+
+- Main chunk measured before and after, from `npm run build`: **624.46 kB → 414.82 kB**
+  (gzip 172.76 → 124.10 kB). The "chunks larger than 500 kB" warning is gone; the threshold was
+  not changed.
+- Each sidebar section's components load through one dynamic import per section
+  (`src/workspaces`), so a section arrives as one chunk on first open: scan details 50.8 kB,
+  tweaks 52.4, games 48.6, settings 15.3, measure 14.2, gpu 11.1 (kB).
+- Kept in the main chunk on purpose: Home (landing), `TweaksOverview` (App uses its hook),
+  `ThemePicker` (applies saved appearance at startup) and Restore, which the error screen's
+  "Open recovery" leads to and must open even if another section's chunk fails.
+- `dist/index.html` loads only the main script and stylesheet; no section chunk is preloaded.
+  Test a change does not pull in the 411 kB NetworkQualityLab (charts) chunk.
+- `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.
+  `npm run test:ui:fixtures` from an empty `dist/` passes, including the fault test that blocks
+  the Input devices chunk and recovers to Restore.
+- Not verified: the packaged Electron app (file:// in app.asar). Earlier lazy chunks already load
+  there, but this build was not packaged or launched.

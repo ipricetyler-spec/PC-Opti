@@ -1,40 +1,23 @@
-import { LocalDataCenter } from './components/LocalDataCenter';
 import { fixTextsFor, WHY_LISTED } from './lib/fixTexts';
-import { ExperimentSessions } from './components/ExperimentSessions';
 import type { ExperimentSession } from './lib/experimentSessions';
-import { DisplaySetupGuide } from './components/DisplaySetupGuide';
 import { WorkspaceErrorBoundary } from './components/WorkspaceErrorBoundary';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { loadScanDetails, loadTweaks, loadGames, loadGpu, loadMeasure, loadSettings } from './workspaces';
 import { AlertCircle, CheckCircle2, Database, RefreshCw, TimerReset } from 'lucide-react';
 import { ActionPreviewDialog } from './components/ActionPreviewDialog';
 import type { ActionPreviewRequest } from './components/ActionPreviewDialog';
 import { ConfirmContext, toPreviewRequest, type ConfirmRequest } from './components/ConfirmContext';
-import { GameSessionMode } from './components/GameSessionMode';
-import { GpuPreferenceCenter } from './components/GpuPreferenceCenter';
-import { FullscreenOptimizationsCenter } from './components/FullscreenOptimizationsCenter';
-import { HardwareReadingsSetting } from './components/HardwareReadingsSetting';
-import { PowerPlanCard } from './components/PowerPlanCard';
 import { useGameSession } from './lib/useGameSession';
 import { BackgroundActivity } from './components/BackgroundActivity';
-import { DashboardOverview } from './components/DashboardOverview';
 import { DriftMonitor } from './components/DriftMonitor';
-import { GameSettingsCenter } from './components/GameSettingsCenter';
-import { GameConfigCenter } from './components/GameConfigCenter';
 import { LocalAuditHistory } from './components/LocalAuditHistory';
-import { MaintenanceQueue } from './components/MaintenanceQueue';
-import { ProcessBalancer } from './components/ProcessBalancer';
-import { OptimizationCatalog } from './components/OptimizationCatalog';
 import type { BatchOptimizationItem, BatchRunLogEntry, BatchRunStatus } from './components/OptimizationCatalog';
-import { SafePolicies } from './components/SafePolicies';
 import { Sidebar } from './components/Sidebar';
 import type { AppTab } from './components/Sidebar';
-import { StartupCenter } from './components/StartupCenter';
 import { ReadinessCenter } from './components/ReadinessCenter';
 import { ThemePicker } from './components/ThemePicker';
 import { TechnicalDetailsSetting } from './components/TechnicalDetailsSetting';
 import { TabRow, TabPanel } from './components/TabRow';
-import { SystemInsightCenters } from './components/SystemInsightCenters';
-import { ReleaseStatusCard } from './components/ReleaseStatusCard';
 import { DEFAULT_APP_THEME, isAppThemeId, type AppThemeId } from './lib/themes';
 import { describeRollbackTarget, rollbackDisclosureText } from './lib/rollbackDisclosure';
 import { graphicsAdapters } from './lib/displaySetup';
@@ -124,6 +107,25 @@ const GameOptimizationCenter = lazy(() => import('./components/GameOptimizationC
 const InputDevicesCenter = lazy(() => import('./components/InputDevicesCenter').then((module) => ({ default: module.InputDevicesCenter })));
 const NetworkQualityLab = lazy(() => import('./components/NetworkQualityLab').then((module) => ({ default: module.NetworkQualityLab })));
 const PerformanceLab = lazy(() => import('./components/PerformanceLab').then((module) => ({ default: module.PerformanceLab })));
+// Each section loads its own components the first time it opens; see src/workspaces.
+const DashboardOverview = lazy(() => loadScanDetails().then((module) => ({ default: module.DashboardOverview })));
+const SystemInsightCenters = lazy(() => loadScanDetails().then((module) => ({ default: module.SystemInsightCenters })));
+const OptimizationCatalog = lazy(() => loadTweaks().then((module) => ({ default: module.OptimizationCatalog })));
+const StartupCenter = lazy(() => loadTweaks().then((module) => ({ default: module.StartupCenter })));
+const ProcessBalancer = lazy(() => loadTweaks().then((module) => ({ default: module.ProcessBalancer })));
+const GameSessionMode = lazy(() => loadTweaks().then((module) => ({ default: module.GameSessionMode })));
+const SafePolicies = lazy(() => loadTweaks().then((module) => ({ default: module.SafePolicies })));
+const PowerPlanCard = lazy(() => loadTweaks().then((module) => ({ default: module.PowerPlanCard })));
+const MaintenanceQueue = lazy(() => loadTweaks().then((module) => ({ default: module.MaintenanceQueue })));
+const GameSettingsCenter = lazy(() => loadGames().then((module) => ({ default: module.GameSettingsCenter })));
+const GameConfigCenter = lazy(() => loadGames().then((module) => ({ default: module.GameConfigCenter })));
+const DisplaySetupGuide = lazy(() => loadGames().then((module) => ({ default: module.DisplaySetupGuide })));
+const GpuPreferenceCenter = lazy(() => loadGpu().then((module) => ({ default: module.GpuPreferenceCenter })));
+const FullscreenOptimizationsCenter = lazy(() => loadGpu().then((module) => ({ default: module.FullscreenOptimizationsCenter })));
+const ExperimentSessions = lazy(() => loadMeasure().then((module) => ({ default: module.ExperimentSessions })));
+const ReleaseStatusCard = lazy(() => loadSettings().then((module) => ({ default: module.ReleaseStatusCard })));
+const LocalDataCenter = lazy(() => loadSettings().then((module) => ({ default: module.LocalDataCenter })));
+const HardwareReadingsSetting = lazy(() => loadSettings().then((module) => ({ default: module.HardwareReadingsSetting })));
 
 export default function App() {
   const [sessionContext, setSessionContext] = useState<ExperimentSession | null>(null);
@@ -1418,7 +1420,7 @@ export default function App() {
     }));
   const testableIds = new Set(testableTweaks.map((item) => item.id));
 
-  return <ConfirmContext.Provider value={confirmAction}><div className="app-shell min-h-screen text-slate-200"><a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 focus:not-sr-only">Skip to main content</a>{actionPreview ? <ActionPreviewDialog request={actionPreview} onCancel={cancelPreviewConfirmation} onConfirm={confirmPreviewAction} /> : null}<div className="flex min-h-screen flex-col lg:flex-row"><Sidebar activeTab={activeTab} availableTabs={availableTabs} onChange={setActiveTab} profile={runtimeProfile.profile} onOpenTweak={availableTabs.includes('startup') ? openTweak : undefined} tweakIds={new Set(tweakCards.map((card) => card.definition.id))} /><main id="main-content" tabIndex={-1} className="min-w-0 flex-1 panel-shell"><header className="app-header flex flex-col justify-between gap-3 border-b border-slate-800 px-6 py-4 backdrop-blur sm:flex-row sm:items-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Dialed · Windows performance optimizer</p><p className="mt-0.5 text-xs text-slate-500">Your PC, dialed in. Every change is explained, checked and can be undone.</p></div><div className="flex flex-col items-end gap-2 text-xs text-slate-400"><div className="flex flex-wrap items-center justify-end gap-2"></div><span role="status" className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${isScanning ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200' : scanError ? 'border-rose-500/30 bg-rose-950/20 text-rose-200' : snapshot ? snapshot.metadata.errors.length ? 'border-amber-500/30 bg-amber-950/20 text-amber-200' : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200' : 'border-slate-700 bg-slate-900/50 text-slate-400'}`}>{isScanning ? <RefreshCw className="h-3 w-3 animate-spin" /> : scanError ? <AlertCircle className="h-3 w-3" /> : snapshot ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{isScanning ? 'Verified scan running' : scanError ? 'Latest scan failed · previous evidence retained' : snapshot ? `Scan completed ${new Date(snapshot.timestamp).toLocaleTimeString()}${snapshot.metadata.errors.length ? ` · ${snapshot.metadata.errors.length} gap${snapshot.metadata.errors.length === 1 ? '' : 's'}` : ''}` : 'No completed scan'}</span></div></header><div className="mx-auto w-full max-w-7xl p-5 sm:p-7"><WorkspaceErrorBoundary key={activeTab} onRecover={() => { setVerifyView('history'); setActiveTab('drift'); }}>
+  return <ConfirmContext.Provider value={confirmAction}><div className="app-shell min-h-screen text-slate-200"><a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 focus:not-sr-only">Skip to main content</a>{actionPreview ? <ActionPreviewDialog request={actionPreview} onCancel={cancelPreviewConfirmation} onConfirm={confirmPreviewAction} /> : null}<div className="flex min-h-screen flex-col lg:flex-row"><Sidebar activeTab={activeTab} availableTabs={availableTabs} onChange={setActiveTab} profile={runtimeProfile.profile} onOpenTweak={availableTabs.includes('startup') ? openTweak : undefined} tweakIds={new Set(tweakCards.map((card) => card.definition.id))} /><main id="main-content" tabIndex={-1} className="min-w-0 flex-1 panel-shell"><header className="app-header flex flex-col justify-between gap-3 border-b border-slate-800 px-6 py-4 backdrop-blur sm:flex-row sm:items-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Dialed · Windows performance optimizer</p><p className="mt-0.5 text-xs text-slate-500">Your PC, dialed in. Every change is explained, checked and can be undone.</p></div><div className="flex flex-col items-end gap-2 text-xs text-slate-400"><div className="flex flex-wrap items-center justify-end gap-2"></div><span role="status" className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${isScanning ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200' : scanError ? 'border-rose-500/30 bg-rose-950/20 text-rose-200' : snapshot ? snapshot.metadata.errors.length ? 'border-amber-500/30 bg-amber-950/20 text-amber-200' : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200' : 'border-slate-700 bg-slate-900/50 text-slate-400'}`}>{isScanning ? <RefreshCw className="h-3 w-3 animate-spin" /> : scanError ? <AlertCircle className="h-3 w-3" /> : snapshot ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{isScanning ? 'Verified scan running' : scanError ? 'Latest scan failed · previous evidence retained' : snapshot ? `Scan completed ${new Date(snapshot.timestamp).toLocaleTimeString()}${snapshot.metadata.errors.length ? ` · ${snapshot.metadata.errors.length} gap${snapshot.metadata.errors.length === 1 ? '' : 's'}` : ''}` : 'No completed scan'}</span></div></header><div className="mx-auto w-full max-w-7xl p-5 sm:p-7"><WorkspaceErrorBoundary key={activeTab} onRecover={() => { setVerifyView('history'); setActiveTab('drift'); }}><Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}>
     {(activeTab === 'readiness' || activeTab === 'overview') && <TabRow<'readiness' | 'overview'> ariaLabel="Home views" items={[{ id: 'readiness', label: 'Summary' }, { id: 'overview', label: 'Scan details' }]} value={activeTab} onChange={setActiveTab} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
     {activeTab === 'readiness' && <TabPanel ariaLabel="Home views" value={activeTab}><HomeSummary snapshot={snapshot} isScanning={isScanning} scanError={scanError} history={history} historyRecovery={historyRecovery} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} onScan={() => void runScan()} onOpenScanDetails={() => setActiveTab('overview')} onNavigate={navigateToRecommendationPanel} onOpenRestore={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} onOpenSuggestions={() => { setOptimizeView('recommended'); setActiveTab('startup'); }} onOpenTest={() => openTest()} /></TabPanel>}
     {activeTab === 'workload-profiles' && <><section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Settings</p><h2 className="mt-2 text-2xl font-bold text-white">Appearance, data and release status</h2><p className="mt-1 text-sm text-slate-400">Choose a look, manage what Dialed stores on this PC, and review the installed version. Nothing here changes Windows.</p></section><ThemePicker activeTheme={appTheme} onChange={setAppTheme} /><TechnicalDetailsSetting enabled={technicalDetails} onChange={setTechnicalDetails} />{capabilityIds.has('telemetry:windows-counters') && <HardwareReadingsSetting />}<BackgroundActivity /><LocalDataCenter auditEntries={history} comparisons={benchmarkEvidence.comparisons} appVersion={releaseStatus?.version} technicalDetails={technicalDetails} auditCount={history.length} comparisonCount={benchmarkEvidence.comparisons.length} theme={appTheme} onNavigate={(tab) => { if (tab === 'drift') { setVerifyView('history'); setFocusedAuditId(null); } if (tab === 'game-settings') setGameView('backups'); setActiveTab(tab); }} /><ReleaseStatusCard status={releaseStatus} loading={isReleaseStatusLoading} error={releaseStatusError} onRefresh={loadReleaseStatus} /></>}
@@ -1451,5 +1453,5 @@ export default function App() {
     {activeTab === 'gpu' && capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}
     {activeTab === 'input-devices' && <Suspense fallback={<p className="text-sm text-slate-400">Loading input devices…</p>}><InputDevicesCenter /></Suspense>}
     {activeTab === 'drift' && <div className="space-y-6"><LocalAuditHistory focusedId={focusedAuditId} entries={history} loading={isHistoryLoading} rollingBackId={rollingBackId} privacyBusy={isHistoryPrivacyBusy} privacyStatus={historyPrivacyStatus} actionError={historyActionError} recovery={historyRecovery} recoveryBusy={isHistoryRecoveryBusy} onRefresh={loadHistory} onRetryVerification={retryAuditVerification} onRecoverCorruptJournal={recoverCorruptAuditJournal} onRollback={(entry) => void rollbackAuditEntry(entry)} onUndoAll={() => void undoAllDialedChanges()} undoAllBusy={isUndoAllBusy} onExport={exportAuditHistory} onDelete={deleteAuditHistory} /><div id="restore-drift" className="scroll-mt-4"><ShowDetails key={`drift-${verifyView}`} label="Changes made by Windows or other programs since your snapshot" defaultOpen={verifyView === 'drift'}><DriftMonitor report={driftReport} loading={isDriftLoading} error={driftError} onOpenScan={() => setActiveTab('overview')} onSetBaseline={defineDriftBaseline} /></ShowDetails></div><div id="restore-readiness" className="scroll-mt-4"><ShowDetails key={`readiness-${verifyView}`} label="Readiness checks before changing anything" defaultOpen={verifyView === 'readiness'}><ReadinessCenter snapshot={snapshot} scanError={scanError} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} timingExperiments={timingExperiments} driftReport={driftReport} driftError={driftError} history={history} historyRecovery={historyRecovery} onOpenScan={() => setActiveTab('overview')} onNavigateRecommendation={navigateToRecommendationPanel} /></ShowDetails></div></div>}
-  </WorkspaceErrorBoundary></div></main></div></div></ConfirmContext.Provider>;
+  </Suspense></WorkspaceErrorBoundary></div></main></div></div></ConfirmContext.Provider>;
 }

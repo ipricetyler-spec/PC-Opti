@@ -2,10 +2,13 @@
 
 How Dialed is checked before a change is accepted.
 
-- Type check: `bun run lint`
-- Main-process tests: `node --test tests/*.cjs`
-- UI and library tests: `bun test`
-- Production build: `bun run build`
+Run these exactly; a bare `node --test` or `bun test` walks into the build snapshots under
+`output/` and fails for reasons unrelated to your change. `AGENTS.md` carries the expected counts.
+
+- Main-process tests: `npm test`
+- UI and library tests: `npm run test:ts`
+- Type check: `npm run lint`
+- Production build: `npm run build`
 - Windows PowerShell parses every script Dialed ships (`tests/powershell-syntax.test.cjs`).
 - Pinned third-party files match their recorded SHA-256 on disk (`tests/pinned-files.test.cjs`).
 
@@ -57,3 +60,29 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
 - The existing `dist-electron` package was not re-verified: it predates the current updater
   source, and producing a fresh candidate requires separately approved packaging. No installer,
   signing, installation, or live update was run.
+
+## 2026-09-23 — security review acted on (`1bd7066`)
+
+- Verified updates refuse to run unless staging is the administrator-only protected folder, before
+  any network or signature work. The release card no longer offers a check that would be refused.
+- The update feed and the candidate verifier require the installer's own version to be the package
+  version exactly, with Windows' trailing `.0` padding allowed.
+- `resources/elevate.exe` is required, inspected, and held to the same signed-or-unsigned,
+  publisher and timestamp rules as the rest of Dialed's own files.
+- Alt+F4 closing the capture window was reviewed and is intended, not a defect; the wording was
+  corrected instead.
+- `npm test` 782/782, `npm run test:ts` 132/132, lint and build clean. No packaging, signing,
+  installation, launch or Windows change.
+
+## 2026-09-26 — benchmarking simplified (`45b1e23`, `f7940ea`, `b013a80`)
+
+- A test shows the three steps a reader acts on; Result and Done are states, not steps.
+- A waiting test watches for new runs itself; both manual refresh buttons are gone.
+- One guided flow: Display setup starts the same test with the setting filled in, the parallel
+  display-experiment steps are deleted, and every recording is reached from a finished result.
+- One vocabulary in the measure screens: run, test, result.
+- `npm test` 782/782, `npm run test:ts` 132/132, lint and build clean.
+- Not verified: `npm run test:ui:fixtures` does not pass in this environment, and fails the same
+  way on the previous commit with the changes stashed. It is a pre-existing problem with that
+  gate. Those scripts also need a preview server already running on 127.0.0.1:5178, started with
+  `--host 127.0.0.1`, which nothing documents.

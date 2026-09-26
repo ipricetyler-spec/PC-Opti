@@ -9,11 +9,12 @@ const configs = require('../src/main/game-config/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
-const { openFixture, openSection } = require('./ui-fixture-page.cjs');
+const { appThemes, openFixture, openSection, sectionButton, sectionButtons } = require('./ui-fixture-page.cjs');
 const out = path.resolve(__dirname, '../output/playwright');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Fixture test is restricted to loopback.');
-const themes = ['midnight', 'ember', 'violet', 'forest', 'graphite', 'oled', 'aurora', 'carbon-gold'];
+const { themes: shippedThemes } = appThemes();
+const themes = shippedThemes.map((theme) => theme.id);
 
 async function main() {
   fs.mkdirSync(out, { recursive: true });
@@ -38,6 +39,11 @@ async function main() {
   const restoreStore = createPreviewStore();
   const calls = [];
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  // Game-config backups and restores are confined to the user's own profile folders, read
+  // from these variables. Point them at the fixture profile, in this process only and after
+  // the browser has started, so the rule runs unchanged against fixture files and nothing
+  // here can reach the real profile.
+  Object.assign(process.env, { USERPROFILE: root, LOCALAPPDATA: roots.localAppData, APPDATA: path.join(root, 'Roaming') });
   try {
     const context = await browser.newContext({ viewport: { width: 960, height: 700 } });
     await context.exposeBinding('__gameFixture', async (_source, method, id, mode) => {
@@ -103,6 +109,7 @@ async function main() {
         previewPresentMonCaptureDeletion: async () => { throw new Error('Fixture has no native capture.'); },
         deletePresentMonCapture: async () => { throw new Error('Fixture has no native capture.'); },
         openExternalLink: async () => ({ opened: true }),
+        listPowerPlans: async () => { throw new Error('Fixture does not read power plans.'); },
       };
     }, { capabilities: listCapabilities('public'), guides: listGameSettingsGuides() });
     const page = await context.newPage();
@@ -131,15 +138,18 @@ async function main() {
     await page.setViewportSize({ width: 960, height: 700 });
     await section.screenshot({ path: path.join(out, 'game-profiles-carbon-gold-960.png') });
     await section.getByRole('button', { name: 'Back up & apply 3 changes', exact: true }).click();
-    await section.getByRole('heading', { name: 'Applied — file verified' }).waitFor();
+    await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     assert.equal(calls.filter((name) => name === 'apply').length, 1);
     assert.equal(await section.getByRole('list', { name: 'Profile operation log' }).locator('li').count(), 5);
-    await section.getByRole('button', { name: 'Preview restoring this backup' }).click();
+    await section.getByRole('button', { name: 'Restore this backup' }).click();
+    // Restoring asks first, in Dialed's own dialog; nothing is written until it is confirmed.
+    assert.equal(calls.filter((name) => name === 'restore').length, 0);
+    await page.getByRole('dialog').getByRole('button', { name: 'Restore files', exact: true }).click();
     await page.getByRole('status').filter({ hasText: /Restored and hash-verified 1 file/ }).waitFor();
     assert.equal(fs.readFileSync(source, 'utf8'), original);
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();
     await section.getByRole('button', { name: 'Back up & apply 2 changes', exact: true }).click();
-    await section.getByRole('heading', { name: 'Applied — file verified' }).waitFor();
+    await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();
     await section.getByText('Already matches this profile. Nothing to apply.', { exact: true }).waitFor();
     assert.equal(await section.getByRole('button', { name: 'Back up & apply 0 changes' }).isDisabled(), true);
@@ -147,12 +157,12 @@ async function main() {
     await section.getByRole('heading', { name: 'VALORANT — exact changes' }).waitFor();
     assert.equal(await section.locator('tbody tr').count(), 3);
     await section.getByRole('button', { name: 'Back up & apply 3 changes', exact: true }).click();
-    await section.getByRole('heading', { name: 'Applied — file verified' }).waitFor();
+    await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     await section.getByRole('button', { name: 'Preview ARC Raiders', exact: true }).click();
     await section.getByRole('heading', { name: 'ARC Raiders — exact changes' }).waitFor();
     assert.equal(await section.locator('tbody tr').count(), 1);
     await section.getByRole('button', { name: 'Back up & apply 1 change', exact: true }).click();
-    await section.getByRole('heading', { name: 'Applied — file verified' }).waitFor();
+    await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     assert.match(fs.readFileSync(arc, 'utf8'), /sg\.ShadowQuality=0/);
     await page.evaluate(() => sessionStorage.setItem('game-fixture-mode', 'running'));
     await section.getByRole('button', { name: 'Preview Fortnite', exact: true }).click();
@@ -166,27 +176,29 @@ async function main() {
     await page.reload();
     await openSection(page, 'Games');
     await page.getByRole('tab', { name: 'Backups', exact: true }).click();
-    await page.getByRole('heading', { name: 'Local configuration backups' }).waitFor();
+    await page.getByRole('heading', { name: 'Backups', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Preview restore', exact: true }).count(), 4);
-    assert.equal(await page.locator('aside nav button').count(), 9);
-    await openSection(page, 'Scan');
-    await page.getByRole('heading', { name: 'Useful evidence before another optimization' }).waitFor();
+    assert.equal(await sectionButtons(page).count(), 8);
+    await openSection(page, 'Home');
+    await page.getByRole('tab', { name: 'Scan details', exact: true }).click();
+    await page.getByRole('heading', { name: 'What Dialed found on this PC' }).waitFor();
     await page.getByRole('tab', { name: 'Windows controls' }).click();
-    await page.getByRole('heading', { name: 'Only reviewed current-user Store packages' }).waitFor();
+    await page.locator('summary', { hasText: 'Remove built-in apps' }).click();
+    await page.getByRole('heading', { name: 'Only a short list of optional Microsoft Store apps' }).waitFor();
     await page.getByText('Microsoft News', { exact: true }).waitFor();
     const controlsLayout = await page.locator('main').evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth, pageWidth: document.documentElement.clientWidth, pageScroll: document.documentElement.scrollWidth }));
     assert.ok(controlsLayout.scroll <= controlsLayout.width && controlsLayout.pageScroll <= controlsLayout.pageWidth, 'Windows controls overflow');
     await openSection(page, 'Settings');
-    await page.getByRole('heading', { name: 'Verify every layer before an installer opens' }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Check trusted feed' }).isDisabled(), true);
+    await page.getByRole('heading', { name: 'Updates you control' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Check for updates' }).isDisabled(), true);
     await page.getByText('Updates stay disabled until release trust is configured and verified.', { exact: true }).waitFor();
     await page.getByText('Not configured', { exact: true }).waitFor();
     const releaseLayout = await page.locator('main').evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth, pageWidth: document.documentElement.clientWidth, pageScroll: document.documentElement.scrollWidth }));
     assert.ok(releaseLayout.scroll <= releaseLayout.width && releaseLayout.pageScroll <= releaseLayout.pageWidth, 'Release status overflow');
-    // All nine workspaces, both disclosure modes, eight themes and two widths.
+    // Every sidebar section, both disclosure modes, every shipped theme and two widths.
     // These are browser fixture states, not native hardware acceptance.
     const workspaceMatrix = [];
-    const workspaceNames = ['Home','Scan','Optimize','Games','Network','Input Devices','Measure','Verify','Settings'];
+    const workspaceNames = ['Home','Tweaks','Games','GPU','Measure','Input devices','Restore','Settings'];
     for (const workspace of workspaceNames) {
       await openSection(page, workspace);
       await page.locator('#main-content').waitFor();
@@ -276,7 +288,8 @@ async function main() {
     await openSection(faultPage, 'Input devices');
     await faultPage.getByRole('heading',{name:'This view could not be displayed'}).waitFor();
     await faultPage.getByRole('button',{name:'Open recovery',exact:true}).click();
-    await faultPage.getByRole('tab',{name:'Recovery & history',exact:true}).waitFor();
+    await faultPage.getByRole('heading',{name:'Everything Dialed has changed',exact:true}).waitFor();
+    assert.equal(await sectionButton(faultPage, 'Restore').getAttribute('aria-current'), 'page');
     assert.equal(calls.length,callsBeforeFault,'Display recovery replayed an operation');
     await faultPage.close();
     const report = { status: 'PASS', scope: 'Browser plus real backend against fixture files; no Windows/game-host validation', layouts, sessionArchiveImport: 'PASS', windowsControls: 'PASS', updaterFailClosed: 'PASS', errors, calls, fixtureDirectory: root };

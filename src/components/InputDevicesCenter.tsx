@@ -345,11 +345,13 @@ export function InputDevicesCenter() {
               <p role="status" className={`rounded-lg border p-3 text-xs leading-relaxed ${test.deliveryAssessment.status === 'BELOW_REQUEST_OBSERVED' ? 'border-amber-500/25 bg-amber-950/15 text-amber-100' : 'border-slate-700 bg-slate-900/50 text-slate-200'}`}>{test.deliveryAssessment.message}</p>
               {/* Per-channel lines only when they say something the summary above did not. A
                   composite device exposes several channels that often share one verdict, which
-                  repeated the same sentence two or three times in a row. */}
+                  repeated the same sentence two or three times in a row. The summary can also be
+                  a channel's sentence with a caveat added, so containment counts as a repeat. */}
               {(() => {
-                const seen = new Set([test.deliveryAssessment.message]);
+                const summary = test.deliveryAssessment.message;
+                const seen = new Set([summary]);
                 const extra = (test.deliveryAssessment.channelAssessments ?? []).filter((assessment) => {
-                  if (seen.has(assessment.message)) return false;
+                  if (seen.has(assessment.message) || summary.includes(assessment.message)) return false;
                   seen.add(assessment.message);
                   return true;
                 });

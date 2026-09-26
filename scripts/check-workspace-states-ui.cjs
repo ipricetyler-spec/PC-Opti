@@ -5,11 +5,12 @@ const path = require('node:path');
 const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
-const { openFixture, openSection } = require('./ui-fixture-page.cjs');
+const { appThemes, openFixture, openSection } = require('./ui-fixture-page.cjs');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Only loopback fixture servers are allowed.');
 const out = path.resolve(__dirname, '../output/playwright');
-const themes = ['midnight', 'ember', 'violet', 'forest', 'graphite', 'oled', 'aurora', 'carbon-gold'];
+const { themes: shippedThemes } = appThemes();
+const themes = shippedThemes.map((theme) => theme.id);
 
 async function main() {
   fs.mkdirSync(out, { recursive: true });
@@ -50,6 +51,8 @@ async function main() {
         getNetworkProbeInfo: async () => ([{ id:'cloudflare-warmed-http-v2-quick',mode:'quick',methodVersion:'warmed-https-v2',title:'Fixture fixed endpoint',url:'https://example.invalid/fixture',requests:22,idleRequests:9,loadedRequestsPerDirection:5,maximumDownloadBytes:100,maximumUploadBytes:100,maximumTotalBytes:200,maximumDurationSeconds:60,maximumParallelConnections:6,privacy:'In-memory fixture only.' }]),
         listNetworkQualityHistory: async () => ({ status: 'READY', entries: [0,1].map(index => ({ id:`network-fixture-${index}`,completedAt:`2026-09-05T12:0${index}:00Z`,status:'COMPLETE',endpointId:'cloudflare-warmed-http-v2-quick',methodVersion:'warmed-https-v2',mode:'quick',quality:'SUFFICIENT',metrics:{idleLatencyMs:index*2,idleJitterMs:0,idleP90Ms:index*2,idleVariabilityMs:0,requestFailurePercent:0,downloadLoadedLatencyMs:null,downloadLoadedLatencyIncreaseMs:null,uploadLoadedLatencyMs:null,uploadLoadedLatencyIncreaseMs:null,downloadMbps:10+index,uploadMbps:0} })) }),
         previewNetworkQualityProbe: unavailable, runNetworkQualityProbe: unavailable,
+        // The display read asks for both at once; the fixture reports no mode list.
+        readDisplayModes: async () => ({ collectedAt: '2026-09-05T12:00:00Z', displays: [] }),
         readDisplayInventory: async () => {
           if (++window.__workspaceState.displayReads > 1) throw new Error('Fixture display refresh failure.');
           return { collectedAt: '2026-09-05T12:00:00Z', displays: [{ id: 1, label: 'Fixture monitor', refreshRateHz: 143.98, logicalWidth: 1707, logicalHeight: 960, scaleFactor: 1.5 }] };
@@ -58,7 +61,7 @@ async function main() {
         discoverInstalledGames: async () => ({ scannedAt: '2026-09-05T12:00:00Z', games: [], limitations: 'Fixture inventory.' }),
         listInstalledApplications: async () => ({ items: [], limitations: 'Fixture inventory.' }),
         listOptionalAppCandidates: async () => ({ items: [], limitations: 'Fixture inventory.' }),
-        enableProcessEcoQos: unavailable, openWindowsSettings: unavailable, openExternalLink: unavailable,
+        enableProcessEcoQos: unavailable, openWindowsSettings: unavailable, openExternalLink: unavailable, listPowerPlans: unavailable,
       };
     }, { capabilities: listCapabilities('public'), guides: listGameSettingsGuides() });
     const page = await context.newPage();
@@ -86,76 +89,82 @@ async function main() {
       await page.evaluate(() => { document.documentElement.style.zoom = ''; });
     }
     await openFixture(page, origin);
-    const search = page.getByRole('searchbox', { name: 'Find a workspace' });
-    await search.fill('controller');
+    const search = page.getByRole('searchbox', { name: 'Find a section' });
+    // "polling" is a keyword alias of Input devices and matches no tweak, so Enter has exactly
+    // one place to go. ("controller" now also finds the USB selective suspend tweak.)
+    await search.fill('polling');
     assert.equal(await page.locator('aside nav button').count(), 1);
     await search.press('Enter');
-    await page.locator('aside nav button[aria-current="page"]').filter({ hasText: 'Input Devices' }).waitFor();
+    await page.locator('aside nav button[aria-current="page"]').filter({ hasText: 'Input devices' }).waitFor();
     assert.equal(await search.inputValue(), '');
     await search.fill('nothing-matches-this');
     assert.equal(await page.locator('aside nav button').count(), 0);
     await search.press('Escape');
-    assert.equal(await page.locator('aside nav button').count(), 9);
+    assert.equal(await page.locator('aside nav button').count(), 8);
     report.checks.push({ state: 'Workspace search aliases, single-result Enter, empty result and Escape recovery', passed: true });
-    await navigate('Optimize');
+    await navigate('Tweaks');
     await page.getByRole('tab', { name: 'Background Apps', exact: true }).click();
     await page.getByText('Fixture unknown CPU', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Refresh to verify process identity' }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Refresh first', exact: true }).isDisabled(), true);
     await layout('Optimize populated processes: known/unknown CPU and existing efficiency');
-    await page.getByPlaceholder('Search process name or PID...').fill('no matching fixture');
+    await page.getByPlaceholder('Search apps').fill('no matching fixture');
     await page.getByText('No background processes match the current filters.', { exact: true }).waitFor();
     report.checks.push({ state: 'Optimize populated filter has no matches', passed: true });
-    await page.getByPlaceholder('Search process name or PID...').fill('');
+    await page.getByPlaceholder('Search apps').fill('');
     await page.evaluate(() => { window.__workspaceState.mode = 'loading'; });
-    await page.getByRole('button', { name: 'Refresh process list' }).click();
-    await page.getByText('Reading native process telemetry…', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Reading processes…' }).isDisabled(), true);
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.getByText('Reading running apps…', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Reading…', exact: true }).isDisabled(), true);
     report.checks.push({ state: 'Optimize loading disables repeated refresh', passed: true });
     await page.evaluate(() => { window.__workspaceState.mode = 'error'; window.__workspaceState.release(); });
     await page.getByText(/Fixture process inventory failed/).waitFor();
     await page.getByText('Fixture unknown CPU', { exact: true }).waitFor();
     await layout('Optimize failed refresh with retained prior rows');
-    await navigate('Verify');
-    await page.getByRole('tab', { name: 'Recovery & history', exact: true }).click();
+    await navigate('Restore');
     await page.getByRole('heading', { name: 'Fixture pending operation', exact: true }).waitFor();
     await layout('Verify populated success/failure/pending/needs-review history');
-    const tabs = page.getByRole('tablist', { name: 'Verification categories' });
-    await tabs.getByRole('tab', { name: 'Recovery & history', exact: true }).focus();
+    await navigate('Tweaks');
+    const tabs = page.getByRole('tablist', { name: 'Optimize categories' });
+    await tabs.getByRole('tab', { name: 'Background Apps', exact: true }).focus();
     await page.keyboard.press('Home');
-    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-selected') === 'true' && document.activeElement?.textContent === 'Readiness');
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-selected') === 'true' && document.activeElement?.textContent === 'All tweaks');
     await page.keyboard.press('End');
-    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-selected') === 'true' && document.activeElement?.textContent === 'Recovery & history');
-    report.checks.push({ state: 'Verify keyboard Home/End selection and focus', passed: true });
-    await navigate('Scan');
-    await page.getByRole('button', { name: 'Run verified scan', exact: true }).click();
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-selected') === 'true' && document.activeElement?.textContent === 'BIOS');
+    report.checks.push({ state: 'Tab row keyboard Home/End selection and focus', passed: true });
+    await navigate('Home');
+    await page.getByRole('tab', { name: 'Scan details', exact: true }).click();
+    await page.getByRole('button', { name: 'Scan this PC', exact: true }).first().click();
     await page.getByText('Fixture scan failure: no host scan was attempted.', { exact: true }).waitFor();
     await layout('Scan explicit fixture failure');
-    await navigate('Network');
-    await page.getByRole('combobox', { name: /^Baseline run/ }).selectOption('network-fixture-0');
-    await page.getByRole('combobox', { name: /^Candidate run/ }).selectOption('network-fixture-1');
-    for (const phase of ['Baseline run','Candidate run']) {
-      await page.getByLabel(`${phase} · Adapter / connection`, { exact: true }).fill('Fixture Ethernet');
-      await page.getByLabel(`${phase} · VPN state (including none)`, { exact: true }).fill('none');
-      await page.getByLabel(`${phase} · Background workload`, { exact: true }).fill('idle');
+    await navigate('Measure');
+    await page.getByRole('tab', { name: 'Network', exact: true }).click();
+    await page.getByRole('combobox', { name: /^Before/ }).selectOption('network-fixture-0');
+    await page.getByRole('combobox', { name: /^After/ }).selectOption('network-fixture-1');
+    for (const phase of ['Before','After']) {
+      await page.getByLabel(`${phase} · Connection (Wi-Fi or cable)`, { exact: true }).fill('Fixture Ethernet');
+      await page.getByLabel(`${phase} · VPN (or none)`, { exact: true }).fill('none');
+      await page.getByLabel(`${phase} · Anything downloading`, { exact: true }).fill('idle');
     }
-    await page.getByRole('button', { name: 'Save declared conditions', exact: true }).click();
-    await page.getByText(/Matched declarations and versioned endpoint/).waitFor();
-    assert.equal(await page.locator('dl').filter({ hasText: 'Idle request time (ms)' }).getByText('+2.00', { exact: true }).count(), 1);
-    await page.getByLabel('Candidate run · VPN state (including none)', { exact: true }).fill('enabled');
-    await page.getByRole('button', { name: 'Save declared conditions', exact: true }).click();
+    await page.getByRole('button', { name: 'Save notes', exact: true }).click();
+    await page.getByText('Differences below are after minus before.', { exact: true }).waitFor();
+    assert.equal(await page.locator('dl').filter({ hasText: 'Response time (ms)' }).getByText('+2.00', { exact: true }).count(), 1);
+    await page.getByLabel('After · VPN (or none)', { exact: true }).fill('enabled');
+    await page.getByRole('button', { name: 'Save notes', exact: true }).click();
     await page.getByText('Declared conditions differ. These runs are not a matched comparison.', { exact: true }).waitFor();
-    assert.equal(await page.locator('dl').filter({ hasText: 'Idle request time (ms)' }).count(), 0);
-    await page.getByLabel('Candidate run · VPN state (including none)', { exact: true }).fill('none');
-    await page.getByRole('button', { name: 'Save declared conditions', exact: true }).click();
+    assert.equal(await page.locator('dl').filter({ hasText: 'Response time (ms)' }).count(), 0);
+    await page.getByLabel('After · VPN (or none)', { exact: true }).fill('none');
+    await page.getByRole('button', { name: 'Save notes', exact: true }).click();
     await layout('Network populated saved matched-condition comparison');
     await navigate('Home');
-    await navigate('Network');
-    await page.getByRole('combobox', { name: /^Baseline run/ }).selectOption('network-fixture-0');
-    await page.getByRole('combobox', { name: /^Candidate run/ }).selectOption('network-fixture-1');
-    assert.equal(await page.getByLabel('Candidate run · VPN state (including none)', { exact: true }).inputValue(), 'none');
-    await page.getByText(/Matched declarations and versioned endpoint/).waitFor();
+    await navigate('Measure');
+    await page.getByRole('tab', { name: 'Network', exact: true }).click();
+    await page.getByRole('combobox', { name: /^Before/ }).selectOption('network-fixture-0');
+    await page.getByRole('combobox', { name: /^After/ }).selectOption('network-fixture-1');
+    assert.equal(await page.getByLabel('After · VPN (or none)', { exact: true }).inputValue(), 'none');
+    await page.getByText('Differences below are after minus before.', { exact: true }).waitFor();
     report.checks.push({ state: 'Network saved declarations persist; matching compares, mismatch refuses; no probe API', passed: true });
     await navigate('Games');
+    await page.getByRole('tab', { name: 'Display setup', exact: true }).click();
     assert.equal(await page.evaluate(() => window.__workspaceState.displayReads), 0);
     await page.getByRole('button', { name: 'Read display information', exact: true }).click();
     await page.getByText('143.98 Hz', { exact: true }).waitFor();
@@ -169,7 +178,7 @@ async function main() {
     await navigate('Settings');
     const summaryPreview = await page.getByLabel('Exact support export JSON').textContent();
     const downloadPending = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Download this support summary', exact: true }).click();
+    await page.getByRole('button', { name: 'Save support file', exact: true }).click();
     const supportDownload = await downloadPending;
     assert.equal(fs.readFileSync(await supportDownload.path(), 'utf8'), summaryPreview);
     assert.ok(!summaryPreview.includes('fixture-history-'));

@@ -7,7 +7,7 @@ const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright')
 const { buildBiosPlan } = require('../src/main/bios-guidance/index.cjs');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
-const { openFixture, openSection } = require('./ui-fixture-page.cjs');
+const { appThemes, openFixture, openSection, sectionButtons } = require('./ui-fixture-page.cjs');
 
 const raw = {
   cpu: [{ name: 'AMD Ryzen 7 9800X3D 8-Core Processor' }],
@@ -21,7 +21,8 @@ const now = '2026-08-27T12:00:00Z';
 const plan = buildBiosPlan(raw, { now });
 const unsupported = buildBiosPlan({ ...raw, system: [{ manufacturer: 'Dell', pcSystemType: 1 }] }, { now });
 const unavailable = buildBiosPlan({ errors: ['Fixture inventory unavailable.'] }, { now });
-const themes = ['midnight', 'ember', 'violet', 'forest', 'graphite', 'oled', 'aurora', 'carbon-gold'];
+const { themes: shippedThemes } = appThemes();
+const themes = shippedThemes.map((theme) => theme.id);
 const out = path.resolve(__dirname, '../output/playwright');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Fixture test is restricted to a loopback server.');
@@ -46,6 +47,7 @@ async function main() {
           return mode === 'oem' ? unsupported : mode === 'unavailable' ? unavailable : plan;
         },
         openExternalLink: async (url) => { window.fixtureOpenedSource = url; return { opened: true }; },
+        listPowerPlans: async () => { throw new Error('Fixture does not read power plans.'); },
       };
     }, { plan, unsupported, unavailable, capabilities: listCapabilities('public'), guides: listGameSettingsGuides() });
     const page = await context.newPage();
@@ -57,10 +59,10 @@ async function main() {
     assert.equal(await skipLink.evaluate((element) => document.activeElement === element), true);
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
-    await openSection(page, 'Optimize');
+    await openSection(page, 'Tweaks');
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.getByRole('heading', { name: 'Use your RAM kit’s supported EXPO profile' }).waitFor();
-    assert.equal(await page.locator('aside nav button').count(), 9);
+    assert.equal(await sectionButtons(page).count(), 8);
     assert.equal(await page.getByRole('heading', { name: /Explore PBO/ }).count(), 0);
     await page.getByRole('checkbox', { name: 'Include advanced CPU tuning' }).check();
     await page.getByRole('heading', { name: /Explore PBO/ }).waitFor();
@@ -72,7 +74,7 @@ async function main() {
     await page.getByRole('heading', { name: 'Choose a small, reviewable set of changes' }).waitFor();
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.reload();
-    await openSection(page, 'Optimize');
+    await openSection(page, 'Tweaks');
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).waitFor();
     assert.equal(await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).inputValue(), 'Fixture previous value: Auto; test pending.');
@@ -108,7 +110,7 @@ async function main() {
       assert.equal(await page.getByRole('heading', { name: 'Use your RAM kit’s supported EXPO profile' }).count(), 0);
     }
     assert.deepEqual(errors, []);
-    const result = { fixtureOnly: true, themes: 8, layoutChecks: layouts, navigationSections: 9, notesPersisted: true, downloadVerified: true, unsupportedAndErrorStates: true, pageErrors: errors };
+    const result = { fixtureOnly: true, themes: themes.length, layoutChecks: layouts, navigationSections: 8, notesPersisted: true, downloadVerified: true, unsupportedAndErrorStates: true, pageErrors: errors };
     fs.writeFileSync(path.join(out, 'bios-ui-acceptance.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
   } finally { await browser.close(); }

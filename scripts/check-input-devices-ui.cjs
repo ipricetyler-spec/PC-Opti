@@ -10,12 +10,13 @@ const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundle
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
 const { migrateSystemScanSnapshot } = require('../src/main/snapshot/index.cjs');
-const { openFixture, openSection, sectionButton } = require('./ui-fixture-page.cjs');
+const { appThemes, openFixture, openSection, sectionButton } = require('./ui-fixture-page.cjs');
 
 const out = path.resolve(process.env.DIALED_UI_OUTPUT || path.join(__dirname, '../output/playwright'));
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Fixture test is restricted to loopback.');
-const themes = ['midnight', 'ember', 'violet', 'forest', 'graphite', 'oled', 'aurora', 'carbon-gold'];
+const { themes: shippedThemes, defaultTheme } = appThemes();
+const themes = shippedThemes.map((theme) => theme.id);
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function device(id, parent, extra = {}) {
@@ -260,9 +261,9 @@ async function main() {
     page.on('pageerror', (error) => errors.push(error.message));
     await openFixture(page, origin);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.technicalDetails), 'hidden');
-    await page.getByText(/Latest verified scan completed/).waitFor();
-    await page.getByRole('button', { name: 'Open Scan' }).first().click();
-    await page.getByText('Verified scan completed successfully', { exact: true }).waitFor();
+    await page.getByRole('status').filter({ hasText: /^Scan completed/ }).waitFor();
+    await page.getByRole('button', { name: 'Scan details', exact: true }).first().click();
+    await page.getByText('Scan finished', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Scan again' }).count(), 1);
     await page.screenshot({ path: path.join(out, 'scan-completion-midnight-960.png'), fullPage: true });
 
@@ -272,10 +273,11 @@ async function main() {
     await technicalToggle.check();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.technicalDetails), 'shown');
 
-    await openSection(page, 'Network');
+    await openSection(page, 'Measure');
+    await page.getByRole('tab', { name: 'Network', exact: true }).click();
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Start quick check' }).click();
-    await page.getByText('Connection test completed, but the endpoint was unreachable', { exact: true }).waitFor();
+    await page.getByText('Could not reach the test server', { exact: true }).waitFor();
     await page.getByText('What failed', { exact: true }).waitFor();
     await page.getByText(/Fixture endpoint refused the HTTPS request/).first().waitFor();
     await page.screenshot({ path: path.join(out, 'connection-offline-midnight-960.png'), fullPage: true });
@@ -551,12 +553,12 @@ async function main() {
       }
       layouts.push({ theme, width, overflow: false });
     }
-    assert.equal(new Set(themeFingerprints.values()).size, themes.length, 'All eight themes must have visibly distinct computed surface fingerprints.');
+    assert.equal(new Set(themeFingerprints.values()).size, themes.length, 'Every theme must have a visibly distinct computed surface fingerprint.');
     await page.setViewportSize({ width: 960, height: 700 });
-    await page.evaluate(() => { document.documentElement.dataset.theme = 'carbon-gold'; });
+    await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, themes[themes.length - 1]);
     await section.screenshot({ path: path.join(out, 'input-devices-carbon-gold-960.png') });
     await maintenance.click();
-    await page.evaluate(() => { document.documentElement.dataset.technicalDetails = 'hidden'; document.documentElement.dataset.theme = 'midnight'; });
+    await page.evaluate((theme) => { document.documentElement.dataset.technicalDetails = 'hidden'; document.documentElement.dataset.theme = theme; }, defaultTheme);
     await page.setViewportSize({width:1280,height:900});
     await section.screenshot({path:path.join(out,'input-devices-normal-1280.png')});
     assert.equal(await section.getByRole('button',{name:'Review rate change'}).count(),0);
@@ -574,8 +576,8 @@ async function main() {
     await section.getByRole('button', { name: 'Review exact restore' }).click();
     await section.getByRole('region', { name: 'Confirm polling change' }).waitFor();
     await section.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.getByLabel('Find a workspace').fill('bios');
-    assert.equal(await sectionButton(page, 'Optimize').count(), 1);
+    await page.getByLabel('Find a section').fill('bios');
+    assert.equal(await sectionButton(page, 'Tweaks').count(), 1);
     assert.equal(await sectionButton(page, 'Games').count(), 0);
     await page.getByRole('button', { name: 'Clear search' }).click();
     await page.evaluate(async () => { await window.__inputFixture('nativeHistory',true); await window.__inputFixture('legacyNeedsReview'); await window.__inputFixture('nativeExpired'); });
@@ -587,22 +589,22 @@ async function main() {
     await section.getByRole('button',{name:'Show saved recovery'}).click();
     assert.equal(await section.getByRole('button',{name:'Review exact restore'}).isDisabled(),true);
     const polishLayouts = [];
-    for (const workspace of ['Home', 'Verify', 'Settings', 'Games', 'Input Devices']) {
+    for (const workspace of ['Home', 'Restore', 'Settings', 'Games', 'Input devices']) {
       await openSection(page, workspace);
       if (workspace === 'Home') {
-        await page.getByRole('heading', { name: 'Your next safe step, without the wall of evidence' }).waitFor();
+        await page.getByRole('heading', { name: 'Worth doing', exact: true }).waitFor();
       }
-      if (workspace === 'Verify') {
-        await page.getByRole('tab', { name: 'Readiness' }).click();
+      if (workspace === 'Restore') {
+        await page.locator('summary', { hasText: 'Readiness checks before changing anything' }).click();
         await page.evaluate(() => { document.documentElement.dataset.technicalDetails = 'shown'; });
-        await page.getByRole('heading', { name: 'Available checks and evidence' }).waitFor();
+        await page.getByRole('heading', { name: 'Checks', exact: true }).waitFor();
       }
       if (workspace === 'Settings') {
-        await page.getByRole('heading', { name: 'Goal, appearance, and release status' }).waitFor();
+        await page.getByRole('heading', { name: 'Appearance, data and release status' }).waitFor();
         await page.getByText('Development preview', { exact: true }).waitFor();
         assert.equal(await page.getByRole('button', { name: /Create profile|Duplicate profile/ }).count(), 0);
       }
-      if (workspace === 'Input Devices') {
+      if (workspace === 'Input devices') {
         await section.getByRole('button', { name: 'Scan input devices' }).click();
         await section.getByRole('tab', { name: 'Polling rate' }).click();
         await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
@@ -613,7 +615,7 @@ async function main() {
       }
       if (workspace === 'Games') {
         assert.equal(await page.getByLabel('Display and GPU setup guide').count(),0);
-        await page.getByRole('tab',{name:'Display & GPU',exact:true}).click();
+        await page.getByRole('tab',{name:'Display setup',exact:true}).click();
         await page.getByLabel('Display and GPU setup guide').waitFor();
       }
       for (const theme of themes) for (const width of [960, 1280]) {

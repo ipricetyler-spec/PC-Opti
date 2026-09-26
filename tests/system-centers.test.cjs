@@ -8,7 +8,9 @@ test('read-only system centers stay inside Scan and expose the intended evidence
   const appSource = fs.readFileSync(path.join(root, 'src', 'App.tsx'), 'utf8');
   const componentSource = fs.readFileSync(path.join(root, 'src', 'components', 'SystemInsightCenters.tsx'), 'utf8');
 
-  assert.match(appSource, /activeTab === 'overview' && <SystemInsightCenters/);
+  // The centers sit in the Scan details panel, which renders only for the overview tab.
+  assert.match(appSource, /activeTab === 'overview' && <TabPanel ariaLabel="Home views"[^\n]*\n\s*<SystemInsightCenters /);
+  assert.equal(appSource.split('<SystemInsightCenters').length - 1, 1);
   for (const label of ['Storage & apps', 'System status', 'Security', 'Power & hardware']) assert.match(componentSource, new RegExp(label.replace('/', '\\/')));
   assert.match(componentSource, /Some apps do not report their size/);
   assert.match(componentSource, /does not run system repair tools or registry cleaners/);

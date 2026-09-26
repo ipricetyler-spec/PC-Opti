@@ -118,3 +118,24 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   verified", and the component's heading reads "Applied and checked". That and the other stale
   names, copy and the nine-section counts are stage 2. No assertion was changed in stage 1.
 - `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.
+
+## 2026-09-26 — UI fixture gate, stage 2: checks brought up to the current app
+
+- Each check was run on its own against a fresh build and fixed one failure at a time; probes of
+  the fixture page established the cause before each change.
+- Renamed screens and copy were followed and each assertion kept. Stale fixture stubs gained the
+  native reads newer views call (`listPowerPlans`, `readDisplayModes`), each rejecting or empty.
+- The game-profile fixture points the profile-folder variables at its own fixture profile, in its
+  own process, so the backup/restore confinement rule runs unchanged against fixture files.
+- Theme lists now come from `src/lib/themes.ts`. The old hard-coded eight ids no longer existed,
+  so every per-theme pass had been testing the fallback styling.
+- Two product defects the gate caught, fixed: Home and Measure tabs pointed `aria-controls` at
+  panels that did not exist (now wrapped in `TabPanel`, probed: every tab links to a labelled
+  panel), and the input check repeated its verdict as a per-channel line when the summary added a
+  caveat (containment now counts as a repeat).
+- Results: `check-bios-ui` and `check-workspace-states-ui` (56 checks) pass. `check-input-devices-ui`
+  and `check-game-profiles-ui` each pass end to end in a throwaway copy with one undecided block
+  removed (the header "Goal:" assertion; the Home saved-session flow). `check-theme-contrast`
+  fails on a real finding: faint text is 3.68:1 (Console) and 4.02:1 (Instrument), under 4.5:1.
+  The gate is therefore still red; the three open items need the owner.
+- `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.

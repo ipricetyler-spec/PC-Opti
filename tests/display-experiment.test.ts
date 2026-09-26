@@ -1,26 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  blockingContextChanges,
-  describeDeclaredChange,
-  evidenceStrength,
   experimentFor,
-  experimentStage,
   isUsableCapture,
   linkRuns,
-  newExperimentSession,
   parseExperiments,
   partitionRuns,
-  saveExperiments,
   selectRuns,
   sessionLimitReached,
-  upsertExperiment,
   vendorFor,
-  DISPLAY_EXPERIMENTS_KEY,
   type DisplayExperiment,
 } from '../src/lib/displayExperiment';
-import { emptySettings, type DisplayBaseline } from '../src/lib/displayBaseline';
-import { parseSessions, sessionPairIssue, type ExperimentSession } from '../src/lib/experimentSessions';
+import { sessionPairIssue, type ExperimentSession } from '../src/lib/experimentSessions';
 import type { PresentMonCaptureEntry } from '../src/types';
 
 const BASELINE_ID = '11111111-1111-4111-8111-111111111111';
@@ -50,36 +41,24 @@ function capture(id: string, startMinute: number, overrides: Partial<PresentMonC
   };
 }
 
-const baseline: DisplayBaseline = {
-  schemaVersion: 1,
-  id: BASELINE_ID,
-  savedAt: OPENED,
-  context: {
-    gameKey: 'guide:fortnite-pc-performance-review', gameName: 'Fortnite', guideId: 'fortnite-pc-performance-review',
-    monitorKey: 'aaaaaaaaaaaaaaaa', monitorLabel: 'LG ULTRAGEAR', gpuName: 'NVIDIA GeForce RTX 4080', driverVersion: '31.0.15.6109',
-  },
-  settings: emptySettings(144),
-};
-
 function experiment(overrides: Partial<DisplayExperiment> = {}): DisplayExperiment {
   return { schemaVersion: 1, id: EXPERIMENT_ID, baselineId: BASELINE_ID, sessionId: `session-${EXPERIMENT_ID}`, createdAt: OPENED, change: null, restoreDeclaredAt: null, ...overrides };
 }
 
+/** A manual-change session with nothing recorded yet — how a manual change test starts. */
+function manualSession(id = EXPERIMENT_ID): ExperimentSession {
+  return {
+    id: `session-${id}`, workload: 'Fortnite', changeDescription: '', createdAt: OPENED,
+    baselineId: '', candidateId: '', auditId: '', decision: 'UNDECIDED', changeMode: 'MANUAL', manualChangedAt: '',
+    baselineIds: [], candidateIds: [],
+  };
+}
+
 const declared = { field: 'frameCap' as const, fromText: '141 FPS', toText: 'No cap', notes: '', declaredAt: CHANGED };
 
-test('a new session is manual-mode, empty, and valid for the existing session store', () => {
-  const session = newExperimentSession(baseline, EXPERIMENT_ID, OPENED);
-  assert.equal(session.changeMode, 'MANUAL');
-  assert.equal(session.auditId, '', 'a manual change can never claim a Dialed action');
-  assert.equal(session.workload, 'Fortnite on LG ULTRAGEAR');
-  // The existing parser is the gate for everything in the store; the new session must pass it.
-  assert.doesNotThrow(() => parseSessions(JSON.stringify([session])));
-});
-
 test('an undeclared change can never reach a comparison', () => {
-  // The change description stays empty until the change is declared, and the existing
-  // rules refuse a manual session without one.
-  const session = { ...newExperimentSession(baseline, EXPERIMENT_ID, OPENED), baselineIds: ['a'], baselineId: 'a', candidateIds: ['b'], candidateId: 'b' };
+  // Until the change is declared, the existing rules refuse a manual session.
+  const session = { ...manualSession(), baselineIds: ['a'], baselineId: 'a', candidateIds: ['b'], candidateId: 'b' };
   const issue = sessionPairIssue(session, [capture('a', 5), capture('b', 70)], []);
   assert.match(String(issue), /Describe the manual change|Declare when the manual change/);
 });
@@ -117,14 +96,6 @@ test('a failed or cancelled capture never counts as evidence', () => {
   assert.equal(isUsableCapture(capture('review', 0, { status: 'NEEDS_REVIEW' })), false);
 });
 
-test('evidence strength follows the approved rule: one is descriptive, three is matched, two is neither', () => {
-  assert.equal(evidenceStrength(0), 'NONE');
-  assert.equal(evidenceStrength(1), 'DESCRIPTIVE');
-  assert.equal(evidenceStrength(2), 'NEEDS_ONE_MORE');
-  assert.equal(evidenceStrength(3), 'MATCHED');
-  assert.equal(evidenceStrength(7), 'MATCHED');
-});
-
 test('run selection always produces a shape the existing comparison rules accept', () => {
   const runs = (prefix: string, count: number, start: number) => Array.from({ length: count }, (_, index) => capture(`${prefix}${index}`, start + index * 2));
   // Three or more per side: all are used.
@@ -142,14 +113,9 @@ test('run selection always produces a shape the existing comparison rules accept
 test('a full declared sequence satisfies the existing pairing rules end to end', () => {
   const change = experiment({ change: declared });
   const runs = [capture('b1', 5), capture('b2', 10), capture('b3', 15), capture('c1', 65), capture('c2', 70), capture('c3', 75)];
-  const session: ExperimentSession = {
-    ...newExperimentSession(baseline, EXPERIMENT_ID, OPENED),
-    changeDescription: describeDeclaredChange(declared),
-    manualChangedAt: CHANGED,
-  };
+  const session: ExperimentSession = { ...manualSession(), changeDescription: 'Changed Frame cap from 141 FPS to No cap', manualChangedAt: CHANGED };
   const linked = linkRuns(session, partitionRuns(runs, change));
   assert.equal(sessionPairIssue(linked, runs, []), null);
-  assert.equal(experimentStage({ experiment: change, session: linked, partition: partitionRuns(runs, change), captures: runs, hasComparison: false }), 'COMPARE');
 });
 
 test('a run of a different program or length is set aside, not allowed to block everything', () => {
@@ -164,42 +130,16 @@ test('a run of a different program or length is set aside, not allowed to block 
   const setAside = partition.notCounted.filter((item) => /Different program or run length/.test(item.reason)).map((item) => item.capture.captureId).sort();
   assert.deepEqual(setAside, ['b-wrong-game', 'c-wrong-length']);
 
-  const session: ExperimentSession = { ...newExperimentSession(baseline, EXPERIMENT_ID, OPENED), changeDescription: 'x', manualChangedAt: CHANGED };
+  const session: ExperimentSession = { ...manualSession(), changeDescription: 'x', manualChangedAt: CHANGED };
   const linked = linkRuns(session, partition);
   assert.equal(sessionPairIssue(linked, runs, []), null, 'the remaining matched pair is comparable');
 });
 
 test('new evidence resets a decision made on older evidence', () => {
   const change = experiment({ change: declared });
-  const session: ExperimentSession = { ...newExperimentSession(baseline, EXPERIMENT_ID, OPENED), decision: 'KEEP', baselineIds: ['b1'], baselineId: 'b1', candidateIds: ['c1'], candidateId: 'c1' };
+  const session: ExperimentSession = { ...manualSession(), decision: 'KEEP', baselineIds: ['b1'], baselineId: 'b1', candidateIds: ['c1'], candidateId: 'c1' };
   assert.equal(linkRuns(session, partitionRuns([capture('b1', 5), capture('c1', 65)], change)).decision, 'KEEP', 'unchanged runs keep the decision');
   assert.equal(linkRuns(session, partitionRuns([capture('b1', 5), capture('c2', 66)], change)).decision, 'UNDECIDED');
-});
-
-test('the stage follows the evidence, so a reload resumes at the right step', () => {
-  const session = newExperimentSession(baseline, EXPERIMENT_ID, OPENED);
-  const stage = (exp: DisplayExperiment, runs: PresentMonCaptureEntry[], overrides: Partial<ExperimentSession> = {}, hasComparison = false) =>
-    experimentStage({ experiment: exp, session: { ...session, ...overrides }, partition: partitionRuns(runs, exp), captures: runs, hasComparison });
-
-  assert.equal(experimentStage({ experiment: experiment(), session: null, partition: partitionRuns([], experiment()), captures: [], hasComparison: false }), 'MEASURE_BASELINE');
-  assert.equal(stage(experiment(), []), 'MEASURE_BASELINE');
-  assert.equal(stage(experiment(), [capture('b1', 5)]), 'DECLARE_CHANGE');
-  assert.equal(stage(experiment({ change: declared }), [capture('b1', 5)]), 'MEASURE_CANDIDATE');
-  assert.equal(stage(experiment({ change: declared }), [capture('b1', 5), capture('c1', 65)], {}, true), 'DECIDE');
-  assert.equal(stage(experiment({ change: declared }), [capture('b1', 5)], { decision: 'INCONCLUSIVE' }), 'DONE');
-});
-
-test('a changed refresh rate is not held against an experiment that changed the refresh rate', () => {
-  const changes = ['The monitor is now at 240 Hz; the baseline recorded 144 Hz.', 'The graphics driver changed from 1 to 2.'];
-  assert.deepEqual(blockingContextChanges(changes, experiment({ change: { ...declared, field: 'refreshHz' } })), ['The graphics driver changed from 1 to 2.']);
-  assert.deepEqual(blockingContextChanges(changes, experiment({ change: declared })), changes, 'any other change still counts');
-  assert.deepEqual(blockingContextChanges(changes, null), changes);
-});
-
-test('the declared change reads as a plain sentence and fits the session field', () => {
-  assert.equal(describeDeclaredChange(declared), 'Changed Frame cap from 141 FPS to No cap');
-  assert.equal(describeDeclaredChange({ ...declared, notes: 'using in-game limiter' }), 'Changed Frame cap from 141 FPS to No cap — using in-game limiter');
-  assert.ok(describeDeclaredChange({ ...declared, notes: 'x'.repeat(500) }).length <= 240);
 });
 
 test('graphics card vendor is recognised from the name or the reported vendor', () => {
@@ -211,7 +151,7 @@ test('graphics card vendor is recognised from the name or the reported vendor', 
 });
 
 test('the session store limit is respected rather than exceeded', () => {
-  const sessions = Array.from({ length: 20 }, (_, index) => ({ ...newExperimentSession(baseline, `id-${index}`, OPENED) }));
+  const sessions = Array.from({ length: 20 }, (_, index) => manualSession(`id-${index}`));
   assert.equal(sessionLimitReached(sessions), true);
   assert.equal(sessionLimitReached(sessions.slice(1)), false);
 });
@@ -225,15 +165,10 @@ test('stored experiments are validated, and the newest one for a baseline is fou
     { ...experiment(), change: { ...declared, field: 'notAField' } },
     { ...experiment(), change: { ...declared, declaredAt: '2020-01-01T00:00:00.000Z' } },
   ];
-  const stored: Record<string, string> = {};
-  assert.equal(saveExperiments({ setItem: (key, value) => { stored[key] = value; } }, [older, newer, ...hostile] as DisplayExperiment[]), true);
-  const parsed = parseExperiments(stored[DISPLAY_EXPERIMENTS_KEY]);
+  const parsed = parseExperiments(JSON.stringify([older, newer, ...hostile]));
   assert.deepEqual(parsed.map((item) => item.id).sort(), [older.id, newer.id].sort());
   assert.equal(experimentFor(parsed, BASELINE_ID)?.id, newer.id);
   assert.equal(experimentFor(parsed, '99999999-9999-4999-8999-999999999999'), null);
-
-  assert.equal(upsertExperiment([older], { ...older, restoreDeclaredAt: CHANGED }).length, 1);
-  assert.equal(saveExperiments({ setItem: () => { throw new Error('quota'); } }, [newer]), false);
   assert.deepEqual(parseExperiments('garbage'), []);
 });
 

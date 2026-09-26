@@ -86,3 +86,15 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   way on the previous commit with the changes stashed. It is a pre-existing problem with that
   gate. Those scripts also need a preview server already running on 127.0.0.1:5178, started with
   `--host 127.0.0.1`, which nothing documents.
+
+## 2026-09-26 — unused display-experiment model removed
+
+- Removed from `src/lib/displayExperiment.ts`: the old experiment session, stage, evidence
+  strength, context filter, change sentence and storage writers. Each name was searched for in
+  `src/`, `tests/` and `scripts/` first; none was used outside the library and its own test.
+- Kept because live code still calls them: run filing, run linking and the run selection it uses,
+  the session limit, vendor detection, and reading a stored experiment for the legacy notice.
+- Five tests that covered only removed code were deleted. The fourteen that protect live
+  behaviour stay, now built on a local manual-session fixture.
+- `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean. No UI was exercised: this
+  removes code nothing in the app called.

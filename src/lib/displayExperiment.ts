@@ -1,31 +1,24 @@
 /**
- * Steps 3–6 of the Display setup workflow: measure the baseline, declare one change,
- * measure the candidate, then decide.
+ * Files PresentMon runs before and after a change purely by time, and links them to the
+ * change's session. Test a change (`changeTest.ts`) is the one flow that measures now.
  *
- * This deliberately does not build a second evidence system. A display experiment is a
- * thin link between a saved display baseline and an ordinary experiment session in
- * manual-change mode. Capture, matching rules and the paired comparison are all the
- * existing ones:
- *
- *   - captures come from the existing PresentMon flow (target picker, consent, provenance)
- *   - `sessionPairIssue` enforces one run per side (descriptive) or at least three,
- *     matched target and duration, and baseline runs finishing before the change
- *   - the comparison is prepared and saved through the existing Measure import
- *   - the decision is recorded on the session — never in the privileged action journal,
- *     because the person made the change, not Dialed
+ * Display setup's old measure steps kept their own experiments under
+ * `DISPLAY_EXPERIMENTS_KEY`. Those steps are gone, but a half-finished experiment may
+ * still be stored, so it is still read — strictly, because storage is untrusted — to tell
+ * the person about it rather than lose it.
  *
  * Pure and storage-agnostic so it can be tested without a browser.
  */
 import type { PresentMonCaptureEntry } from '../types';
 import type { ExperimentSession } from './experimentSessions';
-import { sessionCaptureIds, sessionPairIssue } from './experimentSessions';
-import { FIELD_LABELS, type BaselineSettings, type DisplayBaseline } from './displayBaseline';
+import { sessionCaptureIds } from './experimentSessions';
+import { FIELD_LABELS, type BaselineSettings } from './displayBaseline';
 
 export const DISPLAY_EXPERIMENTS_KEY = 'dialed-display-experiments:v1';
-export const MAX_STORED_EXPERIMENTS = 50;
+const MAX_STORED_EXPERIMENTS = 50;
 const MAX_SESSIONS = 20;
 
-export interface DeclaredChange {
+interface DeclaredChange {
   field: keyof BaselineSettings;
   /** The baseline value, as shown to the person — what to set it back to. */
   fromText: string;
@@ -51,54 +44,14 @@ export interface DisplayExperiment {
   revertDeclaredAt?: string | null;
 }
 
-export type ExperimentStage =
-  | 'MEASURE_BASELINE'
-  | 'DECLARE_CHANGE'
-  | 'MEASURE_CANDIDATE'
-  | 'COMPARE'
-  | 'DECIDE'
-  | 'DONE';
-
-export type GpuVendor = 'NVIDIA' | 'AMD' | 'INTEL' | 'UNKNOWN';
+type GpuVendor = 'NVIDIA' | 'AMD' | 'INTEL' | 'UNKNOWN';
 
 type Capture = Pick<PresentMonCaptureEntry, 'captureId' | 'status' | 'startedAt' | 'completedAt' | 'durationSeconds' | 'protocolComplete' | 'stopReason' | 'target'>;
 
 // --- Sessions ------------------------------------------------------------------------
 
-export function experimentWorkload(baseline: DisplayBaseline): string {
-  return `${baseline.context.gameName} on ${baseline.context.monitorLabel}`.slice(0, 160);
-}
-
-/**
- * Creates the manual-change session this experiment drives. The change description is
- * left empty until the change is declared: `sessionPairIssue` refuses to compare a
- * manual session without one, so an undeclared change can never reach a comparison.
- */
-export function newExperimentSession(baseline: DisplayBaseline, id: string, createdAt: string): ExperimentSession {
-  return {
-    id: `session-${id}`,
-    workload: experimentWorkload(baseline),
-    changeDescription: '',
-    createdAt,
-    baselineId: '',
-    candidateId: '',
-    auditId: '',
-    decision: 'UNDECIDED',
-    changeMode: 'MANUAL',
-    manualChangedAt: '',
-    baselineIds: [],
-    candidateIds: [],
-  };
-}
-
 export function sessionLimitReached(sessions: ExperimentSession[]): boolean {
   return sessions.length >= MAX_SESSIONS;
-}
-
-export function describeDeclaredChange(change: Pick<DeclaredChange, 'field' | 'fromText' | 'toText' | 'notes'>): string {
-  const base = `Changed ${FIELD_LABELS[change.field]} from ${change.fromText} to ${change.toText}`;
-  const notes = change.notes.trim();
-  return (notes ? `${base} — ${notes}` : base).slice(0, 240);
 }
 
 // --- Runs ----------------------------------------------------------------------------
@@ -109,7 +62,7 @@ export function isUsableCapture(capture: Capture): boolean {
     && !!capture.completedAt && Number.isFinite(Date.parse(capture.completedAt)) && Number.isFinite(Date.parse(capture.startedAt));
 }
 
-export interface RunPartition {
+interface RunPartition {
   /** Usable runs that finished after the experiment began and before the change. */
   baseline: Capture[];
   /** Usable runs that started after the declared change (and before any undo). */
@@ -201,18 +154,6 @@ export function partitionRuns(captures: Capture[], experiment: RunWindow): RunPa
 }
 
 /**
- * How much weight the runs can bear. One run per side can be compared, but only
- * descriptively; at least three per side are needed for a matched comparison. Two is
- * neither — the existing rules refuse it — so the person is told to take one more.
- */
-export function evidenceStrength(runs: number): 'NONE' | 'DESCRIPTIVE' | 'NEEDS_ONE_MORE' | 'MATCHED' {
-  if (runs <= 0) return 'NONE';
-  if (runs === 1) return 'DESCRIPTIVE';
-  if (runs === 2) return 'NEEDS_ONE_MORE';
-  return 'MATCHED';
-}
-
-/**
  * Picks which runs to link. With three or more per side all are used; with exactly one
  * per side that pair is used; otherwise the sides are trimmed to one each so a
  * descriptive comparison is still possible while more runs are taken.
@@ -247,37 +188,6 @@ export function linkRuns(session: ExperimentSession, partition: RunPartition): E
 
 function sameIds(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index]);
-}
-
-// --- Context ---------------------------------------------------------------------------
-
-/**
- * Context changes that should block a matched result. When the declared change is the
- * refresh rate itself, a different observed refresh rate is the change working, not a
- * confounder, so that one is not counted against it.
- */
-export function blockingContextChanges(changes: string[], experiment: DisplayExperiment | null): string[] {
-  if (experiment?.change?.field !== 'refreshHz') return changes;
-  return changes.filter((change) => !/^The monitor is now at \d+ Hz/.test(change));
-}
-
-// --- Stage -----------------------------------------------------------------------------
-
-export interface StageInput {
-  experiment: RunWindow;
-  session: ExperimentSession | null;
-  partition: RunPartition;
-  captures: Capture[];
-  hasComparison: boolean;
-}
-
-export function experimentStage({ experiment, session, partition, captures, hasComparison }: StageInput): ExperimentStage {
-  if (!session) return 'MEASURE_BASELINE';
-  if (session.decision !== 'UNDECIDED') return 'DONE';
-  if (!experiment.change) return partition.baseline.length ? 'DECLARE_CHANGE' : 'MEASURE_BASELINE';
-  if (!partition.candidate.length) return 'MEASURE_CANDIDATE';
-  if (hasComparison) return 'DECIDE';
-  return sessionPairIssue(session, captures as PresentMonCaptureEntry[], []) === null ? 'COMPARE' : 'MEASURE_CANDIDATE';
 }
 
 // --- Vendor guidance -----------------------------------------------------------------
@@ -348,22 +258,9 @@ export function parseExperiments(raw: string | null): DisplayExperiment[] {
   }
 }
 
-export function saveExperiments(storage: Pick<Storage, 'setItem'>, experiments: DisplayExperiment[]): boolean {
-  try {
-    storage.setItem(DISPLAY_EXPERIMENTS_KEY, JSON.stringify(experiments.slice(0, MAX_STORED_EXPERIMENTS)));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** The experiment in progress for a baseline — the newest one linked to it. */
 export function experimentFor(experiments: DisplayExperiment[], baselineId: string): DisplayExperiment | null {
   return experiments
     .filter((experiment) => experiment.baselineId === baselineId)
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0] ?? null;
-}
-
-export function upsertExperiment(experiments: DisplayExperiment[], next: DisplayExperiment): DisplayExperiment[] {
-  return [next, ...experiments.filter((experiment) => experiment.id !== next.id)].slice(0, MAX_STORED_EXPERIMENTS);
 }

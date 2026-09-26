@@ -87,7 +87,7 @@ Every feature must keep these, or it does not ship:
 
 Plain language everywhere the reader sees it: raw Windows and PowerShell errors are rewritten
 into one sentence saying what happened and what to do, with the original kept behind "Details".
-Preserve the nine workspaces, the eight themes, existing useful actions and full normal-profile
+Preserve the ten workspaces (shown as eight sidebar sections), the eight themes, existing useful actions and full normal-profile
 access. BIOS stays guidance-only. The owner keeps full feature access.
 
 ## Working style

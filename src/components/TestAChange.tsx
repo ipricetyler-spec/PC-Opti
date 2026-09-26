@@ -1,6 +1,6 @@
 import { ErrorText } from './ErrorText';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, FlaskConical, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, FlaskConical, RotateCcw, TriangleAlert } from 'lucide-react';
 import type { AuditJournalEntry, BenchmarkEvidenceState, BenchmarkImportPreview, PresentMonCaptureEntry, PresentMonCaptureState, SystemScanSnapshot, TelemetryView } from '../types';
 import { ComparisonCard, defaultPresentMonMetadata } from './BenchmarkEvidence';
 import { useConfirm } from './ConfirmContext';
@@ -9,7 +9,7 @@ import { SESSION_KEY, parseSessions, sameCaptureGroup, sessionCaptureIds, sessio
 import { linkRuns, partitionRuns, sessionLimitReached, vendorFor } from '../lib/displayExperiment';
 import { abaCheck, capWarning, conditionFlags, effectVsNoise, runProgress, RECOMMENDED_RUNS } from '../lib/experimentRigor';
 import {
-  CHANGE_TESTS_KEY, STEP_LABELS, STEP_ORDER, activeTests, awaitingRestart, newChangeTest, parseChangeTests, saveChangeTests, sessionForChange,
+  CHANGE_TESTS_KEY, STEP_LABELS, VISIBLE_STEPS, activeTests, awaitingRestart, newChangeTest, parseChangeTests, saveChangeTests, sessionForChange, visibleStepIndex,
   testStep, upsertChangeTest, withBootSeen, type ChangeTest, type ChangeTestSource,
 } from '../lib/changeTest';
 import { DISPLAY_BASELINES_KEY, FIELD_LABELS, contextChanges, parseBaselines, type DisplayBaseline } from '../lib/displayBaseline';
@@ -232,6 +232,14 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
     }
   }, []);
   useEffect(() => { void readRuns(); }, [readRuns]);
+  // While a test is waiting for runs, watch for them instead of making the reader press refresh.
+  // getPresentMonCaptureState is a cheap local read; it stops as soon as the test is decided.
+  useEffect(() => {
+    if (!selectedId || creating) return undefined;
+    if (step !== 'BEFORE' && step !== 'AFTER' && step !== 'RESULT') return undefined;
+    const timer = window.setInterval(() => { void readRuns(); }, 4000);
+    return () => window.clearInterval(timer);
+  }, [selectedId, creating, step, readRuns]);
   const onRecorderState = useCallback((state: PresentMonCaptureState) => setCaptures(state.entries), []);
 
   // --- Actions -------------------------------------------------------------------------
@@ -482,7 +490,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
     </section>;
   }
 
-  const currentIndex = STEP_ORDER.indexOf(step!);
+  const shownIndex = visibleStepIndex(step!);
   const counted = step === 'BEFORE' ? before.length : after.length;
   const effect = effectVsNoise(before, after);
   const cap = capWarning([...before, ...after]);
@@ -504,8 +512,8 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
       </div>
     </div>
 
-    <ol className="mt-5 grid grid-cols-5 gap-1" aria-label="Test steps">
-      {STEP_ORDER.map((item, index) => <li key={item} aria-current={index === currentIndex ? 'step' : undefined} className={`rounded px-2 py-1.5 text-center text-[11px] font-semibold ${index < currentIndex ? 'bg-emerald-500/10 text-emerald-300' : index === currentIndex ? 'bg-cyan-400/15 text-cyan-200' : 'bg-slate-800/60 text-slate-500'}`}>{index < currentIndex ? '✓ ' : ''}{STEP_LABELS[item]}</li>)}
+    <ol className="mt-5 grid grid-cols-3 gap-1" aria-label="Test steps">
+      {VISIBLE_STEPS.map((item, index) => <li key={item} aria-current={index === shownIndex ? 'step' : undefined} className={`rounded px-2 py-1.5 text-center text-[11px] font-semibold ${index < shownIndex ? 'bg-emerald-500/10 text-emerald-300' : index === shownIndex ? 'bg-cyan-400/15 text-cyan-200' : 'bg-slate-800/60 text-slate-500'}`}>{index < shownIndex ? '✓ ' : ''}{STEP_LABELS[item]}</li>)}
     </ol>
 
     <div className="mt-5">
@@ -524,7 +532,6 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" className={PRIMARY} disabled={counted < 1 || (step === 'AFTER' && waitingForRestart)} onClick={step === 'BEFORE' ? finishBefore : finishAfter}>{step === 'BEFORE' ? 'Done — make the change' : 'Done — show the result'}</button>
           {counted > 0 && counted < RECOMMENDED_RUNS && <span className="text-xs text-slate-400">You can continue now, but {RECOMMENDED_RUNS} counted runs give a trustworthy answer.</span>}
-          <button type="button" className="inline-flex items-center gap-1 text-xs text-slate-400 underline underline-offset-2" onClick={() => void readRuns()}><RefreshCw className="h-3 w-3" />Check for new runs</button>
         </div>
       </>}
 
@@ -564,7 +571,6 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
             <p className="mt-1 text-slate-400">Put back {new Date(test.revertDeclaredAt).toLocaleTimeString()}. {runProgress('check', check.length, Boolean(partition?.warmups.check), true).label}</p>
             {recorder}
             <RunList runs={check} flags={flags} />
-            <button type="button" className="mt-2 inline-flex items-center gap-1 text-xs text-slate-400 underline underline-offset-2" onClick={() => void readRuns()}><RefreshCw className="h-3 w-3" />Check for new runs</button>
             <p className={`mt-2 ${aba.verdict === 'CONFIRMED' ? 'text-emerald-200' : aba.verdict === 'DID_NOT_RETURN' ? 'text-amber-200' : 'text-slate-400'}`}>{aba.text}</p>
           </>}
         </div>}

@@ -50,6 +50,18 @@ export const STEP_LABELS: Record<ChangeTestStep, string> = {
   BEFORE: 'Measure before', CHANGE: 'Make the change', AFTER: 'Measure after', RESULT: 'Result', DONE: 'Done',
 };
 
+/**
+ * What the reader is shown. A test has three things to do; Result and Done are states the test
+ * arrives in, not work, and listing all five made the job look nearly twice as long as it is.
+ */
+export const VISIBLE_STEPS: ChangeTestStep[] = ['BEFORE', 'CHANGE', 'AFTER'];
+
+/** Where to draw the marker: RESULT and DONE sit past the last thing the reader does. */
+export function visibleStepIndex(step: ChangeTestStep): number {
+  const index = VISIBLE_STEPS.indexOf(step);
+  return index === -1 ? VISIBLE_STEPS.length : index;
+}
+
 export function changeDescription(source: ChangeTestSource): string {
   if (source.kind === 'TWEAK') return `Dialed tweak: ${source.title}`.slice(0, 240);
   const detail = source.fromText.trim() || source.toText.trim() ? ` (${source.fromText.trim() || '?'} → ${source.toText.trim() || '?'})` : '';

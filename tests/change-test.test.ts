@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  activeTests, awaitingRestart, changeDescription, newChangeTest, parseChangeTests, sessionForChange, testStep, upsertChangeTest, withBootSeen, type ChangeTest,
+  VISIBLE_STEPS, activeTests, awaitingRestart, changeDescription, newChangeTest, parseChangeTests, sessionForChange, testStep, upsertChangeTest, visibleStepIndex, withBootSeen, type ChangeTest,
 } from '../src/lib/changeTest';
 import { partitionRuns } from '../src/lib/displayExperiment';
 import { parseSessions, sessionPairIssue } from '../src/lib/experimentSessions';
@@ -108,4 +108,16 @@ test('the recorder matches the game named in a test by program or window name', 
   assert.equal(matchingTarget(targets, 'Valorant')?.name, 'VALORANT-Win64-Shipping.exe');
   assert.equal(matchingTarget(targets, 'Counter-Strike 2'), null);
   assert.equal(matchingTarget(targets, 'x'), null);
+});
+
+test('the reader is shown the three steps they act on, not the states a test ends in', () => {
+  // Result and Done are states a test arrives in; listing them made a three-part job look like
+  // a five-part one. They sit past the last visible step so the marker still moves forward.
+  assert.deepEqual(VISIBLE_STEPS, ['BEFORE', 'CHANGE', 'AFTER']);
+  assert.equal(visibleStepIndex('BEFORE'), 0);
+  assert.equal(visibleStepIndex('CHANGE'), 1);
+  assert.equal(visibleStepIndex('AFTER'), 2);
+  for (const finished of ['RESULT', 'DONE'] as const) {
+    assert.equal(visibleStepIndex(finished), VISIBLE_STEPS.length, `${finished} must mark every visible step complete`);
+  }
 });

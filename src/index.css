@@ -26,7 +26,7 @@
   --app-text-strong: #f2f4f8;
   --app-text: #c9cfdb;
   --app-muted: #8b93a7;
-  --app-faint: #6f7890;
+  --app-faint: #81899e;
   --app-chart-idle: var(--app-accent);
   --app-chart-loaded: var(--app-secondary);
   --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);
@@ -62,7 +62,7 @@
   --app-text-strong: #e6e4df;
   --app-text: #c9c9c4;
   --app-muted: #9aa0a6;
-  --app-faint: #7d848b;
+  --app-faint: #888e95;
   --app-chart-idle: var(--app-accent);
   --app-chart-loaded: var(--app-secondary);
   --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);

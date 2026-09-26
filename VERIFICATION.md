@@ -139,3 +139,18 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   fails on a real finding: faint text is 3.68:1 (Console) and 4.02:1 (Instrument), under 4.5:1.
   The gate is therefore still red; the three open items need the owner.
 - `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.
+
+## 2026-09-26 — UI fixture gate green (owner decisions applied)
+
+- Faint text lightened just enough to pass: Console `#6f7890` → `#81899e`, Instrument
+  `#7d848b` → `#888e95`. Computed 4.63:1 and 4.61:1 on the lightest surface, still dimmer than
+  muted text; the contrast check reports no findings.
+- Measure › Test a change now links to **Saved tests**, which opens the saved-tests panel with no
+  finished test required. The game-profile check drives the whole saved-tests flow from it:
+  create, reload, edit, archive, restore, export, delete, import review, conflict refusal and
+  duplicate prevention, all with their original assertions.
+- The input check's `.app-header` "Goal:" assertion is deleted: the header shows no goal now.
+- `npm run test:ui:fixtures` from an empty `dist/`: builds, all five checks pass, server stopped.
+- `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.
+- Not verified: the new Saved tests link and the lighter faint text were exercised only in the
+  browser fixture, not in the installed app (which predates this work).

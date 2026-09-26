@@ -26,6 +26,9 @@ npm run lint     # tsc --noEmit
 npm run build    # production renderer build
 ```
 
+After any change a person sees, also run `npm run test:ui:fixtures`. It builds, serves on
+127.0.0.1:5178, drives every section in a real browser against fixtures, and stops the server.
+
 Do not claim a result you did not run. "The config says so" is not verification: check the
 built artifact, the registry value, or the running behaviour.
 
@@ -87,7 +90,7 @@ Every feature must keep these, or it does not ship:
 
 Plain language everywhere the reader sees it: raw Windows and PowerShell errors are rewritten
 into one sentence saying what happened and what to do, with the original kept behind "Details".
-Preserve the ten workspaces (shown as eight sidebar sections), the eight themes, existing useful actions and full normal-profile
+Preserve the ten workspaces (shown as eight sidebar sections), the two themes (Console and Instrument), existing useful actions and full normal-profile
 access. BIOS stays guidance-only. The owner keeps full feature access.
 
 ## Working style

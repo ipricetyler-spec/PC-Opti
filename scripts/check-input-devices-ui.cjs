@@ -621,7 +621,6 @@ async function main() {
       for (const theme of themes) for (const width of [960, 1280]) {
         await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
         await page.setViewportSize({ width, height: 900 });
-        assert.match(await page.locator('.app-header').innerText(), /Goal:/);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${workspace} overflow: ${theme} ${width}`);
         await page.screenshot({ path: path.join(out, `polish-${workspace.replace(/ /g, '-')}-${theme}-${width}.png`), fullPage: true });
         polishLayouts.push({ workspace, theme, width, overflow: false });

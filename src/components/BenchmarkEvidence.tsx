@@ -135,7 +135,7 @@ export function BenchmarkEvidence({ snapshot = null, focusedExperimentId, sessio
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-violet-300"><BarChart3 className="h-5 w-5" /><span className="text-sm font-semibold">Results</span></div>
           <h2 className="mt-2 text-xl font-bold text-white">Did it help?</h2>
-          <p className="mt-1 text-sm leading-relaxed text-slate-400">Your before-and-after comparisons. Dialed only calls something an improvement when the difference is bigger than the normal run-to-run wobble. You can also import results from another benchmark tool.</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-400">Your before-and-after results. Dialed only calls something an improvement when the difference is bigger than the normal run-to-run wobble. You can also import results from another benchmark tool.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={onRefresh} disabled={loading} className="rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 disabled:opacity-60">Refresh</button>
@@ -178,13 +178,13 @@ export function BenchmarkEvidence({ snapshot = null, focusedExperimentId, sessio
         <button onClick={clearFilters} className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-2 text-xs text-slate-300 disabled:opacity-50" disabled={!query && classificationFilter === 'all' && sortMode === 'recent'}><X className="h-3.5 w-3.5" /> Clear filters</button>
       </div>
       <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-slate-400">
-        Showing <span className="font-semibold text-slate-100">{filteredComparisons.length}</span> of <span className="font-semibold text-slate-100">{evidence.comparisons.length}</span> comparisons.
+        Showing <span className="font-semibold text-slate-100">{filteredComparisons.length}</span> of <span className="font-semibold text-slate-100">{evidence.comparisons.length}</span> results.
       </p>
     </section>
 
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard label="Comparisons" value={`${evidence.comparisons.length}`} detail={`from ${evidence.records.length} run${evidence.records.length === 1 ? '' : 's'}`} tone="neutral" />
-      <MetricCard label="Clear results" value={`${summary.stable}`} detail={`${summary.measured} helped · ${summary.regression} got worse`} tone="good" />
+      <MetricCard label="Results" value={`${evidence.comparisons.length}`} detail={`from ${evidence.records.length} run${evidence.records.length === 1 ? '' : 's'}`} tone="neutral" />
+      <MetricCard label="Clear answers" value={`${summary.stable}`} detail={`${summary.measured} helped · ${summary.regression} got worse`} tone="good" />
       <MetricCard label="No clear answer" value={`${summary.inconclusive + summary.highVariance}`} detail={`${summary.inconclusive} no clear difference · ${summary.highVariance} too inconsistent`} tone="warn" />
       <MetricCard label="Unfinished" value={`${summary.incomplete}`} detail={`${summary.incomparable} not comparable`} tone="warn" />
     </section>

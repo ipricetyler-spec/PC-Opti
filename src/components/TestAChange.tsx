@@ -593,7 +593,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
         {comparison ? <details className="mt-5 rounded-xl border border-slate-700 bg-slate-950/30 p-3" open>
           <summary className="cursor-pointer text-sm font-semibold text-slate-100">Detailed comparison and frame-time graph</summary>
           <div className="mt-3"><ComparisonCard comparison={comparison} readings={readings} title={`${test.source.title} in ${test.game}`} /></div>
-        </details> : after.length > 0 && before.length > 0 && <button type="button" className={`${BUTTON} mt-5`} disabled={busy} onClick={() => void saveComparison()}>{busy ? 'Building…' : 'Show the detailed comparison and frame-time graph'}</button>}
+        </details> : after.length > 0 && before.length > 0 && <button type="button" className={`${BUTTON} mt-5`} disabled={busy} onClick={() => void saveComparison()}>{busy ? 'Building…' : 'Show the full result and frame-time graph'}</button>}
       </>}
     </div>
     {error && <p role="alert" className="mt-3 text-xs text-amber-200"><ErrorText text={error} /></p>}

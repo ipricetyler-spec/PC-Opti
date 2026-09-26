@@ -72,7 +72,7 @@ async function assertEditionSupports(editions) {
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
-const { ensureProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
+const { openProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
 const fullscreenOptimizations = require('../src/main/fullscreen-optimizations/index.cjs');
 const { assertExecutablePath, gpuPreferenceTargetId, listGpuPreferences, parseGpuPreference, readGpuPreference } = require('../src/main/gpu-preference/index.cjs');
 const { readDisplayModes } = require('../src/main/display-modes/index.cjs');
@@ -162,10 +162,16 @@ function presentMonCaptures() {
 // running as administrator or the folder could not be verified; then the previous
 // per-user locations are used, as before.
 let protectedDataRoot = null;
+// Renames a protected folder with an older random name (Dialed-<12 hex>) to Dialed-Protected.
+// Off until the owner has approved running it on their own PC; an unfinished rename is settled
+// either way.
+const RENAME_PROTECTED_FOLDER = false;
 async function prepareProtectedData() {
   if (process.platform !== 'win32') return;
   try {
-    const { root } = await ensureProtectedDataRoot();
+    const { root, renamedFrom, renameSkipped } = await openProtectedDataRoot({ renameToTidyName: RENAME_PROTECTED_FOLDER });
+    if (renamedFrom) console.info(`Protected folder renamed from ${renamedFrom} to ${root}.`);
+    if (renameSkipped) console.info(`Protected folder not renamed: ${renameSkipped}`);
     const { migrated } = useProtectedJournalDirectory(app.getPath('userData'), path.join(root, 'Journal'));
     protectedDataRoot = root;
     console.info(`Change log is in the protected folder${migrated ? ' (moved there now)' : ''}.`);

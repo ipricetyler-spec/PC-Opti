@@ -173,3 +173,20 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   the Input devices chunk and recovers to Restore.
 - Not verified: the packaged Electron app (file:// in app.asar). Earlier lazy chunks already load
   there, but this build was not packaged or launched.
+
+## 2026-09-26 — protected folder rename (switched off)
+
+- Read-only inspection of this PC: `C:\ProgramData\Dialed-ad0f83361119` holds only
+  `Journal\journal.json` (73,898 bytes, 50 entries); `HKLM\SOFTWARE\Dialed\ProtectedDataRoot`
+  records it; `C:\ProgramData\Dialed` holds only the native helper's `HidusbfLifecycle`.
+- Observed on throwaway folders: a directory rename refuses to replace an existing folder, even an
+  empty one, and refuses while a file inside is open (both EPERM); the old name is gone after it.
+- `tests/protected-folder-rename.test.cjs` (14 tests, fakes only) includes a power cut before
+  every write of the rename: straight after it exactly one folder holds the intact log, and the
+  next start leaves the registry naming it with no marker left. Two deliberate breaks of the
+  recovery logic were each caught by the matching test, then reverted.
+- The folder script and the three registry commands parse with the PowerShell parser (not run).
+- `npm test` 796/796, `npm run test:ts` 127/127, lint and build clean.
+- Not verified, and not run: the rename on this PC, the registry commands against real HKLM, and
+  that Windows keeps the folder's protected permissions across the rename (reasoned; the moved
+  folder is re-checked by the admin-only checks before its new name is recorded).

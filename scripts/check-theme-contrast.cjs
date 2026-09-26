@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright');
+const { openFixture, openSection } = require('./ui-fixture-page.cjs');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Only loopback fixture servers are allowed.');
 const themes = ['midnight', 'ember', 'violet', 'forest', 'graphite', 'oled', 'aurora', 'carbon-gold'];
@@ -25,11 +26,11 @@ async function main() {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const began = Date.now();
-    await page.goto(origin);
+    await openFixture(page, origin);
     await page.locator('aside nav').waitFor();
     report.observations.push({ operation: 'fixture initial navigation to visible sidebar', elapsedMs: Date.now() - began, sampleCount: 1 });
     const settingsBegan = Date.now();
-    await page.locator('aside nav button').filter({ hasText: /^Settings/ }).click();
+    await openSection(page, 'Settings');
     await page.getByRole('heading', { name: 'Choose your Dialed theme' }).waitFor();
     report.observations.push({ operation: 'fixture Settings navigation to theme heading', elapsedMs: Date.now() - settingsBegan, sampleCount: 1 });
     await page.evaluate(() => {

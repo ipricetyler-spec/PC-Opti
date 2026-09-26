@@ -10,6 +10,7 @@ const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundle
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
 const { migrateSystemScanSnapshot } = require('../src/main/snapshot/index.cjs');
+const { openFixture, openSection, sectionButton } = require('./ui-fixture-page.cjs');
 
 const out = path.resolve(process.env.DIALED_UI_OUTPUT || path.join(__dirname, '../output/playwright'));
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
@@ -257,7 +258,7 @@ async function main() {
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto(origin);
+    await openFixture(page, origin);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.technicalDetails), 'hidden');
     await page.getByText(/Latest verified scan completed/).waitFor();
     await page.getByRole('button', { name: 'Open Scan' }).first().click();
@@ -265,13 +266,13 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: 'Scan again' }).count(), 1);
     await page.screenshot({ path: path.join(out, 'scan-completion-midnight-960.png'), fullPage: true });
 
-    await page.locator('aside nav button').filter({ hasText: /^Settings/ }).click();
+    await openSection(page, 'Settings');
     const technicalToggle = page.getByRole('checkbox', { name: 'Technical details', exact: true });
     assert.equal(await technicalToggle.isChecked(), false);
     await technicalToggle.check();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.technicalDetails), 'shown');
 
-    await page.locator('aside nav button').filter({ hasText: /^Network/ }).click();
+    await openSection(page, 'Network');
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Start quick check' }).click();
     await page.getByText('Connection test completed, but the endpoint was unreachable', { exact: true }).waitFor();
@@ -279,7 +280,7 @@ async function main() {
     await page.getByText(/Fixture endpoint refused the HTTPS request/).first().waitFor();
     await page.screenshot({ path: path.join(out, 'connection-offline-midnight-960.png'), fullPage: true });
 
-    await page.locator('aside nav button').filter({ hasText: /^Input Devices/ }).click();
+    await openSection(page, 'Input devices');
     const section = page.getByRole('region', { name: 'Input devices' });
     await section.getByRole('button', { name: 'Scan input devices' }).click();
     const deviceList = section.getByLabel('Connected input devices');
@@ -574,8 +575,8 @@ async function main() {
     await section.getByRole('region', { name: 'Confirm polling change' }).waitFor();
     await section.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByLabel('Find a workspace').fill('bios');
-    assert.equal(await page.locator('aside nav button').filter({ hasText: /^Optimize/ }).count(), 1);
-    assert.equal(await page.locator('aside nav button').filter({ hasText: /^Games/ }).count(), 0);
+    assert.equal(await sectionButton(page, 'Optimize').count(), 1);
+    assert.equal(await sectionButton(page, 'Games').count(), 0);
     await page.getByRole('button', { name: 'Clear search' }).click();
     await page.evaluate(async () => { await window.__inputFixture('nativeHistory',true); await window.__inputFixture('legacyNeedsReview'); await window.__inputFixture('nativeExpired'); });
     await section.getByRole('button', { name: 'Refresh devices' }).click();
@@ -587,7 +588,7 @@ async function main() {
     assert.equal(await section.getByRole('button',{name:'Review exact restore'}).isDisabled(),true);
     const polishLayouts = [];
     for (const workspace of ['Home', 'Verify', 'Settings', 'Games', 'Input Devices']) {
-      await page.locator('aside nav button').filter({ hasText: new RegExp('^' + workspace) }).click();
+      await openSection(page, workspace);
       if (workspace === 'Home') {
         await page.getByRole('heading', { name: 'Your next safe step, without the wall of evidence' }).waitFor();
       }

@@ -9,6 +9,7 @@ const configs = require('../src/main/game-config/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
+const { openFixture, openSection } = require('./ui-fixture-page.cjs');
 const out = path.resolve(__dirname, '../output/playwright');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Fixture test is restricted to loopback.');
@@ -108,8 +109,8 @@ async function main() {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('dialog', (dialog) => dialog.accept());
-    await page.goto(origin);
-    await page.locator('aside nav button').filter({ hasText: /^Games/ }).click();
+    await openFixture(page, origin);
+    await openSection(page, 'Games');
     await page.getByRole('tab', { name: 'Profiles', exact: true }).click();
     const section = page.getByRole('region', { name: 'Game optimization profiles' });
     await section.getByRole('button', { name: 'Preview Fortnite', exact: true }).click();
@@ -163,19 +164,19 @@ async function main() {
     assert.equal(fs.readFileSync(source, 'utf8'), `${original}; fixture external edit\r\n`);
     await page.evaluate(() => sessionStorage.removeItem('game-fixture-mode'));
     await page.reload();
-    await page.locator('aside nav button').filter({ hasText: /^Games/ }).click();
+    await openSection(page, 'Games');
     await page.getByRole('tab', { name: 'Backups', exact: true }).click();
     await page.getByRole('heading', { name: 'Local configuration backups' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Preview restore', exact: true }).count(), 4);
     assert.equal(await page.locator('aside nav button').count(), 9);
-    await page.locator('aside nav button').filter({ hasText: /^Scan/ }).click();
+    await openSection(page, 'Scan');
     await page.getByRole('heading', { name: 'Useful evidence before another optimization' }).waitFor();
     await page.getByRole('tab', { name: 'Windows controls' }).click();
     await page.getByRole('heading', { name: 'Only reviewed current-user Store packages' }).waitFor();
     await page.getByText('Microsoft News', { exact: true }).waitFor();
     const controlsLayout = await page.locator('main').evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth, pageWidth: document.documentElement.clientWidth, pageScroll: document.documentElement.scrollWidth }));
     assert.ok(controlsLayout.scroll <= controlsLayout.width && controlsLayout.pageScroll <= controlsLayout.pageWidth, 'Windows controls overflow');
-    await page.locator('aside nav button').filter({ hasText: /^Settings/ }).click();
+    await openSection(page, 'Settings');
     await page.getByRole('heading', { name: 'Verify every layer before an installer opens' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Check trusted feed' }).isDisabled(), true);
     await page.getByText('Updates stay disabled until release trust is configured and verified.', { exact: true }).waitFor();
@@ -187,7 +188,7 @@ async function main() {
     const workspaceMatrix = [];
     const workspaceNames = ['Home','Scan','Optimize','Games','Network','Input Devices','Measure','Verify','Settings'];
     for (const workspace of workspaceNames) {
-      await page.locator('aside nav button').filter({ hasText: new RegExp('^' + workspace) }).click();
+      await openSection(page, workspace);
       await page.locator('#main-content').waitFor();
       await page.waitForTimeout(60);
       for (const mode of ['hidden','shown']) for (const theme of themes) for (const width of [960,1280]) {
@@ -214,7 +215,7 @@ async function main() {
       await page.screenshot({path:path.join(out,`workspace-${workspace.toLowerCase().replaceAll(' ','-')}-current.png`),fullPage:true});
     }
     fs.writeFileSync(path.join(out,'workspace-matrix-report.json'),JSON.stringify({fixtureOnly:true,sourceSha256:configs.sha256(fs.readFileSync(path.join(__dirname,'../src/App.tsx'))),checks:workspaceMatrix},null,2));
-    await page.locator('aside nav button').filter({hasText:/^Home/}).click();
+    await openSection(page, 'Home');
     await page.getByLabel('Workload / scene',{exact:true}).fill('Fixture replay');
     await page.getByLabel('One change to evaluate',{exact:true}).fill('One fixture change');
     await page.getByRole('button',{name:'Start saved session',exact:true}).click();
@@ -270,9 +271,9 @@ async function main() {
     const expectedFaults = [];
     faultPage.on('pageerror', (error) => expectedFaults.push(error.message));
     await faultPage.route('**/InputDevicesCenter-*.js', (route) => route.abort());
-    await faultPage.goto(origin);
+    await openFixture(faultPage, origin);
     const callsBeforeFault = calls.length;
-    await faultPage.locator('aside nav button').filter({hasText:/^Input Devices/}).click();
+    await openSection(faultPage, 'Input devices');
     await faultPage.getByRole('heading',{name:'This view could not be displayed'}).waitFor();
     await faultPage.getByRole('button',{name:'Open recovery',exact:true}).click();
     await faultPage.getByRole('tab',{name:'Recovery & history',exact:true}).waitFor();

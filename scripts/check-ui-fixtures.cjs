@@ -31,6 +31,12 @@ function waitForPreview(deadline = Date.now() + 15_000) {
 }
 
 async function main() {
+  // `vite preview` serves whatever is in dist/, so without a build the checks would quietly
+  // test an older renderer.
+  const build = childProcess.spawnSync(process.execPath, [viteCli, 'build'], { cwd: ROOT, windowsHide: true, stdio: 'inherit' });
+  if (build.error) throw build.error;
+  if (build.status !== 0) throw new Error(`The renderer build failed (exit code ${build.status}), so no fixture check ran.`);
+
   const preview = childProcess.spawn(process.execPath, [viteCli, 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
     cwd: ROOT,
     windowsHide: true,

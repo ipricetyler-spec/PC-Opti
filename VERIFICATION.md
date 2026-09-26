@@ -98,3 +98,23 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   behaviour stay, now built on a local manual-session fixture.
 - `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean. No UI was exercised: this
   removes code nothing in the app called.
+
+## 2026-09-26 — UI fixture gate, stage 1: runner and sidebar navigation
+
+- Cause of the Games timeout, reproduced with a probe of the same fixture page: no page error,
+  and the sidebar renders under the fixture's capabilities. The selector was stale. Sidebar
+  buttons now read "03 Games" (a number, then the label), so `/^Games/` could never match. The
+  checks predate the eight-section sidebar and still use old names (Optimize, Scan, Network,
+  Verify) and old copy.
+- Correction to the entry above: `npm run test:ui:fixtures` always started and stopped its own
+  loopback server. Only a check script run on its own needed one.
+- The runner now builds first, so it cannot test a stale `dist/`. A script run on its own with no
+  server says to run `npm run test:ui:fixtures` instead of showing a bare connection error.
+- Sidebar clicks go through `scripts/ui-fixture-page.cjs`, matching the section's accessible name.
+  An unknown name fails in milliseconds and lists the real sections. Probed against a live
+  preview: 8 sections found; Games opens and becomes `aria-current`; "Optimize" fails in 17 ms
+  with the list.
+- The gate still fails, now at `check-game-profiles-ui.cjs:134`: it waits for "Applied — file
+  verified", and the component's heading reads "Applied and checked". That and the other stale
+  names, copy and the nine-section counts are stage 2. No assertion was changed in stage 1.
+- `npm test` 782/782, `npm run test:ts` 127/127, lint and build clean.

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
+const { openFixture, openSection } = require('./ui-fixture-page.cjs');
 const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
 if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Only loopback fixture servers are allowed.');
 const out = path.resolve(__dirname, '../output/playwright');
@@ -64,7 +65,7 @@ async function main() {
     page.setDefaultTimeout(10000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    const navigate = name => page.locator('aside nav button').filter({ hasText: new RegExp(`^${name}`) }).click();
+    const navigate = name => openSection(page, name);
     async function layout(state) {
       for (const theme of themes) for (const scale of [1, 1.25, 1.5, 2]) {
         await page.evaluate(({ theme, scale }) => {
@@ -84,7 +85,7 @@ async function main() {
       }
       await page.evaluate(() => { document.documentElement.style.zoom = ''; });
     }
-    await page.goto(origin);
+    await openFixture(page, origin);
     const search = page.getByRole('searchbox', { name: 'Find a workspace' });
     await search.fill('controller');
     assert.equal(await page.locator('aside nav button').count(), 1);

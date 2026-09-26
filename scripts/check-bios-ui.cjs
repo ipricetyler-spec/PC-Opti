@@ -7,6 +7,7 @@ const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright')
 const { buildBiosPlan } = require('../src/main/bios-guidance/index.cjs');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
+const { openFixture, openSection } = require('./ui-fixture-page.cjs');
 
 const raw = {
   cpu: [{ name: 'AMD Ryzen 7 9800X3D 8-Core Processor' }],
@@ -50,13 +51,13 @@ async function main() {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto(origin);
+    await openFixture(page, origin);
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', { name: 'Skip to main content' });
     assert.equal(await skipLink.evaluate((element) => document.activeElement === element), true);
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
-    await page.locator('aside nav button').filter({ hasText: /^Optimize/ }).click();
+    await openSection(page, 'Optimize');
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.getByRole('heading', { name: 'Use your RAM kit’s supported EXPO profile' }).waitFor();
     assert.equal(await page.locator('aside nav button').count(), 9);
@@ -71,7 +72,7 @@ async function main() {
     await page.getByRole('heading', { name: 'Choose a small, reviewable set of changes' }).waitFor();
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.reload();
-    await page.locator('aside nav button').filter({ hasText: /^Optimize/ }).click();
+    await openSection(page, 'Optimize');
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).waitFor();
     assert.equal(await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).inputValue(), 'Fixture previous value: Auto; test pending.');

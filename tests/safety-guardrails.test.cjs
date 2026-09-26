@@ -575,7 +575,11 @@ test('navigation shows eight sections over the ten workspaces and keeps detailed
   assert.match(sidebarSource, /includes: \[\{ id: 'overview'/);
   assert.match(sidebarSource, /includes: \[\{ id: 'network-quality'/);
   assert.match(appSource, /ariaLabel="Home views" items=\{\[\{ id: 'readiness', label: 'Summary' \}, \{ id: 'overview', label: 'Scan details' \}\]\}/);
-  assert.match(appSource, /ariaLabel="Measure views" items=\{\[\{ id: 'test', label: 'Test a change' \}, \{ id: 'results', label: 'Recordings & results' \}, \{ id: 'network-quality', label: 'Network' \}\]\}/);
+  // Measure has one guided way in. Every recording stays reachable, from a finished result
+  // rather than as a second doorway that looked like a separate kind of benchmarking.
+  assert.match(appSource, /ariaLabel="Measure views" items=\{\[\{ id: 'test', label: 'Test a change' \}, \{ id: 'network-quality', label: 'Network' \}\]\}/);
+  assert.match(appSource, /onOpenRecordings=\{\(\) => setMeasureView\('results'\)\}/);
+  assert.match(appSource, /measureView === 'results' && <Suspense[^\n]*<BenchmarkEvidence/);
   assert.doesNotMatch(sidebarSource, /Clean-room parity|Plan composer|Game & Network|Performance Lab/);
   assert.match(appSource, /activeTab === 'startup' && optimizeView === 'timing' && <Suspense[^\n]*<PerformanceLab/);
   // The goal picker was removed: it only reordered a short list and read as more than it did.

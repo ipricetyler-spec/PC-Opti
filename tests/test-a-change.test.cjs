@@ -40,13 +40,19 @@ test('the boot-time bridge is read-only and takes no input', () => {
   assert.match(read('electron/preload.cjs'), /getBootTime: \(\) => ipcRenderer\.invoke\('pc-opti:get-boot-time'\)/);
 });
 
-test('display tests keep the monitor and graphics-card check, and older display experiments keep their steps', () => {
+test('display tests keep the monitor and graphics-card check, and run through the one guided flow', () => {
   const component = read('src/components/TestAChange.tsx');
   assert.match(component, /contextChanges\(baseline, \{/);
   assert.match(component, /not a like-for-like comparison/);
   const guide = read('src/components/DisplaySetupGuide.tsx');
-  assert.match(guide, /existingBaseline && legacyExperimentInProgress\(existingBaseline\.id\)\s*\? <DisplayExperimentSteps/);
   assert.match(guide, /Step 3 · Test a display setting/);
+  // Display setup starts the same test as everything else, with the setting filled in. It used
+  // to run a second, parallel set of measure steps inside this screen for older experiments.
+  assert.match(guide, /onTest\(\{ game: existingBaseline\.context\.gameName, manual: \{/);
+  assert.doesNotMatch(guide, /DisplayExperimentSteps/);
+  // An older, half-finished display test is explained rather than silently dropped.
+  assert.match(guide, /legacyExperimentInProgress\(existingBaseline\.id\) && <p/);
+  assert.match(guide, /started in an older version of Dialed is still open/);
 });
 
 test('a test builds its comparison from what it knows and marks the rest "Not recorded"', () => {

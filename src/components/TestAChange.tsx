@@ -94,7 +94,7 @@ function RunList({ runs, flags }: { runs: PresentMonCaptureEntry[]; flags: Map<s
   </ul>;
 }
 
-export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPrefillUsed, onApplyTweak, onUndoEntry, onEvidenceChange, onImportPreview }: {
+export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPrefillUsed, onApplyTweak, onUndoEntry, onEvidenceChange, onImportPreview, onOpenRecordings }: {
   tweaks: TestableTweak[];
   history: AuditJournalEntry[];
   snapshot: SystemScanSnapshot | null;
@@ -109,6 +109,8 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
   onUndoEntry: (entryId: string) => Promise<AuditJournalEntry | null>;
   /** Saved comparisons changed (a test saved its own). */
   onEvidenceChange: (state: BenchmarkEvidenceState) => void;
+  /** Every recording Dialed has kept, including runs from other tests. A side door, not a step. */
+  onOpenRecordings?: () => void;
   onImportPreview: (preview: BenchmarkImportPreview) => void;
 }) {
   const confirm = useConfirm();
@@ -586,6 +588,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
         </div> : <div className="mt-5 flex flex-wrap items-center gap-3">
           <p role="status" className="inline-flex items-center gap-1.5 text-sm text-emerald-200"><CheckCircle2 className="h-4 w-4" />{decisionText[session?.decision ?? 'UNDECIDED']}</p>
           <button type="button" className={PRIMARY} onClick={() => { setCreating(true); setSelectedId(null); }}>Test something else</button>
+          {onOpenRecordings && <button type="button" className="text-xs text-slate-400 underline underline-offset-2" onClick={onOpenRecordings}>See every recording</button>}
         </div>}
         {comparison ? <details className="mt-5 rounded-xl border border-slate-700 bg-slate-950/30 p-3" open>
           <summary className="cursor-pointer text-sm font-semibold text-slate-100">Detailed comparison and frame-time graph</summary>

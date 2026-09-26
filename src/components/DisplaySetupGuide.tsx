@@ -2,9 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useState } from 'react';
 import { Monitor, ArrowRight } from 'lucide-react';
 import type { ReportedDisplayInventory } from '../electron';
-import type { BenchmarkEvidenceState, BenchmarkImportPreview, DisplayModeReport, InstalledGameDiscovery, SystemScanSnapshot } from '../types';
-import type { ExperimentSession } from '../lib/experimentSessions';
-import { DisplayExperimentSteps } from './DisplayExperimentSteps';
+import type { DisplayModeReport, InstalledGameDiscovery, SystemScanSnapshot } from '../types';
 import { DisplaySetupChooser } from './DisplaySetupChooser';
 import { DISPLAY_SETUP_KEY, EMPTY_SELECTION, chosenGameName, effectiveGpu, graphicsAdapters, monitorDisplayName, parseSelection, saveSelection, setupCompleteness, type DisplaySetupSelection, type NamedDisplay } from '../lib/displaySetup';
 import { DisplayBaselineForm } from './DisplayBaselineForm';
@@ -37,15 +35,12 @@ const references = [
   ['AMD Anti-Lag and in-game Anti-Lag 2 support', 'https://www.amd.com/en/products/software/adrenalin/radeon-software-anti-lag.html'],
 ] as const;
 
-export function DisplaySetupGuide({ onOpenMeasure, onTest, snapshot, discovery, evidence, onCompare, onImportPreview }: {
+export function DisplaySetupGuide({ onOpenMeasure, onTest, snapshot, discovery }: {
   onOpenMeasure: () => void;
   /** Opens Measure › Test a change with this display setting filled in. */
   onTest: (prefill: TestPrefill) => void;
   snapshot: SystemScanSnapshot | null;
   discovery: InstalledGameDiscovery | null;
-  evidence: BenchmarkEvidenceState;
-  onCompare: (preview: BenchmarkImportPreview, session: ExperimentSession) => void;
-  onImportPreview: (preview: BenchmarkImportPreview) => void;
 }) {
   const [goal, setGoal] = useState<'balanced' | 'latency'>('balanced');
   const [testField, setTestField] = useState<keyof BaselineSettings>('frameCap');
@@ -177,21 +172,9 @@ export function DisplaySetupGuide({ onOpenMeasure, onTest, snapshot, discovery, 
         onDiscard={(id) => persistBaselines(removeBaseline(baselines, id))}
       />
       : <p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-500">Step 2 · Save your baseline — available once the game, monitor and graphics card are chosen above.</p>}</div>
-    <div className="mt-4">{existingBaseline && legacyExperimentInProgress(existingBaseline.id)
-      ? <DisplayExperimentSteps
-        key={existingBaseline.id}
-        baseline={existingBaseline}
-        // Without a display read in this session Dialed cannot confirm the monitor and its
-        // refresh rate still match the baseline, so a matched comparison waits for one.
-        contextChanges={modeReport ? baselineChanges : ['Display information has not been read yet, so Dialed cannot confirm your monitor and its refresh rate still match the baseline. Read display information above.']}
-        gpuName={gpu?.name ?? null}
-        gpuVendor={gpu?.vendor ?? null}
-        evidence={evidence}
-        onCompare={onCompare}
-        onImportPreview={onImportPreview}
-      />
-      : existingBaseline ? <div className="rounded-xl border border-slate-700 bg-slate-950/40 p-4">
+    <div className="mt-4">{existingBaseline ? <div className="rounded-xl border border-slate-700 bg-slate-950/40 p-4">
         <h4 className="text-sm font-semibold text-slate-100">Step 3 · Test a display setting</h4>
+        {legacyExperimentInProgress(existingBaseline.id) && <p className="mt-2 rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-[11px] leading-relaxed text-slate-400">A display test started in an older version of Dialed is still open for this baseline. Tests now run in one place, so start it again below; the recordings it already made are kept under Measure.</p>}
         <p className="mt-1 text-xs leading-relaxed text-slate-400">Pick the one setting you want to try. Measure opens with it filled in, measures {existingBaseline.context.gameName} before and after, and checks your monitor and graphics card still match this baseline.</p>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="text-xs font-semibold text-slate-300">Setting

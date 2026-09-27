@@ -9,7 +9,9 @@ const MODULE = "Get-AuthenticodeSignature : The 'Get-AuthenticodeSignature' comm
 
 test('raw Windows errors become one plain sentence, and the original is kept', () => {
   const retrim = friendlyError(RETRIM);
-  assert.match(retrim.message, /not running as administrator\. Reopen Dialed as administrator/);
+  // Dialed runs as administrator, so a refusal is not blamed on missing rights.
+  assert.match(retrim.message, /^Windows refused access\. Something on this PC is protecting it/);
+  assert.doesNotMatch(retrim.message, /not running as administrator/);
   assert.equal(retrim.technical, RETRIM);
   assert.match(friendlyError(MISSING).message, /file Dialed needed was missing/);
   assert.match(friendlyError(MODULE).message, /part of Windows that Dialed uses could not be loaded/);
@@ -46,7 +48,16 @@ test('a plain sentence wrapped in IPC and PowerShell machinery is shown, not the
 
 test('a rule still wins over the wrapped wording, because it says what to do', () => {
   const raw = 'Error invoking remote method \'pc-opti:set-user-setting\': Error: Exception calling "Write" with "2" argument(s): "Access is denied."At line:12 char:3    + FullyQualifiedErrorId : InvalidOperationException';
-  assert.match(friendlyError(raw).message, /running as administrator/);
+  assert.match(friendlyError(raw).message, /Windows refused access/);
+});
+
+test('only an elevation error asks for administrator rights, and a missing registry value is not called a file', () => {
+  assert.match(friendlyError('Start-Process : This command cannot be run due to the error: The requested operation requires elevation. + FullyQualifiedErrorId : InvalidOperationException').message, /not running as administrator/);
+  const registry = "Get-ItemProperty : Property GlobalTimerResolutionRequests does not exist at path HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel. At line:1 char:1 + CategoryInfo : InvalidArgument";
+  assert.match(friendlyError(registry).message, /^A Windows setting Dialed expected was not there/);
+  const missingKey = "Get-Item : Cannot find path 'HKLM:\\SOFTWARE\\Fixture' because it does not exist. At line:1 char:1";
+  assert.match(friendlyError(missingKey).message, /^A Windows setting Dialed expected was not there/);
+  assert.match(friendlyError("Get-Item : Cannot find path 'C:\\Games\\x.ini' because it does not exist. At line:1 char:1").message, /file Dialed needed was missing/);
 });
 
 test('machinery wrapped inside machinery falls back to the plain first line', () => {

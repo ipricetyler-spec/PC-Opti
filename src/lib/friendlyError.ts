@@ -14,8 +14,14 @@ export interface FriendlyError {
 const RAW = /(At line:\d|CategoryInfo|FullyQualifiedErrorId|\w+Exception\b|\bE(NOENT|ACCES|PERM|BUSY|NOSPC|TIMEDOUT|CONNREFUSED|CONNRESET|NOTFOUND)\b|\{[0-9a-f-]{20,}\}|\bat [\w.<>]+ \(|0x[0-9a-f]{6,}|HRESULT|\blstat\b|\berrno\b|StorageWMI|CimException|^[A-Z][\w-]+ : )/i;
 
 const RULES: Array<[RegExp, string]> = [
-  [/Access (is )?denied|PermissionDenied|UnauthorizedAccess|\bEACCES\b|\bEPERM\b|requested registry access is not allowed|requires elevation/i,
+  [/requires elevation/i,
     'Windows refused this because Dialed was not running as administrator. Reopen Dialed as administrator and try again.'],
+  // Dialed normally runs as administrator, so a refusal usually means something is guarding
+  // the target rather than that rights are missing.
+  [/Access (is )?denied|PermissionDenied|UnauthorizedAccess|\bEACCES\b|\bEPERM\b|requested registry access is not allowed/i,
+    'Windows refused access. Something on this PC is protecting it: a security feature such as Controlled folder access, an anti-cheat, or another program. Details says exactly what was refused.'],
+  [/(HKLM|HKCU|HKEY_|Registry::)[^\n]*(does not exist|cannot find)|(does not exist|cannot find)[^\n]*(HKLM|HKCU|HKEY_|Registry::)/i,
+    'A Windows setting Dialed expected was not there. An update or another program may have removed it.'],
   [/\bENOENT\b|no such file or directory|cannot find (the )?(path|file)|does not exist/i,
     'A file Dialed needed was missing. It may have been moved or deleted.'],
   [/\bEBUSY\b|being used by another process|sharing violation/i,

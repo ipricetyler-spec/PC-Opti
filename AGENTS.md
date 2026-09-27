@@ -126,8 +126,11 @@ access. BIOS stays guidance-only. The owner keeps full feature access.
 - **End with what you verified and what you did not**, in the reply as well as in
   `VERIFICATION.md`. "Completed" alone is not a report.
 
-Project-specific reviewers live in `.codex/agents/`. They are read-only, do not run
-automatically, and need the owner's explicit confirmation before each run.
+Two project reviewers exist, a Windows systems reviewer and a product experience reviewer, in
+two copies: `.claude/agents/` for Claude Code (limited to read-only tools) and `.codex/agents/`
+for Codex. Keep the two copies' briefs in step. Both take the product shape from this file, so
+keep it here rather than in the briefs. They are read-only, do not run automatically, and need
+the owner's explicit confirmation before each run. Reproduce their findings before acting on them.
 
 The owner's latest instructions and the safety boundaries above take precedence over any saved
 project record, including this file.

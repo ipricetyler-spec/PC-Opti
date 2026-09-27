@@ -514,7 +514,7 @@ export default function App() {
       const targets = preview.files.map((file) => `• ${file.sourcePath} (${file.currentState === 'MISSING' ? 'will be recreated' : file.willOverwriteChangedFile ? 'current content differs' : 'already matches backup'})`).join('\n');
       const confirmed = await confirmAction({
         title: `Restore ${preview.files.length} game settings file${preview.files.length === 1 ? '' : 's'}?`,
-        description: `${changedCount} current file${changedCount === 1 ? '' : 's'} differ from the backup. ${missingCount} will be recreated.`,
+        description: `${changedCount} current ${changedCount === 1 ? 'file differs' : 'files differ'} from the backup. ${missingCount} will be recreated.`,
         details: targets,
         notice: 'Close the game and its launcher first. Dialed rechecks every file before writing, verifies the restored copies, and keeps the overwritten content.',
         confirmLabel: 'Restore files',

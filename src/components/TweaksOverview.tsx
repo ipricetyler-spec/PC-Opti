@@ -156,7 +156,9 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
 export function usePowerPlanName(enabled: boolean, refreshKey?: unknown): string | null {
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
-    if (!enabled || !window.pcOptiNative) return;
+    // Guarded like PowerPlanCard: without the method the card shows no plan name, rather than
+    // the whole Tweaks view failing.
+    if (!enabled || !window.pcOptiNative?.listPowerPlans) return;
     let live = true;
     window.pcOptiNative.listPowerPlans()
       .then((inventory) => { if (live) setName(inventory.items.find((plan) => plan.guid === inventory.activeGuid)?.name ?? null); })

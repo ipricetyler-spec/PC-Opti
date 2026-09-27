@@ -207,3 +207,14 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   mentioning Dialed in the 30 minutes around the install. The protected folder was not renamed.
 - Not verified: behaviour of the installed app beyond starting (it was running afterwards); the
   update-feed `release:*` steps were not run because there is no feed.
+
+## 2026-09-26 — two small fixes
+
+- `usePowerPlanName` (TweaksOverview) now checks `listPowerPlans` exists before calling it, like
+  every other caller. Probed: the BIOS browser check with its `listPowerPlans` stub removed now
+  passes with no page errors; before, the whole Tweaks view failed.
+- The restore dialog reads "1 current file differs" (was "differ"); read from the live dialog.
+- The remaining `displayExperiment.ts` exports were rechecked: all are used by live code or by the
+  kept tests, so nothing was removed.
+- `npm test` 796/796, `npm run test:ts` 127/127, lint and build clean, `npm run test:ui:fixtures`
+  passes. Not in the installed build.

@@ -100,6 +100,8 @@ const {
   executeOptionalAppRemoval,
   executeTimingAction,
   inspectJournalRecovery,
+  listUnprotectedJournals,
+  pauseJournalIfProtectedBefore,
   readJournal,
   recoverCorruptJournal,
   reconcilePendingEntries,
@@ -162,6 +164,8 @@ function presentMonCaptures() {
 // running as administrator or the folder could not be verified; then the previous
 // per-user locations are used, as before.
 let protectedDataRoot = null;
+// What Restore tells the reader about where the change log is. Null off Windows.
+let protectedDataStatus = null;
 // Renames a protected folder with an older random name (Dialed-<12 hex>) to Dialed-Protected.
 // Off until the owner has approved running it on their own PC; an unfinished rename is settled
 // either way.
@@ -169,15 +173,52 @@ const RENAME_PROTECTED_FOLDER = false;
 async function prepareProtectedData() {
   if (process.platform !== 'win32') return;
   try {
-    const { root, renamedFrom, renameSkipped } = await openProtectedDataRoot({ renameToTidyName: RENAME_PROTECTED_FOLDER });
+    const { root, renamedFrom, renameSkipped, rejected = [] } = await openProtectedDataRoot({ renameToTidyName: RENAME_PROTECTED_FOLDER });
     if (renamedFrom) console.info(`Protected folder renamed from ${renamedFrom} to ${root}.`);
     if (renameSkipped) console.info(`Protected folder not renamed: ${renameSkipped}`);
     const { migrated } = useProtectedJournalDirectory(app.getPath('userData'), path.join(root, 'Journal'));
     protectedDataRoot = root;
+    protectedDataStatus = { state: 'protected', rejected, detail: null };
     console.info(`Change log is in the protected folder${migrated ? ' (moved there now)' : ''}.`);
   } catch (error) {
-    console.warn(`Protected folder unavailable, using per-user data: ${error instanceof Error ? error.message : String(error)}`);
+    const detail = error instanceof Error ? error.message : String(error);
+    const paused = pauseJournalIfProtectedBefore(app.getPath('userData'));
+    protectedDataStatus = { state: paused ? 'paused' : 'unprotected', rejected: [], detail };
+    console.warn(`Protected folder unavailable, ${paused ? 'changes paused' : 'using per-user data'}: ${detail}`);
   }
+}
+
+// Plain-language notes for Restore about where the change history is kept and what Dialed
+// will not undo. A paused log is explained by the history's own recovery message.
+function protectedDataNotices() {
+  if (!protectedDataStatus) return [];
+  const notices = [];
+  if (protectedDataStatus.state === 'unprotected') {
+    notices.push({
+      title: 'Your change history is in your user folder this time.',
+      body: 'Dialed could not open its protected folder, so other programs running as you could change this history.',
+      detail: protectedDataStatus.detail,
+    });
+  }
+  if (protectedDataStatus.state === 'paused') {
+    notices.push({ title: 'Why changes are paused', body: 'The protected folder that holds your change history could not be opened.', detail: protectedDataStatus.detail });
+  }
+  for (const folder of protectedDataStatus.rejected) {
+    notices.push({
+      title: 'An earlier change history is no longer used.',
+      body: `${folder ? `The folder ${folder}` : 'A location recorded for Dialed'} failed Dialed's admin-only checks, so something other than Dialed may have changed it. Changes recorded there cannot be undone from Dialed. The folder was left as it was.`,
+      detail: null,
+    });
+  }
+  for (const log of listUnprotectedJournals(app.getPath('userData'))) {
+    const what = log.count === null ? 'Some changes' : `${log.count} change${log.count === 1 ? '' : 's'}`;
+    notices.push({
+      title: `${what} recorded while the protected folder was unavailable`,
+      body: `They are kept in ${log.filePath}. Dialed does not undo from that file, because other programs running as you could have changed it.`,
+      detail: null,
+    });
+  }
+  return notices;
 }
 
 function verifiedUpdater() {
@@ -383,7 +424,7 @@ function journalForRenderer(entries, activeProfile = resolveRuntimeProfileForApp
 }
 
 function journalStateForRenderer(state) {
-  return { ...state, entries: journalForRenderer(state.entries) };
+  return { ...state, entries: journalForRenderer(state.entries), protection: { notices: protectedDataNotices() } };
 }
 
 function currentBenchmarkEvidence() {

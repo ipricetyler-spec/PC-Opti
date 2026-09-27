@@ -756,9 +756,17 @@ export interface AuditHistoryRecovery {
   issueCode: string;
 }
 
+/** Where the change history is kept, and anything Dialed will not undo, in plain words. */
+export interface AuditHistoryNotice {
+  title: string;
+  body: string;
+  detail: string | null;
+}
+
 export interface AuditHistoryState {
   entries: AuditJournalEntry[];
   recovery: AuditHistoryRecovery | null;
+  protection?: { notices: AuditHistoryNotice[] };
 }
 
 export interface AuditJournalRecoveryResult extends AuditHistoryState {

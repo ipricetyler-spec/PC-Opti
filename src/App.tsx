@@ -26,7 +26,7 @@ import { TweaksOverview, usePowerPlanName, type BatchResult, type UserSettingSta
 import type { TestPrefill, TestableTweak } from './components/TestAChange';
 import { HomeSummary } from './components/HomeSummary';
 import { ShowDetails } from './components/ShowDetails';
-import type { AuditDeletionMode, AuditHistoryRecovery, AuditJournalEntry, BenchmarkEvidenceState, CacheCleanupInventory, BenchmarkImportPreview, DriftReport, GameConfigBackup, GameSettingsGuide, InstalledApplicationInventory, InstalledGameDiscovery, LocalRecommendation, ManageableProcess, MaintenanceAction, PresentMonImportMetadata, PresentMonImportSourceSummary, ReleaseStatus, RuntimeProfileState, SafeOsPolicy, StartupManagementItem, SystemScanSnapshot, TimingExperiment } from './types';
+import type { AuditDeletionMode, AuditHistoryNotice, AuditHistoryRecovery, AuditJournalEntry, BenchmarkEvidenceState, CacheCleanupInventory, BenchmarkImportPreview, DriftReport, GameConfigBackup, GameSettingsGuide, InstalledApplicationInventory, InstalledGameDiscovery, LocalRecommendation, ManageableProcess, MaintenanceAction, PresentMonImportMetadata, PresentMonImportSourceSummary, ReleaseStatus, RuntimeProfileState, SafeOsPolicy, StartupManagementItem, SystemScanSnapshot, TimingExperiment } from './types';
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -156,6 +156,7 @@ export default function App() {
   const [historyPrivacyStatus, setHistoryPrivacyStatus] = useState<string | null>(null);
   const [historyActionError, setHistoryActionError] = useState<string | null>(null);
   const [historyRecovery, setHistoryRecovery] = useState<AuditHistoryRecovery | null>(null);
+  const [historyNotices, setHistoryNotices] = useState<AuditHistoryNotice[]>([]);
   const [isHistoryRecoveryBusy, setIsHistoryRecoveryBusy] = useState(false);
   const [startupItems, setStartupItems] = useState<StartupManagementItem[]>([]);
   const [startupErrors, setStartupErrors] = useState<Array<{ component: string; message: string }>>([]);
@@ -280,6 +281,7 @@ export default function App() {
       const state = await window.pcOptiNative.getAuditHistory();
       setHistory(state.entries);
       setHistoryRecovery(state.recovery);
+      setHistoryNotices(state.protection?.notices ?? []);
     } catch (error) {
       setHistoryActionError(error instanceof Error ? error.message : 'Could not load local audit history.');
     } finally {
@@ -295,6 +297,7 @@ export default function App() {
       const state = await window.pcOptiNative.retryAuditVerification();
       setHistory(state.entries);
       setHistoryRecovery(state.recovery);
+      setHistoryNotices(state.protection?.notices ?? []);
     } catch (error) {
       setHistoryActionError(error instanceof Error ? error.message : 'Interrupted actions could not be verified.');
     } finally {
@@ -318,6 +321,7 @@ export default function App() {
       const state = await window.pcOptiNative.recoverCorruptAuditJournal();
       setHistory(state.entries);
       setHistoryRecovery(state.recovery);
+      setHistoryNotices(state.protection?.notices ?? []);
       setHistoryPrivacyStatus(`Unreadable history was preserved as ${state.quarantine.fileName}. A verified empty journal is now active.`);
     } catch (error) {
       setHistoryActionError(error instanceof Error ? error.message : 'The unreadable local audit journal could not be preserved and reset.');
@@ -1452,6 +1456,6 @@ export default function App() {
     {activeTab === 'gpu' && capabilityIds.has('graphics:per-app-gpu-preference') && <div className="mt-8"><GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} /></div>}
     {activeTab === 'gpu' && capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}
     {activeTab === 'input-devices' && <Suspense fallback={<p className="text-sm text-slate-400">Loading input devices…</p>}><InputDevicesCenter /></Suspense>}
-    {activeTab === 'drift' && <div className="space-y-6"><LocalAuditHistory focusedId={focusedAuditId} entries={history} loading={isHistoryLoading} rollingBackId={rollingBackId} privacyBusy={isHistoryPrivacyBusy} privacyStatus={historyPrivacyStatus} actionError={historyActionError} recovery={historyRecovery} recoveryBusy={isHistoryRecoveryBusy} onRefresh={loadHistory} onRetryVerification={retryAuditVerification} onRecoverCorruptJournal={recoverCorruptAuditJournal} onRollback={(entry) => void rollbackAuditEntry(entry)} onUndoAll={() => void undoAllDialedChanges()} undoAllBusy={isUndoAllBusy} onExport={exportAuditHistory} onDelete={deleteAuditHistory} /><div id="restore-drift" className="scroll-mt-4"><ShowDetails key={`drift-${verifyView}`} label="Changes made by Windows or other programs since your snapshot" defaultOpen={verifyView === 'drift'}><DriftMonitor report={driftReport} loading={isDriftLoading} error={driftError} onOpenScan={() => setActiveTab('overview')} onSetBaseline={defineDriftBaseline} /></ShowDetails></div><div id="restore-readiness" className="scroll-mt-4"><ShowDetails key={`readiness-${verifyView}`} label="Readiness checks before changing anything" defaultOpen={verifyView === 'readiness'}><ReadinessCenter snapshot={snapshot} scanError={scanError} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} timingExperiments={timingExperiments} driftReport={driftReport} driftError={driftError} history={history} historyRecovery={historyRecovery} onOpenScan={() => setActiveTab('overview')} onNavigateRecommendation={navigateToRecommendationPanel} /></ShowDetails></div></div>}
+    {activeTab === 'drift' && <div className="space-y-6"><LocalAuditHistory focusedId={focusedAuditId} entries={history} loading={isHistoryLoading} rollingBackId={rollingBackId} privacyBusy={isHistoryPrivacyBusy} privacyStatus={historyPrivacyStatus} actionError={historyActionError} recovery={historyRecovery} notices={historyNotices} recoveryBusy={isHistoryRecoveryBusy} onRefresh={loadHistory} onRetryVerification={retryAuditVerification} onRecoverCorruptJournal={recoverCorruptAuditJournal} onRollback={(entry) => void rollbackAuditEntry(entry)} onUndoAll={() => void undoAllDialedChanges()} undoAllBusy={isUndoAllBusy} onExport={exportAuditHistory} onDelete={deleteAuditHistory} /><div id="restore-drift" className="scroll-mt-4"><ShowDetails key={`drift-${verifyView}`} label="Changes made by Windows or other programs since your snapshot" defaultOpen={verifyView === 'drift'}><DriftMonitor report={driftReport} loading={isDriftLoading} error={driftError} onOpenScan={() => setActiveTab('overview')} onSetBaseline={defineDriftBaseline} /></ShowDetails></div><div id="restore-readiness" className="scroll-mt-4"><ShowDetails key={`readiness-${verifyView}`} label="Readiness checks before changing anything" defaultOpen={verifyView === 'readiness'}><ReadinessCenter snapshot={snapshot} scanError={scanError} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} timingExperiments={timingExperiments} driftReport={driftReport} driftError={driftError} history={history} historyRecovery={historyRecovery} onOpenScan={() => setActiveTab('overview')} onNavigateRecommendation={navigateToRecommendationPanel} /></ShowDetails></div></div>}
   </Suspense></WorkspaceErrorBoundary></div></main></div></div></ConfirmContext.Provider>;
 }

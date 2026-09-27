@@ -71,3 +71,58 @@ test('the packaged app enables Electron integrity fuses', () => {
     onlyLoadAppFromAsar: true,
   });
 });
+
+// Each start of Dialed is a new process, so these load the journal module fresh.
+function freshJournal() {
+  delete require.cache[require.resolve('../src/main/journal/index.cjs')];
+  return require('../src/main/journal/index.cjs');
+}
+
+test('once the change log has been protected, a start that cannot open the folder pauses changes', () => {
+  const userData = tempDir('dialed-user-');
+  const locked = path.join(tempDir('dialed-protected-'), 'Journal');
+  const entries = [{ id: '00000000-0000-4000-8000-000000000001', actionId: 'fixture', status: 'SUCCESS', rollback: { available: false, reason: '' } }];
+  fs.writeFileSync(path.join(userData, 'journal.json'), JSON.stringify(entries));
+  freshJournal().useProtectedJournalDirectory(userData, locked);
+
+  const failedStart = freshJournal();
+  assert.equal(failedStart.pauseJournalIfProtectedBefore(userData), true);
+  assert.throws(() => failedStart.readJournal(userData), /changes and undo are paused/);
+  const state = failedStart.inspectJournalRecovery(userData);
+  assert.equal(state.recovery.issueCode, 'PROTECTED_UNAVAILABLE');
+  assert.match(state.recovery.reason, /Restart Dialed/);
+  assert.ok(!fs.existsSync(path.join(userData, 'journal.json')), 'nothing was recorded in per-user data');
+
+  // A first start that never had a protected log keeps using per-user data, as before.
+  const neverProtected = tempDir('dialed-user-');
+  const firstStart = freshJournal();
+  assert.equal(firstStart.pauseJournalIfProtectedBefore(neverProtected), false);
+  assert.deepEqual(firstStart.readJournal(neverProtected), []);
+
+  // The next normal start reads the protected log again.
+  const normal = freshJournal();
+  normal.useProtectedJournalDirectory(userData, locked);
+  assert.deepEqual(normal.readJournal(userData), entries);
+});
+
+test('a per-user log written while the folder was unavailable is kept aside and reported, never undone from', () => {
+  const userData = tempDir('dialed-user-');
+  const locked = path.join(tempDir('dialed-protected-'), 'Journal');
+  const kept = [{ id: '00000000-0000-4000-8000-000000000001', actionId: 'fixture', status: 'SUCCESS', rollback: { available: true, reason: '' } }];
+  fs.writeFileSync(path.join(userData, 'journal.json'), JSON.stringify(kept));
+  freshJournal().useProtectedJournalDirectory(userData, locked);
+
+  // As an older build did during a failed start.
+  const written = [{ id: '00000000-0000-4000-8000-000000000002', actionId: 'fixture', status: 'SUCCESS', rollback: { available: true, reason: '' } }];
+  fs.writeFileSync(path.join(userData, 'journal.json'), JSON.stringify(written));
+
+  const next = freshJournal();
+  next.useProtectedJournalDirectory(userData, locked);
+  assert.deepEqual(next.readJournal(userData), kept, 'the protected log is the one used');
+  assert.ok(!fs.existsSync(path.join(userData, 'journal.json')));
+  const aside = next.listUnprotectedJournals(userData);
+  assert.equal(aside.length, 1);
+  assert.equal(aside[0].count, 1);
+  assert.match(path.basename(aside[0].filePath), /^journal\.recorded-while-unprotected\.\d+\.json$/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(aside[0].filePath, 'utf8')), written, 'kept exactly as written');
+});

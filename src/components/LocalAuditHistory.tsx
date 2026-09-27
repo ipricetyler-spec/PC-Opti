@@ -1,7 +1,7 @@
 import { ErrorText } from './ErrorText';
 import { Clock3, Download, FileWarning, History, LoaderCircle, RotateCcw, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { AuditDeletionMode, AuditHistoryRecovery, AuditJournalEntry } from '../types';
+import type { AuditDeletionMode, AuditHistoryNotice, AuditHistoryRecovery, AuditJournalEntry } from '../types';
 import { plainLabel } from '../lib/plainLabels';
 import { ShowDetails } from './ShowDetails';
 
@@ -14,6 +14,7 @@ interface LocalAuditHistoryProps {
   privacyStatus: string | null;
   actionError: string | null;
   recovery: AuditHistoryRecovery | null;
+  notices?: AuditHistoryNotice[];
   recoveryBusy: boolean;
   onRefresh: () => void;
   onRetryVerification: () => void;
@@ -104,6 +105,7 @@ export function LocalAuditHistory({
   privacyStatus,
   actionError,
   recovery,
+  notices = [],
   recoveryBusy,
   onRefresh,
   onRetryVerification,
@@ -249,6 +251,14 @@ export function LocalAuditHistory({
           >Preserve and start fresh</button>}
         </div>
       </div>
+    </section>}
+
+    {notices.length > 0 && <section aria-label="Where your change history is kept" className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-5 text-amber-100">
+      {notices.map((notice, index) => <div key={index}>
+        <p className="text-sm font-semibold">{notice.title}</p>
+        <p className="mt-1 text-xs leading-relaxed text-amber-100/70">{notice.body}</p>
+        {notice.detail && <ShowDetails label="Details" className="mt-2"><p className="text-xs text-slate-300"><ErrorText text={notice.detail} /></p></ShowDetails>}
+      </div>)}
     </section>}
 
     <section aria-label="Filter by result" className="flex flex-wrap gap-2">

@@ -1,6 +1,61 @@
 const path = require('path');
 const { runPowerShell } = require('../scanner/index.cjs');
 
+// HKLM\SOFTWARE\Dialed records which folder is trusted and holds the protected startup
+// backups, so it must be as locked as the folder. A key an elevated process creates under
+// HKLM\SOFTWARE picks up a CREATOR OWNER entry, which on the owner's PC gave the signed-in
+// account full control: any program running as that user could rewrite the key. This locks
+// it at every start: owner Administrators, no inheritance, full control for administrators
+// and SYSTEM only, read for users, and an OWNER RIGHTS entry so whoever owns a subkey gets
+// read access and nothing more. The key is opened with .NET, never New-Item -Force, which
+// would replace an existing key and every value in it.
+const LOCK_DIALED_KEY = String.raw`
+  function Test-DialedKeyLocked($acl) {
+    $trustedSids = @('S-1-5-32-544', 'S-1-5-18')
+    $readOnlySids = @('S-1-5-32-545', 'S-1-3-4')
+    $readKey = [System.Security.AccessControl.RegistryRights]'ReadKey'
+    if ($trustedSids -notcontains $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value) { return $false }
+    if (-not $acl.AreAccessRulesProtected) { return $false }
+    $hasOwnerRights = $false
+    foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+      if ($rule.AccessControlType -ne 'Allow') { continue }
+      $sid = $rule.IdentityReference.Value
+      if ($trustedSids -contains $sid) { continue }
+      if (($readOnlySids -contains $sid) -and (($rule.RegistryRights -band (-bnot $readKey)) -eq 0)) {
+        if ($sid -eq 'S-1-3-4') { $hasOwnerRights = $true }
+        continue
+      }
+      return $false
+    }
+    return $hasOwnerRights
+  }
+  function New-DialedKeySecurity {
+    $security = New-Object System.Security.AccessControl.RegistrySecurity
+    $security.SetOwner((New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+    $security.SetAccessRuleProtection($true, $false)
+    $inherit = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit'
+    foreach ($sid in @('S-1-5-18', 'S-1-5-32-544')) {
+      $security.AddAccessRule((New-Object System.Security.AccessControl.RegistryAccessRule((New-Object System.Security.Principal.SecurityIdentifier($sid)), 'FullControl', $inherit, 'None', 'Allow')))
+    }
+    foreach ($sid in @('S-1-5-32-545', 'S-1-3-4')) {
+      $security.AddAccessRule((New-Object System.Security.AccessControl.RegistryAccessRule((New-Object System.Security.Principal.SecurityIdentifier($sid)), 'ReadKey', $inherit, 'None', 'Allow')))
+    }
+    return $security
+  }
+  function Protect-DialedKey {
+    $security = New-DialedKeySecurity
+    $machine = [Microsoft.Win32.Registry]::LocalMachine
+    # Creates the key already locked, or opens the existing one without touching its values.
+    $created = $machine.CreateSubKey('SOFTWARE\Dialed', [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, $security)
+    $created.Close()
+    $key = $machine.OpenSubKey('SOFTWARE\Dialed', [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [System.Security.AccessControl.RegistryRights]'ReadKey, ChangePermissions, TakeOwnership')
+    try {
+      if (-not (Test-DialedKeyLocked $key.GetAccessControl())) { $key.SetAccessControl($security) }
+      if (-not (Test-DialedKeyLocked $key.GetAccessControl())) { throw 'Dialed could not restrict its registry key to administrators.' }
+    } finally { $key.Close() }
+  }
+`;
+
 // A folder only administrators and SYSTEM can open, for data an elevated Dialed acts on:
 // the change log (so a program running as the user cannot forge an entry that the
 // elevated app later undoes) and the updater's staging area.
@@ -16,6 +71,7 @@ const { runPowerShell } = require('../scanner/index.cjs');
 // standard user cannot create or change.
 const SCRIPT = String.raw`& {
   $ErrorActionPreference = 'Stop'
+${LOCK_DIALED_KEY}
   $admins = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
   $system = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')
   # Files an elevated process writes are owned by the signed-in user, and an owner may
@@ -66,26 +122,30 @@ const SCRIPT = String.raw`& {
   # The known-folder path, not the ProgramData environment variable a user can override.
   $programData = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
   $registry = 'HKLM:\SOFTWARE\Dialed'
-  $recorded = $null
-  $pending = $null
-  if (Test-Path -LiteralPath $registry) {
-    $recorded = (Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRoot -ErrorAction SilentlyContinue).ProtectedDataRoot
-    $pending = (Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRootPending -ErrorAction SilentlyContinue).ProtectedDataRootPending
-  }
+  Protect-DialedKey
+  $recorded = (Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRoot -ErrorAction SilentlyContinue).ProtectedDataRoot
+  $pending = (Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRootPending -ErrorAction SilentlyContinue).ProtectedDataRootPending
+  function Test-Inside([string]$path) { return [bool]($path -and $path.StartsWith($programData + '\', [StringComparison]::OrdinalIgnoreCase)) }
   # A rename of the folder was started and not confirmed. Report both names and change
   # nothing: creating or adopting a folder now could hide the change log. Dialed decides.
   if ($pending) {
-    $pendingInside = ([string]$pending).StartsWith($programData + '\', [StringComparison]::OrdinalIgnoreCase)
     [pscustomobject]@{
-      pending = [string]$pending; pendingExists = [bool](Test-Path -LiteralPath $pending); pendingTrusted = [bool]($pendingInside -and (Test-Trusted ([string]$pending) $false))
-      recorded = [string]$recorded; recordedExists = [bool]($recorded -and (Test-Path -LiteralPath $recorded)); programData = $programData
+      pending = [string]$pending; pendingExists = [bool](Test-Path -LiteralPath $pending); pendingTrusted = [bool]((Test-Inside $pending) -and (Test-Trusted ([string]$pending) $false))
+      recorded = [string]$recorded; recordedExists = [bool]($recorded -and (Test-Path -LiteralPath $recorded)); recordedTrusted = [bool]((Test-Inside $recorded) -and (Test-Trusted ([string]$recorded) $false))
+      programData = $programData
     } | ConvertTo-Json -Compress
     return
   }
   $root = $null
   $created = $false
-  if ($recorded -and ([string]$recorded).StartsWith($programData + '\', [StringComparison]::OrdinalIgnoreCase) -and (Test-Trusted $recorded $false)) { $root = [string]$recorded }
+  if ((Test-Inside $recorded) -and (Test-Trusted $recorded $false)) { $root = [string]$recorded }
   if (-not $root) {
+    # A recorded folder that is missing or fails the checks may hold the change log. It is
+    # never used again, but its path is kept, so Dialed can say where the history went.
+    if ($recorded) {
+      $rejected = @((Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRootRejected -ErrorAction SilentlyContinue).ProtectedDataRootRejected) + [string]$recorded | Where-Object { $_ } | Select-Object -Unique
+      New-ItemProperty -LiteralPath $registry -Name ProtectedDataRootRejected -PropertyType MultiString -Value ([string[]]$rejected) -Force | Out-Null
+    }
     # Not plain 'Dialed': the native input helper keeps its own journal in ProgramData\Dialed.
     $candidate = Join-Path $programData 'Dialed-Protected'
     if (Test-Path -LiteralPath $candidate) {
@@ -94,10 +154,10 @@ const SCRIPT = String.raw`& {
     }
     if (-not $root) { New-LockedFolder $candidate; $created = $true; $root = $candidate }
     if (-not (Test-Trusted $root $false)) { throw 'The protected folder could not be verified after it was created.' }
-    if (-not (Test-Path -LiteralPath $registry)) { New-Item -Path $registry -Force | Out-Null }
     New-ItemProperty -LiteralPath $registry -Name ProtectedDataRoot -PropertyType String -Value $root -Force | Out-Null
   }
-  [pscustomobject]@{ root = $root; programData = $programData; created = $created } | ConvertTo-Json -Compress
+  $rejectedRoots = @((Get-ItemProperty -LiteralPath $registry -Name ProtectedDataRootRejected -ErrorAction SilentlyContinue).ProtectedDataRootRejected | Where-Object { $_ })
+  [pscustomobject]@{ root = $root; programData = $programData; created = $created; rejected = [string[]]$rejectedRoots } | ConvertTo-Json -Compress
 }`;
 
 // The name for the folder. It cannot collide with Dialed's own folders: the native input
@@ -134,12 +194,18 @@ async function probeProtectedDataRoot(run = runPowerShell) {
     }
     return {
       pending: parsed.pending, recorded, programData,
-      pendingExists: parsed.pendingExists === true, pendingTrusted: parsed.pendingTrusted === true, recordedExists: parsed.recordedExists === true,
+      pendingExists: parsed.pendingExists === true, pendingTrusted: parsed.pendingTrusted === true,
+      recordedExists: parsed.recordedExists === true, recordedTrusted: parsed.recordedTrusted === true,
     };
   }
   const root = typeof parsed?.root === 'string' ? parsed.root : '';
   if (!isDialedFolder(root, programData)) throw new Error('Windows returned an unexpected protected folder path.');
-  return { root, programData, created: Boolean(parsed.created) };
+  // Only a Dialed folder path is ever shown to the reader; anything else in the registry is
+  // reported without its text.
+  const rejected = (Array.isArray(parsed.rejected) ? parsed.rejected : typeof parsed.rejected === 'string' ? [parsed.rejected] : [])
+    .filter((folder) => typeof folder === 'string' && folder && !same(folder, root))
+    .map((folder) => (isDialedFolder(folder, programData) ? folder : null));
+  return { root, programData, created: Boolean(parsed.created), rejected };
 }
 
 /**
@@ -162,11 +228,11 @@ function createProtectedMoveOps(run = runPowerShell, io = require('node:fs')) {
     if (!/^[A-Za-z]:\\[^'"`$\r\n]+$/.test(folder)) throw new Error('Refused an unexpected protected folder path.');
     return `'${folder}'`;
   };
-  const registry = async (body) => { assertTestFake(run); await run(`& { $ErrorActionPreference = 'Stop'; $key = 'HKLM:\\SOFTWARE\\Dialed'; ${body} }`); };
+  const registry = async (body) => { assertTestFake(run); await run(`& { $ErrorActionPreference = 'Stop'; $key = 'HKLM:\\SOFTWARE\\Dialed'; ${LOCK_DIALED_KEY}; Protect-DialedKey; ${body} }`); };
   return {
     exists: (folder) => { try { io.lstatSync(folder); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; } },
     rename: (from, to) => io.renameSync(from, to),
-    setPending: (target) => registry(`if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }; New-ItemProperty -LiteralPath $key -Name ProtectedDataRootPending -PropertyType String -Value ${quoted(target)} -Force | Out-Null`),
+    setPending: (target) => registry(`New-ItemProperty -LiteralPath $key -Name ProtectedDataRootPending -PropertyType String -Value ${quoted(target)} -Force | Out-Null`),
     // The new root is recorded before the marker is cleared, so a stop between the two
     // leaves both naming the same folder, which the next start settles by clearing the marker.
     commit: (target) => registry(`New-ItemProperty -LiteralPath $key -Name ProtectedDataRoot -PropertyType String -Value ${quoted(target)} -Force | Out-Null; Remove-ItemProperty -LiteralPath $key -Name ProtectedDataRootPending -ErrorAction SilentlyContinue`),
@@ -176,15 +242,18 @@ function createProtectedMoveOps(run = runPowerShell, io = require('node:fs')) {
 
 const same = (left, right) => typeof left === 'string' && typeof right === 'string' && left.toLowerCase() === right.toLowerCase();
 
-// Finishes or abandons a rename that stopped part-way. Only one folder can exist under the
-// two names, because the rename is a single step; the registry says which one was meant.
+// Finishes or abandons a rename that stopped part-way. The rename is a single step, so the
+// real folder is under one name only. Any process can create a folder under ProgramData, so
+// a name being taken proves nothing: only a folder that passes the admin-only checks counts.
 async function settleUnfinishedRename(report, run, ops) {
-  const { pending, recorded, pendingExists, pendingTrusted, recordedExists } = report;
-  if (recordedExists && same(recorded, pending)) await ops.clearPending(); // recorded, marker not yet cleared
-  else if (recordedExists && !pendingExists) await ops.clearPending(); // the rename never happened
-  else if (!recordedExists && pendingExists && pendingTrusted) await ops.commit(pending); // renamed, not yet recorded
-  else {
-    throw new Error(`Dialed found an unfinished rename of its protected folder and cannot tell which copy is current, so it changed nothing. The change log is still in ${recorded || pending}.`);
+  const { pending, recorded, pendingTrusted, recordedTrusted } = report;
+  if (recordedTrusted && same(recorded, pending)) await ops.clearPending(); // recorded, marker not yet cleared
+  else if (recordedTrusted && !pendingTrusted) await ops.clearPending(); // the rename never happened
+  else if (pendingTrusted && !recordedTrusted) await ops.commit(pending); // renamed, not yet recorded
+  else if (pendingTrusted && recordedTrusted) {
+    throw new Error(`Dialed found two protected folders, ${recorded} and ${pending}, and cannot tell which copy is current, so it changed nothing.`);
+  } else {
+    throw new Error(`Dialed found an unfinished rename of its protected folder, and neither ${recorded || 'the recorded folder'} nor ${pending} passed its admin-only checks, so it changed nothing.`);
   }
   const settled = await probeProtectedDataRoot(run);
   if (settled.pending) throw new Error('The protected folder rename could not be settled.');
@@ -208,15 +277,17 @@ async function renameToProtectedName(report, run, ops) {
     return { ...(await probeProtectedDataRoot(run)), renameSkipped: `Windows did not rename the folder (${error?.message || error}); it keeps its current name.` };
   }
   const check = await probeProtectedDataRoot(run);
-  if (check.pending && check.pendingTrusted && !check.recordedExists) {
+  // Something may have taken the vacated old name straight after the rename. It cannot pass
+  // the checks, so it is ignored rather than mistaken for the change log.
+  if (check.pending && check.pendingTrusted && !check.recordedTrusted) {
     try {
       await ops.commit(target);
     } catch (error) {
       // The commit may have stopped between its two writes. Follow whatever the registry now
       // records: the new name if it got that far, otherwise put the folder back.
       const after = await probeProtectedDataRoot(run);
-      if (after.pending && after.recordedExists && same(after.recorded, target)) return { ...(await settleUnfinishedRename(after, run, ops)), renamedFrom: from };
-      ops.rename(target, from);
+      if (after.pending && after.recordedTrusted && same(after.recorded, target)) return { ...(await settleUnfinishedRename(after, run, ops)), renamedFrom: from };
+      putBack(ops, target, from, 'Dialed could not record the new name');
       await ops.clearPending();
       return { ...(await probeProtectedDataRoot(run)), renameSkipped: `Dialed could not record the new name (${error?.message || error}), so the folder was put back.` };
     }
@@ -226,9 +297,19 @@ async function renameToProtectedName(report, run, ops) {
   }
   // The renamed folder did not pass the admin-only checks. Put it back under its old name,
   // which the registry still records, and forget the rename.
-  ops.rename(target, from);
+  putBack(ops, target, from, 'The renamed folder did not pass the admin-only checks');
   await ops.clearPending();
   return { ...(await probeProtectedDataRoot(run)), renameSkipped: 'The renamed folder did not pass the admin-only checks, so it was put back under its old name.' };
+}
+
+// If the old name was taken meanwhile, the folder stays where it is and the rename marker
+// stays recorded; the next start settles it by which folder passes the checks.
+function putBack(ops, target, from, why) {
+  try {
+    ops.rename(target, from);
+  } catch (error) {
+    throw new Error(`${why}, and the folder could not be moved back to ${from} (${error?.message || error}). The change log is in ${target}; Dialed changed nothing more.`);
+  }
 }
 
 /**
@@ -243,4 +324,4 @@ async function openProtectedDataRoot({ run = runPowerShell, ops = createProtecte
   return report;
 }
 
-module.exports = { SCRIPT, PROTECTED_FOLDER_NAME, ensureProtectedDataRoot, openProtectedDataRoot, probeProtectedDataRoot, createProtectedMoveOps };
+module.exports = { SCRIPT, LOCK_DIALED_KEY, PROTECTED_FOLDER_NAME, ensureProtectedDataRoot, openProtectedDataRoot, probeProtectedDataRoot, createProtectedMoveOps };

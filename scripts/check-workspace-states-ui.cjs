@@ -38,7 +38,7 @@ async function main() {
       // Every method is a closed in-memory adapter; unavailable methods cannot fall back to the host.
       window.pcOptiNative = {
         getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
-        getAuditHistory: async () => ({ entries, recovery: null }),
+        getAuditHistory: async () => ({ entries, recovery: null, protection: { notices: [{ title: 'An earlier change history is no longer used.', body: "The folder C:\\ProgramData\\Dialed-0123456789ab failed Dialed's admin-only checks, so something other than Dialed may have changed it. Changes recorded there cannot be undone from Dialed. The folder was left as it was.", detail: null }, { title: 'Your change history is in your user folder this time.', body: 'Dialed could not open its protected folder, so other programs running as you could change this history.', detail: 'Fixture detail: the folder script timed out.' }] } }),
         listStartupItems: rows, listSafePolicies: rows, listTimingExperiments: rows,
         listManageableProcesses: async () => {
           if (window.__workspaceState.mode === 'loading') await new Promise(resolve => { window.__workspaceState.release = resolve; });
@@ -122,6 +122,11 @@ async function main() {
     await layout('Optimize failed refresh with retained prior rows');
     await navigate('Restore');
     await page.getByRole('heading', { name: 'Fixture pending operation', exact: true }).waitFor();
+    const notices = page.getByRole('region', { name: 'Where your change history is kept' });
+    await notices.getByText('An earlier change history is no longer used.', { exact: true }).waitFor();
+    await notices.getByText('Details', { exact: true }).click();
+    await notices.getByText('Fixture detail: the folder script timed out.', { exact: true }).waitFor();
+    report.checks.push({ state: 'Restore shows where the change history is kept, with the raw reason behind Details', passed: true });
     await layout('Verify populated success/failure/pending/needs-review history');
     await navigate('Tweaks');
     const tabs = page.getByRole('tablist', { name: 'Optimize categories' });

@@ -84,9 +84,45 @@ const SAFE_RECONCILIATION_CLASSES = new Set(['INTENDED_STATE', 'PRE_ACTION_STATE
 // here, so every journal file (active, recovery, preserved) moves together.
 let protectedJournal = null;
 
+const PROTECTED_JOURNAL_PAUSED = 'Dialed could not open its protected change log this time, so changes and undo are paused. Restart Dialed to try again.';
+const MOVED_JOURNAL_PATTERN = /^journal\.moved-to-protected-folder\.\d+\.json$/;
+const UNPROTECTED_JOURNAL_PATTERN = /^journal\.recorded-while-unprotected\.\d+\.json$/;
+
 function journalDirectory(userDataPath) {
-  if (protectedJournal && path.resolve(userDataPath) === protectedJournal.userDataPath) return protectedJournal.directory;
+  if (protectedJournal && path.resolve(userDataPath) === protectedJournal.userDataPath) {
+    if (protectedJournal.paused) throw new Error(PROTECTED_JOURNAL_PAUSED);
+    return protectedJournal.directory;
+  }
   return userDataPath;
+}
+
+function isProtectedJournalPaused(userDataPath) {
+  return Boolean(protectedJournal?.paused && path.resolve(userDataPath) === protectedJournal.userDataPath);
+}
+
+/**
+ * Once the change log has lived in the protected folder, a start that cannot open that folder
+ * must not quietly record changes in per-user data: the next normal start would never read
+ * them, so their undo records would be lost. Returns true when changes were paused.
+ */
+function pauseJournalIfProtectedBefore(userDataPath) {
+  const source = path.resolve(userDataPath);
+  let names = [];
+  try { names = fs.readdirSync(source); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+  if (!names.some((name) => MOVED_JOURNAL_PATTERN.test(name))) return false;
+  protectedJournal = { userDataPath: source, directory: null, paused: true };
+  return true;
+}
+
+/** Change logs kept aside because they were written outside the protected folder. */
+function listUnprotectedJournals(userDataPath) {
+  let names = [];
+  try { names = fs.readdirSync(path.resolve(userDataPath)); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+  return names.filter((name) => UNPROTECTED_JOURNAL_PATTERN.test(name)).sort().map((name) => {
+    const filePath = path.join(path.resolve(userDataPath), name);
+    const inspection = inspectJournalFile(filePath);
+    return { filePath, count: inspection.state === 'VALID' ? inspection.entries.length : null };
+  });
 }
 
 /**
@@ -110,6 +146,11 @@ function useProtectedJournalDirectory(userDataPath, directory) {
     fs.renameSync(temporary, newJournal);
     fs.renameSync(oldJournal, path.join(source, `journal.moved-to-protected-folder.${Date.now()}.json`));
     moved.migrated = true;
+  } else if (fs.existsSync(newJournal) && fs.existsSync(oldJournal)) {
+    // Written while the protected folder was unavailable. Any program running as the user
+    // could have edited it, so it is never merged into the log Dialed undoes from; it is
+    // kept aside under a name that says what it is, and reported.
+    fs.renameSync(oldJournal, path.join(source, `journal.recorded-while-unprotected.${Date.now()}.json`));
   }
   protectedJournal = { userDataPath: source, directory: target };
   return moved;
@@ -194,6 +235,9 @@ function readJournal(userDataPath) {
 }
 
 function inspectJournalRecovery(userDataPath) {
+  if (isProtectedJournalPaused(userDataPath)) {
+    return { entries: [], recovery: { kind: 'INACCESSIBLE', pendingCount: null, reason: PROTECTED_JOURNAL_PAUSED, recoverable: false, issueCode: 'PROTECTED_UNAVAILABLE' } };
+  }
   const pending = inspectPendingRecovery(userDataPath);
   if (pending) {
     return {
@@ -2661,6 +2705,8 @@ module.exports = {
   executeOptionalAppRemoval,
   executeTimingAction,
   inspectJournalRecovery,
+  listUnprotectedJournals,
+  pauseJournalIfProtectedBefore,
   recoverCorruptJournal,
   readJournal,
   reconcilePendingEntries,

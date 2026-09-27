@@ -21,7 +21,7 @@ class PowerLoss extends Error {}
 function machine({ root = OLD, extraFolders = [], untrusted = [] } = {}) {
   const state = {
     folders: new Map([[root.toLowerCase(), { path: root, journal: JOURNAL }]]),
-    registry: { root, pending: null },
+    registry: { root, pending: null, rejected: [] },
     untrusted: new Set(untrusted.map((item) => item.toLowerCase())),
     createdFresh: false,
     writes: 0,
@@ -42,15 +42,16 @@ function machine({ root = OLD, extraFolders = [], untrusted = [] } = {}) {
     assert.equal(script, protectedData.SCRIPT);
     const { root: recorded, pending } = state.registry;
     if (pending) {
-      return { stdout: JSON.stringify({ pending, pendingExists: has(pending), pendingTrusted: trusted(pending), recorded, recordedExists: has(recorded), programData: PROGRAM_DATA }) };
+      return { stdout: JSON.stringify({ pending, pendingExists: has(pending), pendingTrusted: trusted(pending), recorded, recordedExists: has(recorded), recordedTrusted: trusted(recorded), programData: PROGRAM_DATA }) };
     }
-    if (trusted(recorded)) return { stdout: JSON.stringify({ root: recorded, programData: PROGRAM_DATA, created: false }) };
-    // The real script would now create a fresh, empty folder: the change log would look lost.
+    if (trusted(recorded)) return { stdout: JSON.stringify({ root: recorded, programData: PROGRAM_DATA, created: false, rejected: state.registry.rejected }) };
+    // The real script would now create a fresh, empty folder, keeping the rejected path on record.
     state.createdFresh = true;
+    if (recorded) state.registry.rejected = [...new Set([...state.registry.rejected, recorded])];
     const fresh = has(NEW) ? 'C:\\ProgramData\\Dialed-0123456789ab' : NEW;
     state.folders.set(fresh.toLowerCase(), { path: fresh, journal: null });
     state.registry.root = fresh;
-    return { stdout: JSON.stringify({ root: fresh, programData: PROGRAM_DATA, created: true }) };
+    return { stdout: JSON.stringify({ root: fresh, programData: PROGRAM_DATA, created: true, rejected: state.registry.rejected }) };
   };
   const ops = {
     exists: (folder) => has(folder),
@@ -195,7 +196,7 @@ test('an unfinished rename that cannot be told apart is refused, and nothing is 
   tampered.state.registry.pending = NEW;
   tampered.ops.rename(OLD, NEW);
   const writes = tampered.state.writes;
-  await assert.rejects(protectedData.openProtectedDataRoot({ run: tampered.run, ops: tampered.ops }), /cannot tell which copy is current/);
+  await assert.rejects(protectedData.openProtectedDataRoot({ run: tampered.run, ops: tampered.ops }), /neither C:\\ProgramData\\Dialed-ad0f83361119 nor C:\\ProgramData\\Dialed-Protected passed its admin-only checks/);
   assert.equal(tampered.state.writes, writes);
   assert.equal(tampered.state.createdFresh, false);
 });
@@ -262,4 +263,67 @@ test('startup settles unfinished renames but does not rename until the owner tur
   const main = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.match(main, /const RENAME_PROTECTED_FOLDER = false;/);
   assert.match(main, /openProtectedDataRoot\(\{ renameToTidyName: RENAME_PROTECTED_FOLDER \}\)/);
+});
+
+test('a folder another program puts at the vacated old name does not stop the rename', async () => {
+  // Straight after the rename, before the check: the old name is taken by a folder Dialed did not make.
+  const fake = machine();
+  const rename = fake.ops.rename;
+  fake.ops.rename = (from, to) => {
+    rename(from, to);
+    if (from === OLD) { fake.state.folders.set(OLD.toLowerCase(), { path: OLD, journal: null }); fake.state.untrusted.add(OLD.toLowerCase()); }
+  };
+  const result = await protectedData.openProtectedDataRoot({ run: fake.run, ops: fake.ops, renameToTidyName: true });
+  assert.equal(result.root, NEW);
+  assert.equal(fake.state.registry.pending, null, 'no rename marker is left behind');
+  assert.equal(fake.state.createdFresh, false);
+
+  // The same squat after a crash between the rename and recording it: the next start commits.
+  const crashed = machine();
+  crashed.state.registry.pending = NEW;
+  crashed.ops.rename(OLD, NEW);
+  crashed.state.folders.set(OLD.toLowerCase(), { path: OLD, journal: null });
+  crashed.state.untrusted.add(OLD.toLowerCase());
+  assert.equal((await protectedData.openProtectedDataRoot({ run: crashed.run, ops: crashed.ops })).root, NEW);
+  assert.equal(crashed.state.registry.pending, null);
+
+  // A forged marker naming a folder that fails the checks is cleared; the real folder is kept.
+  const forged = machine({ extraFolders: [NEW], untrusted: [NEW] });
+  forged.state.registry.pending = NEW;
+  assert.equal((await protectedData.openProtectedDataRoot({ run: forged.run, ops: forged.ops })).root, OLD);
+  assert.equal(forged.state.registry.pending, null);
+});
+
+test('a folder that cannot be put back is reported where it is, not lost', async () => {
+  const fake = machine({ untrusted: [NEW] });
+  const rename = fake.ops.rename;
+  fake.ops.rename = (from, to) => {
+    rename(from, to);
+    if (from === OLD) fake.state.folders.set(OLD.toLowerCase(), { path: OLD, journal: null });
+  };
+  await assert.rejects(protectedData.openProtectedDataRoot({ run: fake.run, ops: fake.ops, renameToTidyName: true }), /could not be moved back.*The change log is in C:\\ProgramData\\Dialed-Protected/);
+  assert.equal(fake.state.createdFresh, false);
+});
+
+test('a recorded folder that fails the checks is replaced, and its path is kept and reported', async () => {
+  const fake = machine({ untrusted: [OLD] });
+  const first = await protectedData.openProtectedDataRoot({ run: fake.run, ops: fake.ops });
+  assert.equal(first.root, NEW);
+  assert.deepEqual(first.rejected, [OLD]);
+  // Every later start still reports it.
+  assert.deepEqual((await protectedData.openProtectedDataRoot({ run: fake.run, ops: fake.ops })).rejected, [OLD]);
+  // A value that is not a Dialed folder is reported without its text.
+  const odd = async () => ({ stdout: JSON.stringify({ root: NEW, programData: PROGRAM_DATA, created: false, rejected: ['C:\\Users\\Public\\Fake', OLD] }) });
+  assert.deepEqual((await protectedData.probeProtectedDataRoot(odd)).rejected, [null, OLD]);
+});
+
+test('the folder script locks HKLM\\SOFTWARE\\Dialed first and never recreates it with New-Item -Force', () => {
+  const script = protectedData.SCRIPT;
+  const lockCall = script.indexOf('\n  Protect-DialedKey\n');
+  assert.ok(lockCall > 0 && lockCall < script.indexOf('ProtectedDataRoot -ErrorAction'), 'the key is locked before any value is read');
+  assert.doesNotMatch(script, /New-Item -Path \$registry/);
+  assert.ok(protectedData.LOCK_DIALED_KEY.includes("CreateSubKey('SOFTWARE\\Dialed', [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, $security)"));
+  assert.match(protectedData.LOCK_DIALED_KEY, /S-1-3-4/, 'owner rights limit whoever owns a subkey');
+  const storeSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'protected-store', 'index.cjs'), 'utf8');
+  assert.ok(storeSource.includes('${LOCK_DIALED_KEY}; Protect-DialedKey;'), 'startup backups lock the key before writing under it');
 });

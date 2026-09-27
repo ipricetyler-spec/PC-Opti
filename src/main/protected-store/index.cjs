@@ -1,4 +1,5 @@
 const { runPowerShell } = require('../scanner/index.cjs');
+const { LOCK_DIALED_KEY } = require('../protected-data/index.cjs');
 
 // The audit journal lives in per-user app data, so any program running as the same user
 // can edit it. For the one restore that writes an arbitrary command line into a
@@ -37,7 +38,7 @@ async function writeProtectedStartupBackup(entryId, preAction, run = runPowerShe
     if (typeof value !== 'string') throw new Error('The startup entry to protect is incomplete.');
     return `New-ItemProperty -LiteralPath $key -Name '${field}' -PropertyType String -Value (${decodeExpression(encode(value))}) -Force -ErrorAction Stop | Out-Null`;
   }).join('; ');
-  const script = `& { $key = ${decodeExpression(encode(path))}; if (Test-Path -LiteralPath $key) { throw 'A protected copy already exists for this entry.' }; New-Item -Path $key -Force -ErrorAction Stop | Out-Null; ${sets}; [pscustomobject]@{ written = $true } | ConvertTo-Json -Compress }`;
+  const script = `& { ${LOCK_DIALED_KEY}; Protect-DialedKey; $key = ${decodeExpression(encode(path))}; if (Test-Path -LiteralPath $key) { throw 'A protected copy already exists for this entry.' }; New-Item -Path $key -Force -ErrorAction Stop | Out-Null; ${sets}; [pscustomobject]@{ written = $true } | ConvertTo-Json -Compress }`;
   const { stdout, stderr, exitCode } = await run(script);
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }

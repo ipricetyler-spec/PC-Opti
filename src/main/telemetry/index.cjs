@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { windowsPowerShellEnvironment } = require('../shared/windows-powershell-env.cjs');
+const { windowsPowerShellArguments, windowsPowerShellEnvironment, windowsPowerShellPath } = require('../shared/windows-powershell-env.cjs');
 
 const TELEMETRY_SCHEMA_VERSION = 'dialed-telemetry-1';
 const TELEMETRY_INTERVAL_MS = 1000;
@@ -483,10 +483,6 @@ function publicTelemetry(series) {
   };
 }
 
-function powershellPath() {
-  return `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-}
-
 // Runs one bounded sampler. It always resolves with a series (never rejects), so a
 // telemetry failure cannot fail the capture that requested it.
 function startTelemetrySession({ samples, targetPid = 0, vendorSensors = false }, dependencies = {}) {
@@ -511,7 +507,7 @@ function startTelemetrySession({ samples, targetPid = 0, vendorSensors = false }
   };
 
   try {
-    child = spawnProcess(powershellPath(), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', createTelemetrySamplerScript({ samples: count, targetPid, vendorSensors: vendorSensors === true })], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: windowsPowerShellEnvironment() });
+    child = spawnProcess(windowsPowerShellPath(), windowsPowerShellArguments(createTelemetrySamplerScript({ samples: count, targetPid, vendorSensors: vendorSensors === true })), { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: windowsPowerShellEnvironment() });
   } catch (error) {
     finish('SAMPLER_FAILED', error instanceof Error ? error.message : 'The hardware-reading sampler could not start.');
     return { stop: () => undefined, result };

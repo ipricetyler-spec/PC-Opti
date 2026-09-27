@@ -20,6 +20,7 @@ const { createInputService } = require('../src/main/input-devices/index.cjs');
 const { createInputDriverLifecycleService } = require('../src/main/input-driver-lifecycle/index.cjs');
 const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundled-status.cjs');
 const { readNativeBrokerStatus, createNativeBrokerLauncher } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
+const { usePowerShellTempDirectory } = require('../src/main/shared/windows-powershell-env.cjs');
 const { developmentEntryUrl, isAllowedAppNavigation, normalizeExternalTarget } = require('../src/main/navigation/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
 const { listGameProfiles, previewGameProfile, applyGameProfile, assertGameClosed } = require('../src/main/game-profiles/index.cjs');
@@ -179,6 +180,9 @@ async function prepareProtectedData() {
     const { migrated } = useProtectedJournalDirectory(app.getPath('userData'), path.join(root, 'Journal'));
     protectedDataRoot = root;
     protectedDataStatus = { state: 'protected', rejected, detail: null };
+    // Add-Type compiles into TEMP; inside the admin-only folder, nothing running as the user
+    // can swap the compiled file before an elevated PowerShell loads it.
+    usePowerShellTempDirectory(path.join(root, 'Temp'));
     console.info(`Change log is in the protected folder${migrated ? ' (moved there now)' : ''}.`);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { spawn } = require('node:child_process');
-const { windowsPowerShellEnvironment } = require('../shared/windows-powershell-env.cjs');
+const { windowsPowerShellArguments, windowsPowerShellEnvironment, windowsPowerShellPath } = require('../shared/windows-powershell-env.cjs');
 
 const POWERSHELL_TIMEOUT_MS = 20000;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
@@ -104,8 +104,7 @@ function runPowerShell(script, dependencies = {}) {
   const spawnProcess = dependencies.spawnProcess || spawn;
   const timeoutMs = dependencies.timeoutMs || POWERSHELL_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
-    const executable = `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-    const child = spawnProcess(executable, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { windowsHide: true, env: windowsPowerShellEnvironment() });
+    const child = spawnProcess(windowsPowerShellPath(), windowsPowerShellArguments(script), { windowsHide: true, env: windowsPowerShellEnvironment() });
     let stdout = '';
     let stderr = '';
     let settled = false;

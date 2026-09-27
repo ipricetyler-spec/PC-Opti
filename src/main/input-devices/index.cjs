@@ -4,6 +4,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { assertCurrentProcessAdministrator } = require('../capabilities/index.cjs');
 const { createPreviewStore } = require('../shared/preview-store.cjs');
+const { windowsPowerShellEnvironment, windowsPowerShellPath, withTrustedModulePath } = require('../shared/windows-powershell-env.cjs');
 
 const UPSTREAM = 'https://github.com/LordOfMice/hidusbf';
 const NOPATCH_SHA256 = '2f82cdeb36bdaa42ea1933a9b11f3b8e1bdb28e6d3e3da7e65b4631b3375412d';
@@ -131,13 +132,10 @@ function runNative(mode, payload = {}, signal) {
     bootstrap = createNativeBootstrap(mode, payload, trustedNativeInputSource);
   }
   catch (error) { return Promise.reject(error); }
-  const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
+  const executable = windowsPowerShellPath();
   return new Promise((resolve, reject) => {
     let stdout = '', stderr = '', finished = false;
-    const environment = { ...process.env };
-    // A PowerShell 7 parent can inject incompatible module paths into Windows PowerShell 5.1.
-    for (const name of Object.keys(environment)) if (name.toLowerCase() === 'psmodulepath') delete environment[name];
-    const child = spawn(executable, ['-NoProfile', '-NonInteractive', '-Command', '-'], { windowsHide: true, env: environment });
+    const child = spawn(executable, ['-NoProfile', '-NonInteractive', '-Command', '-'], { windowsHide: true, env: windowsPowerShellEnvironment() });
     const finish = (error, result) => {
       if (finished) return;
       finished = true; clearTimeout(timer); signal?.removeEventListener('abort', cancel);
@@ -155,7 +153,7 @@ function runNative(mode, payload = {}, signal) {
       if (code !== 0) return finish(new Error(short(stderr.trim(), 1200) || 'Windows could not complete the USB operation. No success is assumed.'));
       try { finish(null, JSON.parse(stdout.replace(/^\uFEFF/, '').trim())); } catch { finish(new Error('USB response was incomplete. Rescan and review pending changes.')); }
     });
-    child.stdin.end(bootstrap, 'ascii');
+    child.stdin.end(withTrustedModulePath(bootstrap), 'ascii');
   });
 }
 

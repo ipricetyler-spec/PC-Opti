@@ -9,7 +9,7 @@ const {
 } = require('../snapshot/index.cjs');
 const { createTempMaintenancePowerShellScript } = require('../maintenance/index.cjs');
 const { WINDOWS_ELEVATION_POWERSHELL } = require('../shared/windows-elevation.cjs');
-const { windowsPowerShellEnvironment } = require('../shared/windows-powershell-env.cjs');
+const { windowsPowerShellArguments, windowsPowerShellEnvironment, windowsPowerShellPath } = require('../shared/windows-powershell-env.cjs');
 
 const POWERSHELL_TIMEOUT_MS = 30_000;
 const MANAGEABLE_STARTUP_REGISTRY_PATHS = new Set([
@@ -499,11 +499,7 @@ $processors = @(Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop)
 
 function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-      { windowsHide: true, env: windowsPowerShellEnvironment() }
-    );
+    const child = spawn(windowsPowerShellPath(), windowsPowerShellArguments(script), { windowsHide: true, env: windowsPowerShellEnvironment() });
 
     let stdout = '';
     let stderr = '';

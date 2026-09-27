@@ -6,7 +6,7 @@ const { parseBenchmarkSource } = require('../benchmarks/index.cjs');
 const { isFrameSummary, summarizeCapture } = require('./frame-summary.cjs');
 const { ANTI_CHEAT_PROCESS_NAMES_BY_PRODUCT } = require('../scanner/index.cjs');
 const { publicTelemetry, startTelemetrySession, validateTelemetrySeries } = require('../telemetry/index.cjs');
-const { windowsPowerShellEnvironment } = require('../shared/windows-powershell-env.cjs');
+const { windowsPowerShellArguments, windowsPowerShellEnvironment, windowsPowerShellPath } = require('../shared/windows-powershell-env.cjs');
 
 const PRESENTMON_RELEASE = Object.freeze({
   version: '2.5.1',
@@ -115,8 +115,7 @@ $signature = Get-AuthenticodeSignature -LiteralPath $path -ErrorAction Stop
   timestampSubject = if ($signature.TimeStamperCertificate) { [string]$signature.TimeStamperCertificate.Subject } else { '' }
 } | ConvertTo-Json -Compress
 `;
-  const powershell = `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-  const result = await spawnAndCollect(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { ...dependencies, spawnOptions: { ...dependencies.spawnOptions, env: windowsPowerShellEnvironment() } });
+  const result = await spawnAndCollect(windowsPowerShellPath(), windowsPowerShellArguments(script), { ...dependencies, spawnOptions: { ...dependencies.spawnOptions, env: windowsPowerShellEnvironment() } });
   if (result.exitCode !== 0) throw new Error(result.stderr || 'Windows could not verify the PresentMon signature.');
   // No output means the check itself did not run; that is an error, not an unsigned file.
   if (!result.stdout) throw new Error(`Windows could not check the PresentMon signature.${result.stderr ? ` ${result.stderr.split(/\r?\n/)[0]}` : ''}`);
@@ -207,8 +206,7 @@ function normalizeTargets(value) {
 
 async function listPresentMonTargets(dependencies = {}) {
   const execute = dependencies.runPowerShell || (async (script) => {
-    const powershell = `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-    const result = await spawnAndCollect(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], dependencies);
+    const result = await spawnAndCollect(windowsPowerShellPath(), windowsPowerShellArguments(script), { ...dependencies, spawnOptions: { ...dependencies.spawnOptions, env: windowsPowerShellEnvironment() } });
     if (result.exitCode !== 0) throw new Error(result.stderr || 'The interactive process inventory failed.');
     return result;
   });

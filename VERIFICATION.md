@@ -218,3 +218,12 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   kept tests, so nothing was removed.
 - `npm test` 796/796, `npm run test:ts` 127/127, lint and build clean, `npm run test:ui:fixtures`
   passes. Not in the installed build.
+
+## 2026-09-27 — power plan name follows recorded changes
+
+- `usePowerPlanName` documented that it reloads when `refreshKey` (the change history) changes,
+  but its effect depended only on `enabled`. Reproduced in a browser probe: with All tweaks open,
+  the active plan changed and history reloaded, yet the plan was read once and the card kept the
+  old name. After adding `refreshKey` to the dependencies: read twice, card shows the new name.
+- `npm test` 796/796, `npm run test:ts` 127/127, lint and build clean, `npm run test:ui:fixtures`
+  passes. Not in the installed build.

@@ -164,6 +164,6 @@ export function usePowerPlanName(enabled: boolean, refreshKey?: unknown): string
       .then((inventory) => { if (live) setName(inventory.items.find((plan) => plan.guid === inventory.activeGuid)?.name ?? null); })
       .catch(() => { if (live) setName(null); });
     return () => { live = false; };
-  }, [enabled]);
+  }, [enabled, refreshKey]);
   return name;
 }

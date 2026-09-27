@@ -15,7 +15,7 @@ Run these before committing, exactly as written — a bare `node --test` or `bun
 build snapshots under `output/` and fails for reasons unrelated to your change:
 
 ```
-npm test         # Node suite, .cjs tests   — expect 817/817
+npm test         # Node suite, .cjs tests   — expect 820/820
 npm run test:ts  # bun, TypeScript tests    — expect 128/128
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build

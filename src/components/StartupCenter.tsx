@@ -183,9 +183,13 @@ export function StartupCenter({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-sm font-semibold text-slate-100">{item.name}</h4>
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3" /> Enabled
-                      </span>
+                      {item.offInTaskManager ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300">Off in Task Manager</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3" /> Enabled
+                        </span>
+                      )}
                       <span data-technical-detail className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-400">{item.source}</span>
                       <span data-technical-detail className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-400">{item.scope}</span>
                     </div>

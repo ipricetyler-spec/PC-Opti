@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const os = require('os');
+const path = require('path');
 const { spawn } = require('child_process');
 const {
   SNAPSHOT_SCHEMA_VERSION,
@@ -291,6 +292,7 @@ $targets = @(
     registryView = $currentUserView
     scope = 'Current user'
     canDisable = $true
+    approvedSubKey = 'Run'
   }
 )
 $machineViews = if ($is64BitOperatingSystem) {
@@ -306,22 +308,34 @@ foreach ($view in $machineViews) {
     registryView = $view
     scope = $scope
     canDisable = $true
+    # Task Manager keeps 32-bit machine entries' on/off state under Run32.
+    approvedSubKey = if ($is64BitOperatingSystem -and $view -eq [Microsoft.Win32.RegistryView]::Registry32) { 'Run32' } else { 'Run' }
   }
 }
 foreach ($target in $targets) {
   $baseKey = $null
   $registryKey = $null
+  $approvedBase = $null
+  $approvedKey = $null
   try {
     $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey($target.hive, $target.registryView)
     $registryKey = $baseKey.OpenSubKey($subKeyPath, $false)
     if ($null -eq $registryKey) { continue }
+    # Task Manager's Startup apps page records its own on/off switch here, beside the Run value.
+    $approvedBase = [Microsoft.Win32.RegistryKey]::OpenBaseKey($target.hive, $currentUserView)
+    $approvedKey = $approvedBase.OpenSubKey('Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\' + $target.approvedSubKey, $false)
     foreach ($valueName in $registryKey.GetValueNames()) {
       $rawValue = $registryKey.GetValue($valueName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+      # Assigned directly: an if-expression would unroll the byte array through the pipeline.
+      $approved = $null
+      if ($null -ne $approvedKey) { $approved = $approvedKey.GetValue($valueName, $null) }
+      $approvedFirstByte = if ($approved -is [byte[]] -and $approved.Length -gt 0) { [int]$approved[0] } else { $null }
       $items += [pscustomobject]@{
         name = [string]$valueName
         path = [string]$rawValue
         source = 'Registry'
         enabled = $true
+        approvedFirstByte = $approvedFirstByte
         scope = [string]$target.scope
         canDisable = [bool]$target.canDisable
         registryPath = [string]$target.registryPath
@@ -332,6 +346,8 @@ foreach ($target in $targets) {
       }
     }
   } finally {
+    if ($null -ne $approvedKey) { $approvedKey.Dispose() }
+    if ($null -ne $approvedBase) { $approvedBase.Dispose() }
     if ($null -ne $registryKey) { $registryKey.Dispose() }
     if ($null -ne $baseKey) { $baseKey.Dispose() }
   }
@@ -659,18 +675,56 @@ function startupItemId(item) {
   return crypto.createHash('sha256').update(`${item.source}\u0000${stableTarget}`, 'utf8').digest('hex').slice(0, 24);
 }
 
+// Windows Security's tray entry reports protection status; anti-cheat entries may be needed
+// for games to start. Dialed never offers to switch these off at sign-in.
+const SECURITY_STARTUP_EXECUTABLES = Object.freeze(new Set(['securityhealthsystray', 'msascuil', 'msascui', 'msmpeng']));
+const ANTI_CHEAT_STARTUP_EXECUTABLES = Object.freeze(new Set(Object.values(ANTI_CHEAT_PROCESS_NAMES_BY_PRODUCT).flat()));
+
+/** The executable's base name, lower case and without .exe, from a Run value's command line. */
+function startupExecutableName(command) {
+  const text = String(command || '').trim();
+  const target = text.startsWith('"') ? text.slice(1, text.indexOf('"', 1) > 0 ? text.indexOf('"', 1) : undefined) : (/^.*?\.exe\b/i.exec(text)?.[0] || text.split(/\s+/)[0] || '');
+  return path.win32.basename(target).toLowerCase().replace(/\.exe$/, '');
+}
+
+function startupProtection(item) {
+  const executable = startupExecutableName(item?.value || item?.path);
+  if (SECURITY_STARTUP_EXECUTABLES.has(executable)) return 'security';
+  if (ANTI_CHEAT_STARTUP_EXECUTABLES.has(executable)) return 'anti-cheat';
+  return null;
+}
+
+// Task Manager's record for a Run value: the first byte is even while the entry is on (02, or
+// 06 as Windows writes for its own entries) and odd once it has been switched off (01 or 03,
+// followed by when). Microsoft does not document the format; this is what Windows writes, as
+// read on the owner's PC. No record means Task Manager never switched it off.
+function startupApprovedState(firstByte) {
+  if (!Number.isInteger(firstByte)) return 'no-record';
+  return firstByte % 2 === 1 ? 'off' : 'on';
+}
+
 function normalizeStartupInventory(rawItems) {
   return (Array.isArray(rawItems) ? rawItems : [rawItems])
     .filter((item) => item && item.name)
-    .map((item) => ({
+    .map((item) => {
+      const registry = item.source !== 'TaskScheduler';
+      const approved = registry ? startupApprovedState(item.approvedFirstByte) : 'no-record';
+      const protection = registry ? startupProtection(item) : null;
+      return { item, approved, protection };
+    })
+    .map(({ item, approved, protection }) => ({
       id: startupItemId(item),
       name: String(item.name),
       path: String(item.path || ''),
       source: item.source === 'TaskScheduler' ? 'TaskScheduler' : 'Registry',
-      enabled: Boolean(item.enabled),
+      enabled: Boolean(item.enabled) && approved !== 'off',
+      offInTaskManager: approved === 'off',
+      protection,
       scope: String(item.scope || 'Unknown'),
       canDisable: item.source === 'Registry' &&
         Boolean(item.canDisable) &&
+        approved !== 'off' &&
+        protection === null &&
         MANAGEABLE_STARTUP_REGISTRY_PATHS.has(String(item.registryPath || '')),
       registryPath: String(item.registryPath || ''),
       registryView: STARTUP_REGISTRY_VIEWS.has(String(item.registryView || ''))

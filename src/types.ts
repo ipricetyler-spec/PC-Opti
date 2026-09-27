@@ -939,6 +939,8 @@ export interface StartupManagementItem {
   enabled: boolean;
   scope: string;
   canDisable: boolean;
+  /** Task Manager's Startup apps page has this entry switched off. */
+  offInTaskManager?: boolean;
   managementNote: string;
 }
 

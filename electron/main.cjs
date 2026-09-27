@@ -674,9 +674,16 @@ ipcMain.handle('pc-opti:list-startup-items', async () => {
         enabled: item.enabled,
         scope: item.scope,
         canDisable,
+        offInTaskManager: Boolean(item.offInTaskManager),
         managementNote: item.source === 'TaskScheduler'
           ? 'Read-only in Dialed. Manage this task in Windows Task Scheduler.'
-          : machineWide && !canDisable
+          : item.protection === 'security'
+            ? 'Windows Security uses this to show your protection status. Dialed does not turn it off.'
+            : item.protection === 'anti-cheat'
+              ? 'Anti-cheat for your games starts here, and games may refuse to run without it. Dialed does not turn it off.'
+              : item.offInTaskManager
+                ? "Already turned off in Task Manager's Startup apps. Dialed leaves it as it is."
+                : machineWide && !canDisable
             ? 'Read-only in this session. Machine-wide entries need Dialed running as administrator.'
             : machineWide
               ? 'Machine-wide entry. Dialed can disable it (administrator session) and keep an exact restore record.'

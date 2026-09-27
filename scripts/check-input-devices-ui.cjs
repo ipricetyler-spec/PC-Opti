@@ -151,6 +151,7 @@ async function main() {
       if (method === 'nativeExpired') { nativeExpired = true; return true; }
       if (method === 'messageCase') { messageCase = args[0]; return true; }
       if (method === 'legacyWrites') { legacyWrites = args[0]; return true; }
+      if (method === 'memoryIntegrity') { raw.security.memoryIntegrity = args[0]; return true; }
       if (method === 'nativeHistory') { nativeHistory = args[0]; return true; }
       if (method === 'legacyNeedsReview') { const store = input.readStore(path.join(root, 'user-data')); const record = store.history.find(item => item.purpose === 'TIER_ISOLATION'); if (!record) throw new Error('Missing fixture recovery'); record.status = 'NEEDS_REVIEW'; input.writeStore(path.join(root, 'user-data'), store); return true; }
       if (method === 'nativeRate') { raw.nodes.find(item => item.id === controllerPhysical).interval.value = args[0]; return true; }
@@ -576,6 +577,20 @@ async function main() {
     await section.getByRole('button', { name: 'Review exact restore' }).click();
     await section.getByRole('region', { name: 'Confirm polling change' }).waitFor();
     await section.getByRole('button', { name: 'Cancel', exact: true }).click();
+    // Memory Integrity on: with rate changes switched off the reader is told to keep it on, and
+    // the guide to turning it off appears only when this build could use the higher tier.
+    await deviceList.getByRole('button', { name: /Fixture High-Speed Controller/ }).click();
+    await page.evaluate(() => window.__inputFixture('memoryIntegrity', 'Enabled'));
+    await section.getByRole('button', { name: 'Refresh devices' }).click();
+    await section.getByText(/no reason to turn Memory Integrity off for Dialed/).waitFor({ state: 'attached' });
+    assert.equal(await section.getByText(/Rates above 1 kHz need Memory Integrity turned off/).count(), 0, 'No guide to switching a protection off for a feature this build cannot use.');
+    await page.evaluate(() => window.__inputFixture('legacyWrites', true));
+    await section.getByRole('button', { name: 'Refresh devices' }).click();
+    await section.getByText(/Rates above 1 kHz need Memory Integrity turned off/).waitFor({ state: 'attached' });
+    await section.getByText(/some anti-cheat systems look for drivers that change the Windows kernel/).waitFor({ state: 'attached' });
+    await page.evaluate(async () => { await window.__inputFixture('memoryIntegrity', 'Disabled'); await window.__inputFixture('legacyWrites', false); });
+    await section.getByRole('button', { name: 'Refresh devices' }).click();
+    await section.getByText(/Legacy controls are reserved for their own recorded recovery/).waitFor();
     await page.getByLabel('Find a section').fill('bios');
     assert.equal(await sectionButton(page, 'Tweaks').count(), 1);
     assert.equal(await sectionButton(page, 'Games').count(), 0);

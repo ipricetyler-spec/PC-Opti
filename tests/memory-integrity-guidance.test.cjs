@@ -14,8 +14,11 @@ test('the Memory Integrity guide only explains and opens Windows Security; it ne
   assert.match(guide, /openWindowsSettings\('core-isolation'\)/);
   assert.match(guide, /Dialed does not change Memory Integrity/);
   assert.match(guide, /NoPatch/);
-  // Shown only for an eligible High-Speed device with the filter attached.
-  assert.match(center, /memoryIntegrity !== 'Disabled' && selected\?\.speed === 'High-Speed' && selected\.filterActive \? <MemoryIntegrityGuide/);
+  // Shown only when this build can set up the higher tier, for an eligible High-Speed device
+  // with the filter attached; otherwise the reader is told to keep the protection on.
+  assert.match(center, /memoryIntegrity !== 'Disabled' && legacyWrites && selected\?\.speed === 'High-Speed' && selected\.filterActive \? <MemoryIntegrityGuide/);
+  assert.match(center, /memoryIntegrity !== 'Disabled' && !legacyWrites \? <p[^>]*>.*no reason to turn Memory Integrity off for Dialed/);
+  assert.match(guide, /anti-cheat/);
 });
 
 test('Core isolation is an allowlisted page, and no code path writes the Memory Integrity setting', () => {

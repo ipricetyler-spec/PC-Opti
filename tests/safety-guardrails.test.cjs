@@ -2305,3 +2305,62 @@ test('declared-license inventory makes missing and unsafe metadata explicit', ()
   assert.match(review, /not legal advice, license clearance/);
   assert.match(review, /Electron\/Chromium obligations/);
 });
+
+function ecoQosMachine(initial, { hasWindow = false, antiCheat = [] } = {}) {
+  const bits = { ...initial };
+  const process = { pid: 4343, name: 'worker', creationTime: '133000000000000001', cpuPercent: 0, workingSetBytes: 1, efficiencyMode: false };
+  const read = () => ({ pid: process.pid, efficiencyMode: bits.controlled && bits.throttled, controlled: bits.controlled, throttled: bits.throttled });
+  return {
+    bits, process,
+    adapters: {
+      readRunningProcess: async () => ({ pid: process.pid, name: process.name, creationTime: process.creationTime, parentPid: 1000, parentName: 'explorer', hasWindow }),
+      detectInstalledAntiCheats: async () => antiCheat,
+      getProcessEcoQos: async () => read(),
+      setProcessEcoQos: async (_pid, enabled) => { bits.controlled = true; bits.throttled = enabled; return nativeResult(read()); },
+      restoreProcessEcoQos: async (_pid, controlled, throttled) => { bits.controlled = controlled; bits.throttled = throttled; return nativeResult(read()); },
+    },
+  };
+}
+
+test('undoing Efficiency Mode puts back the exact previous state, including "Windows decides"', async () => {
+  for (const initial of [{ controlled: false, throttled: false }, { controlled: true, throttled: false }]) {
+    const directory = createJournal([]);
+    const machine = ecoQosMachine(initial);
+    const applied = await journal.enableProcessEcoQos(directory, machine.process, machine.adapters);
+    assert.equal(applied.success, true);
+    assert.deepEqual({ controlled: applied.entry.preAction.controlled, throttled: applied.entry.preAction.throttled }, initial);
+    const restored = await journal.rollbackAuditEntry(directory, applied.entry.id, machine.adapters);
+    assert.equal(restored.success, true);
+    assert.deepEqual({ ...machine.bits }, initial, JSON.stringify(initial));
+  }
+});
+
+test('an Efficiency Mode entry recorded without the bits still undoes the old way', async () => {
+  const directory = createJournal([]);
+  const machine = ecoQosMachine({ controlled: false, throttled: false });
+  delete machine.adapters.restoreProcessEcoQos;
+  machine.adapters.getProcessEcoQos = async () => ({ pid: machine.process.pid, efficiencyMode: machine.bits.controlled && machine.bits.throttled });
+  const applied = await journal.enableProcessEcoQos(directory, machine.process, machine.adapters);
+  assert.equal('controlled' in applied.entry.preAction, false);
+  const restored = await journal.rollbackAuditEntry(directory, applied.entry.id, machine.adapters);
+  assert.equal(restored.success, true);
+  assert.equal(machine.bits.throttled, false);
+});
+
+test('while anti-cheat is installed, a program with a window is never throttled, but undo still works', async () => {
+  const detected = [{ product: 'Vanguard', evidence: 'service' }];
+  const windowed = ecoQosMachine({ controlled: false, throttled: false }, { hasWindow: true, antiCheat: detected });
+  let wrote = false;
+  const setProcessEcoQos = windowed.adapters.setProcessEcoQos;
+  windowed.adapters.setProcessEcoQos = async (...args) => { wrote = true; return setProcessEcoQos(...args); };
+  await assert.rejects(journal.enableProcessEcoQos(createJournal([]), windowed.process, windowed.adapters), /does not change programs with an open window while anti-cheat is installed/);
+  assert.equal(wrote, false);
+
+  const background = ecoQosMachine({ controlled: false, throttled: false }, { hasWindow: false, antiCheat: detected });
+  const directory = createJournal([]);
+  const applied = await journal.enableProcessEcoQos(directory, background.process, background.adapters);
+  assert.equal(applied.success, true, 'a background program is still allowed');
+  // A window may open later; undoing is still allowed.
+  background.adapters.readRunningProcess = async () => ({ pid: background.process.pid, name: background.process.name, creationTime: background.process.creationTime, parentPid: 1000, parentName: 'explorer', hasWindow: true });
+  assert.equal((await journal.rollbackAuditEntry(directory, applied.entry.id, background.adapters)).success, true);
+});

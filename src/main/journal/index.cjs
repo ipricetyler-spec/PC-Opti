@@ -1119,7 +1119,7 @@ async function readRunningProcess(processId) {
   const pid = Number(processId);
   if (!Number.isInteger(pid) || pid <= 4) throw new Error('The process identifier is not valid.');
   const { stdout } = await runPowerShell(
-    `$process = Get-Process -Id ${pid} -ErrorAction Stop; $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = ${pid}" -ErrorAction Stop; $parentPid = [int]$cimProcess.ParentProcessId; $parent = if ($parentPid -gt 0) { Get-Process -Id $parentPid -ErrorAction SilentlyContinue } else { $null }; [pscustomobject]@{ pid = [int]$process.Id; name = [string]$process.ProcessName; creationTime = [string]$process.StartTime.ToUniversalTime().ToFileTimeUtc(); parentPid = $parentPid; parentName = if ($parent) { [string]$parent.ProcessName } else { '' } } | ConvertTo-Json -Compress`
+    `$process = Get-Process -Id ${pid} -ErrorAction Stop; $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = ${pid}" -ErrorAction Stop; $parentPid = [int]$cimProcess.ParentProcessId; $parent = if ($parentPid -gt 0) { Get-Process -Id $parentPid -ErrorAction SilentlyContinue } else { $null }; [pscustomobject]@{ pid = [int]$process.Id; name = [string]$process.ProcessName; creationTime = [string]$process.StartTime.ToUniversalTime().ToFileTimeUtc(); parentPid = $parentPid; parentName = if ($parent) { [string]$parent.ProcessName } else { '' }; hasWindow = [bool]($process.MainWindowHandle -ne [IntPtr]::Zero) } | ConvertTo-Json -Compress`
   );
   return JSON.parse(stdout);
 }
@@ -1155,6 +1155,7 @@ async function assertAntiCheatSafeProcess(process, readProcess, readDetections) 
   if (parentProduct) {
     throw new Error(`Dialed refused this process action because its parent process ${parentName} belongs to detected ${parentProduct} anti-cheat.`);
   }
+  return detections;
 }
 
 function processLifetime(value) {
@@ -1170,7 +1171,7 @@ function sameProcessLifetime(current, expected) {
 async function getProcessEcoQos(processId, creationTime) {
   const pid = Number(processId);
   const { stdout } = await runPowerShell(createEcoQosPowerShellScript(
-    `[pscustomobject]@{ pid = ${pid}; efficiencyMode = [bool][PCOptiEcoQos]::IsEcoQosEnabled(${pid}, ${processLifetime(creationTime)}) } | ConvertTo-Json -Compress`
+    `$bits = [PCOptiEcoQos]::GetEcoQosBits(${pid}, ${processLifetime(creationTime)}); [pscustomobject]@{ pid = ${pid}; efficiencyMode = [bool](($bits -band 3) -eq 3); controlled = [bool]($bits -band 1); throttled = [bool]($bits -band 2) } | ConvertTo-Json -Compress`
   ));
   return JSON.parse(stdout);
 }
@@ -1179,6 +1180,16 @@ async function setProcessEcoQos(processId, enabled, creationTime) {
   const pid = Number(processId);
   const { stdout, stderr, exitCode } = await runPowerShell(createEcoQosPowerShellScript(
     `$verified = [PCOptiEcoQos]::SetEcoQos(${pid}, $${enabled ? 'true' : 'false'}, ${processLifetime(creationTime)}); [pscustomobject]@{ pid = ${pid}; efficiencyMode = [bool]$verified } | ConvertTo-Json -Compress`
+  ));
+  return { output: JSON.parse(stdout), stdout, stderr, exitCode };
+}
+
+/** Puts back the exact execution-speed bits recorded before Efficiency Mode was turned on. */
+async function restoreProcessEcoQos(processId, controlled, throttled, creationTime) {
+  const pid = Number(processId);
+  if (typeof controlled !== 'boolean' || typeof throttled !== 'boolean') throw new Error('The recorded EcoQoS state is not restorable.');
+  const { stdout, stderr, exitCode } = await runPowerShell(createEcoQosPowerShellScript(
+    `$bits = [PCOptiEcoQos]::RestoreEcoQos(${pid}, $${controlled ? 'true' : 'false'}, $${throttled ? 'true' : 'false'}, ${processLifetime(creationTime)}); [pscustomobject]@{ pid = ${pid}; efficiencyMode = [bool](($bits -band 3) -eq 3); controlled = [bool]($bits -band 1); throttled = [bool]($bits -band 2) } | ConvertTo-Json -Compress`
   ));
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }
@@ -1193,7 +1204,11 @@ async function enableProcessEcoQos(userDataPath, process, adapters = {}) {
   if (!sameProcessLifetime(current, process)) {
     throw new Error('The selected process ended or its process identifier was reused. Refresh the process inventory.');
   }
-  await assertAntiCheatSafeProcess(current, readProcess, readDetections);
+  const detections = await assertAntiCheatSafeProcess(current, readProcess, readDetections);
+  // A game is a process with a window, and anti-cheat may treat a change to it as tampering.
+  if (detections.length > 0 && current.hasWindow === true) {
+    throw new Error(`Dialed does not change programs with an open window while anti-cheat is installed. If ${current.name} is a game, its anti-cheat may treat the change as tampering. Nothing was changed.`);
+  }
   const initialState = await readEcoQos(process.pid, process.creationTime);
   if (initialState.efficiencyMode) {
     throw new Error('Efficiency Mode is already enabled for this process. Dialed will not overwrite an existing QoS state.');
@@ -1209,6 +1224,8 @@ async function enableProcessEcoQos(userDataPath, process, adapters = {}) {
       parentPid: Number.isInteger(Number(current.parentPid)) ? Number(current.parentPid) : 0,
       parentName: String(current.parentName || ''),
       efficiencyMode: false,
+      // The exact bits to put back; older entries lack them and undo the old way.
+      ...(typeof initialState.controlled === 'boolean' && typeof initialState.throttled === 'boolean' ? { controlled: initialState.controlled, throttled: initialState.throttled } : {}),
     },
     {
       category: 'Dynamic process balancing',
@@ -1826,9 +1843,15 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     );
     appendEntry(userDataPath, entry);
     try {
-      const result = await writeEcoQos(original.preAction.pid, false, original.preAction.creationTime);
+      const exact = typeof original.preAction.controlled === 'boolean' && typeof original.preAction.throttled === 'boolean';
+      const result = exact
+        ? await (adapters.restoreProcessEcoQos || restoreProcessEcoQos)(original.preAction.pid, original.preAction.controlled, original.preAction.throttled, original.preAction.creationTime)
+        : await writeEcoQos(original.preAction.pid, false, original.preAction.creationTime);
       const verified = await readEcoQos(original.preAction.pid, original.preAction.creationTime);
       if (verified.efficiencyMode) throw new Error('Windows still reports EcoQoS enabled after rollback.');
+      if (exact && (verified.controlled !== original.preAction.controlled || verified.throttled !== original.preAction.throttled)) {
+        throw new Error('Windows did not return the process to its recorded Efficiency Mode state.');
+      }
       entry.status = 'SUCCESS';
       entry.exitCode = result.exitCode;
       entry.stdout = result.stdout;

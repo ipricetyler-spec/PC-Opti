@@ -236,6 +236,59 @@ public static class PCOptiEcoQos
         finally { CloseHandle(handle); }
     }
 
+    // The execution-speed bits as Windows holds them: 1 = controlled (not left to Windows),
+    // 2 = throttled. Undo needs both, because "not controlled" and "controlled, not throttled"
+    // both read as off but are different states.
+    public static int GetEcoQosBits(int processId, long expectedCreationTime)
+    {
+        IntPtr handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
+        if (handle == IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        try
+        {
+            if (expectedCreationTime <= 0) throw new InvalidOperationException("A process lifetime is required.");
+            AssertLifetime(handle, expectedCreationTime);
+            PROCESS_POWER_THROTTLING_STATE state = new PROCESS_POWER_THROTTLING_STATE { Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION };
+            if (!GetProcessInformation(handle, ProcessPowerThrottling, ref state, (uint)Marshal.SizeOf(typeof(PROCESS_POWER_THROTTLING_STATE))))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            return ((state.ControlMask & PROCESS_POWER_THROTTLING_EXECUTION_SPEED) != 0 ? 1 : 0) | ((state.StateMask & PROCESS_POWER_THROTTLING_EXECUTION_SPEED) != 0 ? 2 : 0);
+        }
+        finally { CloseHandle(handle); }
+    }
+
+    // Puts back the exact bits recorded before Dialed turned Efficiency Mode on. Refuses unless
+    // Efficiency Mode is still on, so an outside change is never overwritten.
+    public static int RestoreEcoQos(int processId, bool control, bool throttled, long expectedCreationTime)
+    {
+        IntPtr handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION, false, processId);
+        if (handle == IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        try
+        {
+            if (expectedCreationTime <= 0) throw new InvalidOperationException("A process lifetime is required.");
+            AssertLifetime(handle, expectedCreationTime);
+            PROCESS_POWER_THROTTLING_STATE current = new PROCESS_POWER_THROTTLING_STATE { Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION };
+            if (!GetProcessInformation(handle, ProcessPowerThrottling, ref current, (uint)Marshal.SizeOf(typeof(PROCESS_POWER_THROTTLING_STATE))))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            if ((current.ControlMask & 1) == 0 || (current.StateMask & 1) == 0) throw new InvalidOperationException("The QoS state changed before the action.");
+            PROCESS_POWER_THROTTLING_STATE state = new PROCESS_POWER_THROTTLING_STATE
+            {
+                Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                ControlMask = control ? current.ControlMask | PROCESS_POWER_THROTTLING_EXECUTION_SPEED : current.ControlMask & ~PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                StateMask = throttled ? current.StateMask | PROCESS_POWER_THROTTLING_EXECUTION_SPEED : current.StateMask & ~PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+            };
+            AssertLifetime(handle, expectedCreationTime);
+            if (!SetProcessInformation(handle, ProcessPowerThrottling, ref state, (uint)Marshal.SizeOf(typeof(PROCESS_POWER_THROTTLING_STATE))))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            AssertLifetime(handle, expectedCreationTime);
+            PROCESS_POWER_THROTTLING_STATE after = new PROCESS_POWER_THROTTLING_STATE { Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION };
+            if (!GetProcessInformation(handle, ProcessPowerThrottling, ref after, (uint)Marshal.SizeOf(typeof(PROCESS_POWER_THROTTLING_STATE))))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            int bits = ((after.ControlMask & 1) != 0 ? 1 : 0) | ((after.StateMask & 1) != 0 ? 2 : 0);
+            if (bits != ((control ? 1 : 0) | (throttled ? 2 : 0))) throw new InvalidOperationException("QoS readback did not match the recorded state.");
+            return bits;
+        }
+        finally { CloseHandle(handle); }
+    }
+
     public static bool SetEcoQos(int processId, bool enabled, long expectedCreationTime)
     {
         IntPtr handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION, false, processId);

@@ -455,3 +455,28 @@ test('capability and IPC boundaries keep commands main-owned while exposing the 
   assert.match(sidebarSource, /label: 'Measure'/);
   assert.match(sidebarSource, /label: 'Games'/);
 });
+
+test('boot timing is read from the BCD store as true or false, whatever the display language', () => {
+  const timing = require('../src/main/timing/index.cjs');
+  assert.deepEqual(timing.parseBcdStoreState('{"usePlatformClock":null,"disableDynamicTick":true}'), { source: 'bcd store {current}', usePlatformClock: null, disableDynamicTick: 'YES' });
+  assert.deepEqual(timing.parseBcdStoreState('{"usePlatformClock":false,"disableDynamicTick":null}'), { source: 'bcd store {current}', usePlatformClock: 'NO', disableDynamicTick: null });
+  // What bcdedit prints on a German PC is never accepted as a value; WMI never sends it.
+  assert.throws(() => timing.parseBcdStoreState('{"disableDynamicTick":"Ja"}'), /unsupported disabledynamictick value/);
+  assert.throws(() => timing.parseBcdStoreState('Ja'), /unreadable boot configuration/);
+  // States from both sources are accepted, so changes recorded by earlier versions stay undoable.
+  assert.equal(timing.assertBootTimingState({ source: 'bcd store {current}', usePlatformClock: null, disableDynamicTick: 'YES' }), true);
+  assert.equal(timing.assertBootTimingState({ source: 'bcdedit /enum ACTIVE', usePlatformClock: null, disableDynamicTick: 'YES' }), true);
+  // The read opens {current} itself, so other loaders in a dual-boot menu cannot make it ambiguous.
+  assert.match(timing.READ_BCD_STORE_SCRIPT, /\{fa926493-6f1c-4193-a414-58f0b2456d1e\}/);
+  assert.match(timing.READ_BCD_STORE_SCRIPT, /Read-Flag 0x260000A2/);
+  assert.match(timing.READ_BCD_STORE_SCRIPT, /Read-Flag 0x260000A5/);
+  assert.doesNotMatch(timing.READ_BCD_STORE_SCRIPT, /bcdedit/);
+});
+
+test('the boot timing read passes what Windows returns through the same parser', async () => {
+  const timing = require('../src/main/timing/index.cjs');
+  const scripts = [];
+  const state = await timing.readBootTimingState(async (script) => { scripts.push(script); return { stdout: '{"usePlatformClock":true,"disableDynamicTick":false}' }; });
+  assert.deepEqual(state, { source: 'bcd store {current}', usePlatformClock: 'YES', disableDynamicTick: 'NO' });
+  assert.deepEqual(scripts, [timing.READ_BCD_STORE_SCRIPT]);
+});

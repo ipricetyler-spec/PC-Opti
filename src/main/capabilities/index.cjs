@@ -538,7 +538,7 @@ const CAPABILITIES = Object.freeze([
     description: 'Reads the current boot entry and explains separately testable timing hypotheses without claiming a performance result.',
     supportedWindows: ['Windows 10', 'Windows 11'],
     prerequisites: ['BCDEdit current-entry read access'],
-    detectionMethod: 'Read-only bcdedit /enum ACTIVE',
+    detectionMethod: 'Read-only BCD WMI provider, current boot entry',
     currentStateMethod: 'Fresh current-entry read each time the lab is opened or refreshed',
     recommendedStateMethod: 'No universal recommendation; applicability and testing limits are shown per experiment',
     expectedBenefit: 'Makes explicit timing overrides and their uncertainty visible; no FPS or latency improvement is claimed.',

@@ -15,7 +15,8 @@ const MICROSOFT_SOURCES = Object.freeze({
   timerResolution: 'https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod',
   performanceCounter: 'https://learn.microsoft.com/en-us/windows/win32/sysinfo/acquiring-high-resolution-time-stamps',
 });
-const SUPPORTED_BOOT_TIMING_SOURCES = new Set(['bcdedit /enum ACTIVE', 'bcdedit /enum {current}']);
+// The bcdedit sources stay accepted so changes recorded by earlier versions can still be undone.
+const SUPPORTED_BOOT_TIMING_SOURCES = new Set(['bcdedit /enum ACTIVE', 'bcdedit /enum {current}', 'bcd store {current}']);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -191,14 +192,47 @@ function timingExperimentsForState(state, unavailableReason = null) {
   ];
 }
 
-async function readBootTimingState() {
-  const script = `& {
-    $lines = @(& bcdedit.exe /enum ACTIVE 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw ($lines -join [Environment]::NewLine) }
-    $lines -join [Environment]::NewLine
-  }`;
-  const { stdout } = await runPowerShell(script);
-  return parseBootTimingState(stdout);
+// bcdedit prints Yes and No in the display language, and /enum ACTIVE lists every loader in the
+// boot menu, so its text cannot be read reliably on non-English or dual-boot PCs. The BCD WMI
+// provider returns true or false for the current entry itself. Element types: useplatformclock
+// is BcdOSLoaderBoolean_UsePlatformClock (0x260000A2); disabledynamictick is 0x260000A5, read on
+// the owner's PC as the only such element present while bcdedit showed disabledynamictick Yes.
+const BCD_STORE_SOURCE = 'bcd store {current}';
+const READ_BCD_STORE_SCRIPT = String.raw`& {
+  $ErrorActionPreference = 'Stop'
+  $store = (Invoke-CimMethod -Namespace root\WMI -ClassName BcdStore -MethodName OpenStore -Arguments @{ File = '' }).Store
+  if (-not $store) { throw 'Windows did not open the boot configuration.' }
+  $object = (Invoke-CimMethod -InputObject $store -MethodName OpenObject -Arguments @{ Id = '{fa926493-6f1c-4193-a414-58f0b2456d1e}' }).Object
+  if (-not $object) { throw 'Windows did not return the current boot entry.' }
+  $types = @((Invoke-CimMethod -InputObject $object -MethodName EnumerateElementTypes).Types)
+  function Read-Flag([uint32]$type) {
+    # Reading an element that is not set is an error, so absence comes from the list of types.
+    if ($types -notcontains $type) { return $null }
+    $result = Invoke-CimMethod -InputObject $object -MethodName GetElement -Arguments @{ Type = $type }
+    if (-not $result.ReturnValue) { throw 'Windows could not read a boot setting.' }
+    return [bool]$result.Element.Boolean
+  }
+  [pscustomobject]@{ usePlatformClock = (Read-Flag 0x260000A2); disableDynamicTick = (Read-Flag 0x260000A5) } | ConvertTo-Json -Compress
+}`;
+
+function parseBcdStoreState(output) {
+  let parsed;
+  try { parsed = JSON.parse(output); } catch { throw new Error('Windows returned an unreadable boot configuration.'); }
+  const flag = (value, name) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== 'boolean') throw new Error(`Windows returned an unsupported ${name} value.`);
+    return value ? 'YES' : 'NO';
+  };
+  return {
+    source: BCD_STORE_SOURCE,
+    usePlatformClock: flag(parsed?.usePlatformClock, 'useplatformclock'),
+    disableDynamicTick: flag(parsed?.disableDynamicTick, 'disabledynamictick'),
+  };
+}
+
+async function readBootTimingState(run = runPowerShell) {
+  const { stdout } = await run(READ_BCD_STORE_SCRIPT);
+  return parseBcdStoreState(stdout);
 }
 
 async function listTimingExperiments(adapters = {}) {
@@ -356,6 +390,8 @@ module.exports = {
   assertTimingActionApplicable,
   createBcdBackup,
   listTimingExperiments,
+  READ_BCD_STORE_SCRIPT,
+  parseBcdStoreState,
   parseBootTimingState,
   readBootTimingState,
   restoreBootTimingAction,

@@ -814,3 +814,43 @@ test('a HID collection change discards a completed capture even when the physica
   h.heldTest.resolve({ activityVersion: 1, channels: [] });
   await assert.rejects(pending, /connection changed/);
 });
+
+test('restoring a saved tier above 1 kHz passes the same Memory Integrity gate as setting it', async () => {
+  // Before Dialed's change the driver was set to the 2-4 kHz tier (2); restoring puts that back.
+  const options = {
+    speed: 2, value: 1,
+    driver: { state: 'Running', hash: input.PATCHING_1K_SHA256, signature: 'ValidMicrosoft', mode: 'Patching', patchUsbXhci: 2, patchLocations: { servicesParameters: { keyExists: true, valueExists: true, kind: 'DWord', value: 2 }, legacyControl: { keyExists: false, valueExists: false, kind: '', value: null } } },
+  };
+  const h = harness(options);
+  const target = (await h.service.scan()).devices[0];
+  const preview = await h.service.previewTier(target.id);
+  assert.equal(preview.beforeTier, 2);
+  const applied = await h.service.applyTier(preview.token);
+  h.current.bootId = '2026-08-30T13:00:00.0000000Z';
+  await h.service.reconcileTier(applied.historyId);
+
+  h.current.security.memoryIntegrity = 'Enabled';
+  await assert.rejects(h.service.previewTier(target.id, applied.historyId), /needs Memory Integrity off\. Dialed will not weaken it/);
+  h.current.security.memoryIntegrity = 'Disabled';
+  assert.equal((await h.service.previewTier(target.id, applied.historyId)).action, 'RESTORE');
+});
+
+test('the input history moves into the admin-only folder once, and a later per-user copy is kept aside', () => {
+  const userData = tempDir('dialed-input-user-');
+  const locked = path.join(tempDir('dialed-input-protected-'), 'Input');
+  const store = { version: 1, ports: {}, history: [], tierHistory: [] };
+  fs.writeFileSync(path.join(userData, 'input-devices.json'), JSON.stringify(store));
+  assert.deepEqual(input.moveInputHistoryToProtectedFolder(userData, locked), { moved: true });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(locked, 'input-devices.json'), 'utf8')), store);
+  assert.equal(fs.existsSync(path.join(userData, 'input-devices.json')), false);
+  assert.ok(fs.readdirSync(userData).some((name) => name.startsWith('input-devices.moved-to-protected-folder.')));
+
+  fs.writeFileSync(path.join(userData, 'input-devices.json'), JSON.stringify({ ...store, tierHistory: [{ id: 'forged' }] }));
+  assert.deepEqual(input.moveInputHistoryToProtectedFolder(userData, locked), { moved: false, keptAside: true });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(locked, 'input-devices.json'), 'utf8')), store, 'the protected history is never overwritten');
+
+  fs.writeFileSync(path.join(userData, 'input-devices.json'), '{"version":2}');
+  const other = path.join(tempDir('dialed-input-protected-'), 'Input');
+  assert.throws(() => input.moveInputHistoryToProtectedFolder(userData, other), /invalid/);
+  assert.equal(fs.existsSync(path.join(other, 'input-devices.json')), false, 'an invalid history is not copied');
+});

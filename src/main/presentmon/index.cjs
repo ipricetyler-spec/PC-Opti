@@ -222,6 +222,42 @@ function capturesRoot(userDataPath) {
   return path.join(userDataPath, 'presentmon-captures');
 }
 
+// PresentMon runs as administrator and writes to a path Dialed names in advance, so the
+// captures live in the admin-only folder, where no program running as the user can put a
+// link in its way. Captures made by earlier versions are copied across once: a copy made
+// there inherits the folder's permissions, where moving the folder would carry the old,
+// user-writable ones inside. Each copy is checked byte for byte before the original goes.
+const CAPTURE_FILE = /^[0-9a-f-]{36}(\.csv|\.json|\.telemetry\.json)$/i;
+const MAX_MIGRATED_FILE_BYTES = 256 * 1024 * 1024;
+
+function moveCapturesToProtectedFolder(fromUserDataPath, toProtectedRoot, fileSystem = fs) {
+  const from = capturesRoot(fromUserDataPath);
+  const to = capturesRoot(toProtectedRoot);
+  let rootStat;
+  try { rootStat = fileSystem.lstatSync(from); } catch (error) { if (error?.code === 'ENOENT') return { moved: 0, skipped: 0 }; throw error; }
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return { moved: 0, skipped: 1 };
+  fileSystem.mkdirSync(to, { recursive: true });
+  let moved = 0;
+  let skipped = 0;
+  for (const name of fileSystem.readdirSync(from)) {
+    const source = path.join(from, name);
+    const target = path.join(to, name);
+    try {
+      const stat = fileSystem.lstatSync(source);
+      // A second name (hard link) could make Dialed copy some other file into its own folder.
+      if (!CAPTURE_FILE.test(name) || stat.isSymbolicLink() || !stat.isFile() || stat.nlink !== 1 || stat.size > MAX_MIGRATED_FILE_BYTES || fileSystem.existsSync(target)) { skipped += 1; continue; }
+      fileSystem.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+      if (sha256File(source, fileSystem) !== sha256File(target, fileSystem)) { fileSystem.unlinkSync(target); skipped += 1; continue; }
+      fileSystem.unlinkSync(source);
+      moved += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  if (skipped === 0) { try { fileSystem.rmdirSync(from); } catch { /* Something else is in it; left alone. */ } }
+  return { moved, skipped };
+}
+
 function assertCaptureId(captureId) {
   if (typeof captureId !== 'string' || !/^[0-9a-f-]{36}$/i.test(captureId)) throw new Error('PresentMon capture id is invalid.');
   return captureId;
@@ -460,6 +496,8 @@ function createPresentMonService(options, dependencies = {}) {
 
   async function start(targetId, durationSeconds, startOptions = {}) {
     if (active) throw new Error('A PresentMon capture is already active.');
+    // storageProtected is false when the admin-only folder could not be opened this run.
+    if (options.storageProtected === false) throw new Error("Recording needs Dialed's protected folder, which could not be opened this time. Restart Dialed to try again. Nothing was recorded.");
     if (!CAPTURE_DURATIONS.includes(Number(durationSeconds))) throw new Error('PresentMon capture duration must be 10, 20, or 30 seconds.');
     const tool = await verifyPresentMonTool(options, dependencies);
     const inventory = await targets();
@@ -570,6 +608,7 @@ function explainCaptureFailure(output) {
 }
 
 module.exports = {
+  moveCapturesToProtectedFolder,
   explainCaptureFailure,
   CAPTURE_DURATIONS,
   CAPTURE_SCHEMA_VERSION,

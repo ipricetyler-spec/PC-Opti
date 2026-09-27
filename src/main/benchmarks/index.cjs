@@ -394,11 +394,18 @@ function writeBenchmarks(userDataPath, records) {
   if (!Array.isArray(records) || records.length > MAX_RECORDS) throw new Error('The local benchmark record count is not valid.');
   fs.mkdirSync(userDataPath, { recursive: true });
   const target = benchmarksPath(userDataPath);
-  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  // A random name, created exclusively: Dialed runs as administrator in a folder other programs
+  // running as the user can write, so the file must never already exist, or be a link planted there.
+  const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
   const payload = JSON.stringify({ schemaVersion: BENCHMARK_SCHEMA_VERSION, updatedAt: new Date().toISOString(), records }, null, 2);
   if (Buffer.byteLength(payload, 'utf8') > MAX_STORE_BYTES) throw new Error('The local benchmark store would exceed the supported 2 MB limit.');
-  fs.writeFileSync(temporary, payload, 'utf8');
-  fs.renameSync(temporary, target);
+  try {
+    const descriptor = fs.openSync(temporary, 'wx', 0o600);
+    try { fs.writeFileSync(descriptor, payload, 'utf8'); fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    fs.renameSync(temporary, target);
+  } finally {
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+  }
 }
 
 function benchmarkFingerprint(records) {

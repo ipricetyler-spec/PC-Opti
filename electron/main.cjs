@@ -16,7 +16,7 @@ const { buildLocalRecommendations } = require('../src/main/recommendations/index
 const { buildDriftReport, setDriftBaseline } = require('../src/main/drift/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
 const { readBiosPlan } = require('../src/main/bios-guidance/index.cjs');
-const { createInputService } = require('../src/main/input-devices/index.cjs');
+const { createInputService, moveInputHistoryToProtectedFolder } = require('../src/main/input-devices/index.cjs');
 const { createInputDriverLifecycleService } = require('../src/main/input-driver-lifecycle/index.cjs');
 const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundled-status.cjs');
 const { readNativeBrokerStatus, createNativeBrokerLauncher } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
@@ -44,7 +44,7 @@ const {
 } = require('../src/main/network-probe/index.cjs');
 const { readReleaseStatus } = require('../src/main/release-status/index.cjs');
 const { createUpdaterService, normalizeUpdateTrust, publicConfiguration } = require('../src/main/updater/index.cjs');
-const { createPresentMonService } = require('../src/main/presentmon/index.cjs');
+const { createPresentMonService, moveCapturesToProtectedFolder } = require('../src/main/presentmon/index.cjs');
 const {
   applyImport: applyBenchmarkImport,
   createBenchmarkDeletionPreview,
@@ -145,7 +145,8 @@ let inputDriverLifecycleService;
 let presentMonCaptureService;
 let verifiedUpdaterService;
 function inputDevices() {
-  if (!inputDeviceService) inputDeviceService = createInputService(app.getPath('userData'), { nativeSetupActive: () => launchBundledBroker?.isRunning() === true });
+  // An elevated restore writes the driver values this history records, so it lives in the admin-only folder.
+  if (!inputDeviceService) inputDeviceService = createInputService(protectedDataRoot ? path.join(protectedDataRoot, 'Input') : app.getPath('userData'), { nativeSetupActive: () => launchBundledBroker?.isRunning() === true });
   return inputDeviceService;
 }
 function inputDriverLifecycle() {
@@ -160,7 +161,9 @@ function inputDriverLifecycle() {
 function presentMonCaptures() {
   if (!presentMonCaptureService) {
     presentMonCaptureService = createPresentMonService({
-      userDataPath: app.getPath('userData'),
+      // PresentMon runs elevated and writes where Dialed says, so captures live in the admin-only folder.
+      userDataPath: protectedDataRoot || app.getPath('userData'),
+      storageProtected: process.platform !== 'win32' || Boolean(protectedDataRoot),
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
       appRoot: app.getAppPath(),
@@ -203,6 +206,19 @@ async function prepareProtectedData() {
     // Add-Type compiles into TEMP; inside the admin-only folder, nothing running as the user
     // can swap the compiled file before an elevated PowerShell loads it.
     usePowerShellTempDirectory(path.join(root, 'Temp'));
+    try {
+      const input = moveInputHistoryToProtectedFolder(app.getPath('userData'), path.join(root, 'Input'));
+      if (input.moved || input.keptAside) console.info(`Input history ${input.moved ? 'moved to' : 'kept aside from'} the protected folder.`);
+    } catch (error) {
+      // An unreadable history stays where it is; Input devices reports it as it did before.
+      console.warn(`Input history could not be moved: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      const { moved, skipped } = moveCapturesToProtectedFolder(app.getPath('userData'), root);
+      if (moved || skipped) console.info(`PresentMon captures moved to the protected folder: ${moved}, left in place: ${skipped}.`);
+    } catch (error) {
+      console.warn(`PresentMon captures could not be moved: ${error instanceof Error ? error.message : String(error)}`);
+    }
     console.info(`Change log is in the protected folder${migrated ? ' (moved there now)' : ''}.`);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

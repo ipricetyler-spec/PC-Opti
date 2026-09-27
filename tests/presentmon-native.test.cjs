@@ -380,3 +380,32 @@ function duplicateCapture(directory, original) {
   fs.writeFileSync(duplicatePaths.manifest, JSON.stringify({ ...manifest, captureId: duplicateId, output: { ...manifest.output, fileName: path.basename(duplicatePaths.csv) } }), 'utf8');
   return duplicateId;
 }
+
+test('captures from earlier versions are copied into the admin-only folder and checked before the originals go', () => {
+  const { tempDir } = require('./helpers/temp-dir.cjs');
+  const userData = tempDir('dialed-pm-user-');
+  const protectedRoot = tempDir('dialed-pm-protected-');
+  const old = path.join(userData, 'presentmon-captures');
+  fs.mkdirSync(old);
+  const id = '11111111-2222-4333-8444-555555555555';
+  fs.writeFileSync(path.join(old, `${id}.csv`), 'Application,FrameTime\nx,1\n');
+  fs.writeFileSync(path.join(old, `${id}.json`), '{"captureId":"x"}');
+  fs.writeFileSync(path.join(old, 'notes.txt'), 'not a capture');
+  const linkedId = '66666666-2222-4333-8444-555555555555';
+  fs.writeFileSync(path.join(userData, 'secret.txt'), 'elsewhere');
+  fs.linkSync(path.join(userData, 'secret.txt'), path.join(old, `${linkedId}.csv`));
+
+  const result = presentMon.moveCapturesToProtectedFolder(userData, protectedRoot);
+  assert.deepEqual(result, { moved: 2, skipped: 2 });
+  const moved = path.join(protectedRoot, 'presentmon-captures');
+  assert.equal(fs.readFileSync(path.join(moved, `${id}.csv`), 'utf8'), 'Application,FrameTime\nx,1\n');
+  assert.equal(fs.existsSync(path.join(old, `${id}.csv`)), false, 'the original goes once the copy matches');
+  assert.equal(fs.existsSync(path.join(moved, `${linkedId}.csv`)), false, 'a hard-linked file is not copied');
+  assert.ok(fs.existsSync(path.join(old, 'notes.txt')), 'anything else is left where it is');
+  assert.deepEqual(presentMon.moveCapturesToProtectedFolder(tempDir('dialed-pm-empty-'), protectedRoot), { moved: 0, skipped: 0 });
+});
+
+test('recording is refused while the admin-only folder is unavailable', async () => {
+  const service = presentMon.createPresentMonService({ ...TOOL_OPTIONS, userDataPath: require('./helpers/temp-dir.cjs').tempDir('dialed-pm-'), storageProtected: false });
+  await assert.rejects(service.start('any', 10), /needs Dialed's protected folder/);
+});

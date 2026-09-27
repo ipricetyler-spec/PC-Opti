@@ -363,6 +363,25 @@ function readStore(directory) {
   if (!Array.isArray(data.tierHistory) || data.tierHistory.length > 50) throw new Error('Input-device tier history is invalid; it has not been overwritten.');
   return data;
 }
+/**
+ * Moves the input history into the admin-only folder once. An elevated restore writes the
+ * driver values it records, so it must not live where a program running as the user could
+ * edit it. The history is validated, written fresh there (inheriting that folder's
+ * permissions), and the old file is kept under a name that says it moved.
+ */
+function moveInputHistoryToProtectedFolder(userDataPath, protectedDirectory) {
+  const oldFile = path.join(userDataPath, 'input-devices.json');
+  const newFile = path.join(protectedDirectory, 'input-devices.json');
+  if (!fs.existsSync(oldFile)) return { moved: false };
+  if (fs.existsSync(newFile)) {
+    // Written while the protected folder was unavailable; never used for restores.
+    fs.renameSync(oldFile, path.join(userDataPath, `input-devices.recorded-while-unprotected.${Date.now()}.json`));
+    return { moved: false, keptAside: true };
+  }
+  writeStore(protectedDirectory, readStore(userDataPath));
+  fs.renameSync(oldFile, path.join(userDataPath, `input-devices.moved-to-protected-folder.${Date.now()}.json`));
+  return { moved: true };
+}
 function writeStore(directory, data) {
   fs.mkdirSync(directory, { recursive: true });
   if (fs.lstatSync(directory).isSymbolicLink()) throw new Error('Linked input-device storage is refused.');
@@ -651,6 +670,9 @@ function createInputService(directory, adapters = {}) {
       if (inventory.driver.signature !== 'ValidMicrosoft' || variant?.mode !== 'Patching' || ['Missing', 'Unrecognized'].includes(inventory.driver.state)) throw new Error('The exact Microsoft-valid HIDUSBF patching build is required to restore this saved tier.');
       action = 'RESTORE'; afterPatch = original.beforePatch; restores = original.id;
       afterTier = original.beforeTier; targetName = original.targetName;
+      // Putting back a higher tier is the same kernel-level change as setting it, so it passes
+      // the same Memory Integrity gate, whatever the saved record says.
+      if (Number.isInteger(afterTier) && afterTier >= 2 && inventory.security.memoryIntegrity !== 'Disabled') throw new Error('Restoring this tier would turn the higher USB tier back on, which needs Memory Integrity off. Dialed will not weaken it. Nothing was changed.');
     } else {
       if (inventory.security.memoryIntegrity !== 'Disabled') throw new Error(inventory.security.memoryIntegrity === 'Unknown'
         ? 'Memory Integrity status could not be verified. Dialed will not change the shared driver tier.'
@@ -842,6 +864,7 @@ function createInputService(directory, adapters = {}) {
 }
 
 module.exports = {
+  moveInputHistoryToProtectedFolder,
   UPSTREAM, NOPATCH_SHA256, PATCHING_SHA256, PATCHING_1K_SHA256, PATCHING_2K_4K_SHA256, PATCHING_4K_8K_SHA256, NATIVE_INPUT_SOURCE_SHA256,
   RATES, FULL_SPEED_RATES, HIGH_SPEED_RATES, rateForInterval, intervalForRate,
   normalizeInventory, trace, buildDevices, buildFilteredDevices, filteredScopeSnapshot, filteredScopeHash, describeScopeDrift,

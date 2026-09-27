@@ -53,6 +53,7 @@ const {
   listStorageVolumes,
   runPowerShell,
 } = require('../scanner/index.cjs');
+const { isPowerShellTempProtected } = require('../shared/windows-powershell-env.cjs');
 
 const CONSUMER_FEATURES_POLICY = {
   registryPath: 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent',
@@ -2507,7 +2508,14 @@ async function prepareTempState() {
   return JSON.parse(stdout);
 }
 
+// Deleting compiles a small helper with Add-Type, which must not happen in a folder a program
+// running as the user can change.
+function assertCleanupCanCompileSafely() {
+  if (!isPowerShellTempProtected()) throw new Error("Nothing was deleted: cleaning files needs Dialed's protected folder, which could not be opened this time. Restart Dialed to try again.");
+}
+
 async function clearTempFiles() {
+  assertCleanupCanCompileSafely();
   const { stdout, stderr, exitCode } = await runPowerShell(createTempMaintenancePowerShellScript(true));
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }
@@ -2518,6 +2526,7 @@ async function inspectCacheCleanup(kind) {
 }
 
 async function runCacheCleanup(kind) {
+  assertCleanupCanCompileSafely();
   const { stdout, stderr, exitCode } = await runPowerShell(createCacheCleanupPowerShellScript(kind, true));
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }

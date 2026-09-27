@@ -38,6 +38,11 @@ function windowsPowerShellArguments(script) {
 // folder, PowerShell's TEMP points inside it.
 let temporaryDirectory = null;
 
+/** True once PowerShell's TEMP is Dialed's admin-only folder. */
+function isPowerShellTempProtected() {
+  return Boolean(temporaryDirectory);
+}
+
 function usePowerShellTempDirectory(directory) {
   if (directory) fs.mkdirSync(directory, { recursive: true });
   temporaryDirectory = directory || null;
@@ -67,6 +72,7 @@ function windowsPowerShellEnvironment(source = process.env) {
 }
 
 module.exports = {
+  isPowerShellTempProtected,
   systemRoot,
   usePowerShellTempDirectory,
   windowsPowerShellArguments,

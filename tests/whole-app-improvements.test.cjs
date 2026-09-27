@@ -131,7 +131,7 @@ test('cache cleanup scripts use fixed roots, skip missing vendor folders and kee
   assert.throws(() => maintenance.createCacheCleanupPowerShellScript('C:\\Windows'), /not recognized/);
   const temp = maintenance.createTempMaintenancePowerShellScript(false);
   assert.match(temp, /\$skipMissingRoots = \$false/);
-  assert.match(temp, /@\(\$env:TEMP, \(Join-Path \$env:WINDIR 'Temp'\)\)/);
+  assert.match(temp, /@\(\(Join-Path \$env:LOCALAPPDATA 'Temp'\)\)/);
 });
 
 test('cache cleanup maintenance refuses an empty fresh inventory and records irreversible deletions', async () => {

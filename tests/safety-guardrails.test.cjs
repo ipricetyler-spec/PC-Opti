@@ -1394,7 +1394,7 @@ test('temp maintenance PowerShell is fixed-root, age-gated, link-safe, and liter
   const deletionScript = maintenance.createTempMaintenancePowerShellScript(true);
   const appSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
   for (const script of [inventoryScript, deletionScript]) {
-    assert.match(script, /@\(\$env:TEMP, \(Join-Path \$env:WINDIR 'Temp'\)\)/);
+    assert.match(script, /@\(\(Join-Path \$env:LOCALAPPDATA 'Temp'\)\)/);
     assert.match(script, /AddDays\(-7\)/);
     assert.match(script, /FileAttributes\]::ReparsePoint/);
     assert.match(script, /StartsWith\(\$rootPrefix, \[StringComparison\]::OrdinalIgnoreCase\)/);
@@ -1402,8 +1402,8 @@ test('temp maintenance PowerShell is fixed-root, age-gated, link-safe, and liter
   }
   assert.match(inventoryScript, /\$deleteEligible = \$false/);
   assert.match(deletionScript, /\$deleteEligible = \$true/);
-  assert.match(deletionScript, /Remove-Item -LiteralPath \$currentFullName/);
-  assert.doesNotMatch(deletionScript, /Remove-Item[^\n]*-Recurse/);
+  assert.match(deletionScript, /\[DialedSafeDelete\]::DeleteIfOld/);
+  assert.doesNotMatch(deletionScript, /Remove-Item/);
   assert.match(appSource, /Deleted temporary files cannot be restored/);
   assert.match(appSource, /cannot offer rollback/);
 });

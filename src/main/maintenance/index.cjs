@@ -56,9 +56,84 @@ const CACHE_CLEANUP_KINDS = Object.freeze({
   }),
 });
 
+// Dialed deletes as administrator inside folders a program running as the user can change,
+// so a path checked a moment ago may lead somewhere else by the time it is deleted: a folder
+// on the way swapped for a link. Each file is therefore opened once, without following a link
+// at the file itself; its real location (every link on the way resolved), age, and number of
+// names are read from that open handle, and the delete is set on the same handle. The file
+// that was checked is the file that is deleted.
+const SAFE_DELETE_SOURCE = String.raw`
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+public static class DialedSafeDelete {
+  [StructLayout(LayoutKind.Sequential)]
+  struct FileInformation {
+    public uint Attributes;
+    public System.Runtime.InteropServices.ComTypes.FILETIME Created, LastAccess, LastWrite;
+    public uint VolumeSerial, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
+  }
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  static extern uint GetFinalPathNameByHandleW(SafeFileHandle handle, StringBuilder path, uint length, uint flags);
+  [DllImport("kernel32.dll", SetLastError = true)]
+  static extern bool GetFileInformationByHandle(SafeFileHandle handle, out FileInformation info);
+  [DllImport("kernel32.dll", SetLastError = true)]
+  static extern bool SetFileInformationByHandle(SafeFileHandle handle, int infoClass, ref uint info, uint size);
+  [DllImport("kernel32.dll", SetLastError = true)]
+  static extern bool SetFileInformationByHandle(SafeFileHandle handle, int infoClass, ref byte info, uint size);
+
+  const uint DeleteAccess = 0x00010000, ReadAttributes = 0x80, ShareAll = 7, OpenExisting = 3;
+  const uint OpenReparsePoint = 0x00200000, BackupSemantics = 0x02000000;
+
+  static string FinalPath(SafeFileHandle handle) {
+    StringBuilder buffer = new StringBuilder(1024);
+    uint length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Capacity, 0);
+    if (length == 0 || length >= buffer.Capacity) return null;
+    string value = buffer.ToString();
+    if (value.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) return null;
+    return value.StartsWith(@"\\?\") ? value.Substring(4) : value;
+  }
+
+  // The folder's real path, with every link along it resolved.
+  public static string RealFolderPath(string folder) {
+    using (SafeFileHandle handle = CreateFileW(folder, ReadAttributes, ShareAll, IntPtr.Zero, OpenExisting, BackupSemantics, IntPtr.Zero)) {
+      return handle.IsInvalid ? null : FinalPath(handle);
+    }
+  }
+
+  // The file's size once deleted, or -1 when it is refused or Windows declines.
+  public static long DeleteIfOld(string path, string realRoot, long cutoffFileTimeUtc) {
+    using (SafeFileHandle handle = CreateFileW(path, DeleteAccess | ReadAttributes, ShareAll, IntPtr.Zero, OpenExisting, OpenReparsePoint, IntPtr.Zero)) {
+      if (handle.IsInvalid) return -1;
+      FileInformation info;
+      if (!GetFileInformationByHandle(handle, out info)) return -1;
+      if ((info.Attributes & 0x410) != 0) return -1; // a folder, or a link
+      if (info.Links != 1) return -1; // the same file also has a name elsewhere
+      long lastWrite = ((long)(uint)info.LastWrite.dwHighDateTime << 32) | (uint)info.LastWrite.dwLowDateTime;
+      if (lastWrite >= cutoffFileTimeUtc) return -1;
+      string real = FinalPath(handle);
+      if (real == null || !real.StartsWith(realRoot.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) return -1;
+      long size = ((long)info.SizeHigh << 32) | info.SizeLow;
+      uint flags = 0x1 | 0x10; // delete, even when read-only
+      if (!SetFileInformationByHandle(handle, 21, ref flags, 4)) {
+        byte deleteFile = 1;
+        if (!SetFileInformationByHandle(handle, 4, ref deleteFile, 1)) return -1;
+      }
+      return size;
+    }
+  }
+}
+`;
+
 function createTempMaintenancePowerShellScript(deleteEligible = false) {
   return createFileCleanupPowerShellScript({
-    rootsExpression: "@($env:TEMP, (Join-Path $env:WINDIR 'Temp'))",
+    // The user's own temporary folder only. Windows\Temp is left alone: every account on the
+    // PC can write there. Not $env:TEMP, which Dialed points at its admin-only folder.
+    rootsExpression: "@((Join-Path $env:LOCALAPPDATA 'Temp'))",
     maxAgeDays: TEMP_FILE_MAX_AGE_DAYS,
     skipMissingRoots: false,
     deleteEligible,
@@ -80,6 +155,11 @@ function createFileCleanupPowerShellScript({ rootsExpression, maxAgeDays, skipMi
   return `
 $deleteEligible = ${shouldDelete}
 $skipMissingRoots = ${skipMissing}
+if ($deleteEligible) {
+  Add-Type -TypeDefinition @'
+${SAFE_DELETE_SOURCE}
+'@
+}
 $cutoffUtc = (Get-Date).ToUniversalTime().AddDays(-${Number(maxAgeDays)})
 $candidateRoots = ${rootsExpression} | Where-Object { $_ } | Select-Object -Unique
 $roots = New-Object System.Collections.Generic.List[string]
@@ -105,6 +185,14 @@ foreach ($candidateRoot in $candidateRoots) {
 [int]$enumerationErrorCount = 0
 foreach ($root in $roots) {
   $rootPrefix = $root + [IO.Path]::DirectorySeparatorChar
+  if ($deleteEligible) {
+    # A root whose real location is elsewhere, through a link further up, is not cleaned.
+    $realRoot = [DialedSafeDelete]::RealFolderPath($root)
+    if (-not $realRoot -or -not [string]::Equals($realRoot.TrimEnd('\\'), $root, [StringComparison]::OrdinalIgnoreCase)) {
+      $unavailableRootCount++
+      continue
+    }
+  }
   $pending = [System.Collections.Generic.Stack[string]]::new()
   $pending.Push($root)
   while ($pending.Count -gt 0) {
@@ -135,23 +223,10 @@ foreach ($root in $roots) {
         $eligibleCount++
         $eligibleBytes += [int64]$item.Length
         if ($deleteEligible) {
-          try {
-            $current = Get-Item -LiteralPath $fullName -Force -ErrorAction Stop
-            $currentFullName = [IO.Path]::GetFullPath($current.FullName)
-            if ($current.PSIsContainer -or
-                ($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
-                -not $currentFullName.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -or
-                $current.LastWriteTimeUtc -ge $cutoffUtc) {
-              $skippedFileCount++
-              continue
-            }
-            $length = [int64]$current.Length
-            Remove-Item -LiteralPath $currentFullName -Force -ErrorAction Stop
-            $reclaimedBytes += $length
-            $deletedFileCount++
-          } catch {
-            $skippedFileCount++
-          }
+          $length = [DialedSafeDelete]::DeleteIfOld($fullName, $realRoot, $cutoffUtc.ToFileTimeUtc())
+          if ($length -lt 0) { $skippedFileCount++; continue }
+          $reclaimedBytes += $length
+          $deletedFileCount++
         }
       } catch {
         $skippedFileCount++
@@ -178,6 +253,7 @@ foreach ($root in $roots) {
 }
 
 module.exports = {
+  SAFE_DELETE_SOURCE,
   CACHE_CLEANUP_KINDS,
   TEMP_FILE_MAX_AGE_DAYS,
   createCacheCleanupPowerShellScript,

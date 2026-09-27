@@ -96,3 +96,30 @@ test('the live update passes thresholds then speed, as SPI_SETMOUSE expects', as
   assert.match(script, /SystemParametersInfo\(4, 0, \[int\[\]\]@\(6, 10, 1\), 2\)/);
   assert.match(script, /-Name 'MouseSpeed' -PropertyType String -Value '1'/);
 });
+
+test('a full change history refuses a new change before Windows is touched, and still leaves room to undo', async () => {
+  const directory = userData();
+  const fake = fakeMouse(values('1', '6', '10'));
+  const applied = await journal.setMouseAcceleration(directory, false, fake.adapters);
+  const journalFile = path.join(directory, 'journal.json');
+  const padTo = (count) => {
+    const entries = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+    while (entries.length < count) entries.push({ id: `filler-${entries.length}`, actionId: 'fixture', status: 'SUCCESS', rollback: { available: false, reason: '' } });
+    fs.writeFileSync(journalFile, JSON.stringify(entries));
+  };
+  padTo(950);
+
+  const other = fakeMouse(values('1', '6', '10'));
+  await assert.rejects(journal.setMouseAcceleration(directory, false, other.adapters), /change history is full/);
+  assert.deepEqual(other.state.values, values('1', '6', '10'), 'nothing was written');
+  assert.equal(journal.readJournal(directory).length, 950, 'the log is unchanged and still readable');
+
+  const restored = await journal.rollbackAuditEntry(directory, applied.entry.id, fake.adapters);
+  assert.equal(restored.success, true, 'undo still has room');
+  assert.equal(journal.readJournal(directory).length, 951);
+
+  padTo(1000);
+  const again = await journal.setMouseAcceleration(userData(), false, fakeMouse(values('1', '6', '10')).adapters);
+  assert.equal(again.success, true, 'an ordinary log is unaffected');
+  assert.equal(journal.readJournal(directory).length, 1000, 'a log at the reading limit is still readable');
+});

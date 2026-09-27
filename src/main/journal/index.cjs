@@ -234,8 +234,13 @@ function inspectJournalRecovery(userDataPath) {
 function writeJournal(userDataPath, entries) {
   fs.mkdirSync(journalDirectory(userDataPath), { recursive: true });
   const target = journalPath(userDataPath);
+  const serialized = JSON.stringify(entries, null, 2);
+  // Never replace a readable log with one Dialed itself would refuse to read.
+  if (entries.length > MAX_JOURNAL_ENTRIES || Buffer.byteLength(serialized, 'utf8') > MAX_JOURNAL_BYTES) {
+    throw new Error('The change history is full, so this could not be recorded. Delete some completed history in Restore.');
+  }
   const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temporary, JSON.stringify(entries, null, 2), 'utf8');
+  fs.writeFileSync(temporary, serialized, 'utf8');
   fs.renameSync(temporary, target);
 }
 
@@ -677,8 +682,22 @@ function applyJournalDeletion(userDataPath, preview) {
   return { deletedCount: selected.size, retainedCount: retained.length, entries: retained };
 }
 
+// Every change is recorded before Windows is touched, so this is where a full history must
+// refuse: a log past the reading limits cannot be read back, which would strand the change
+// that crossed them as unverified and lock every undo behind a reset. New changes stop short
+// of the limits so that undoing the changes already made always has room.
+const NEW_CHANGE_ENTRY_LIMIT = MAX_JOURNAL_ENTRIES - 50;
+const NEW_CHANGE_BYTE_LIMIT = MAX_JOURNAL_BYTES - 512 * 1024;
+
 function appendEntry(userDataPath, entry) {
   const entries = readJournal(userDataPath);
+  const isUndo = Boolean(entry?.preAction?.originalAuditEntryId);
+  const size = Buffer.byteLength(JSON.stringify([entry, ...entries], null, 2), 'utf8');
+  if (entries.length >= (isUndo ? MAX_JOURNAL_ENTRIES : NEW_CHANGE_ENTRY_LIMIT) || size > (isUndo ? MAX_JOURNAL_BYTES : NEW_CHANGE_BYTE_LIMIT)) {
+    throw new Error(isUndo
+      ? 'Nothing was changed: the change history is full. Delete some completed history in Restore, then undo this again.'
+      : 'Nothing was changed: the change history is full. Delete some completed history in Restore before making another change.');
+  }
   entries.unshift(entry);
   writeJournal(userDataPath, entries);
 }

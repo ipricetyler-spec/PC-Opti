@@ -227,3 +227,46 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
   old name. After adding `refreshKey` to the dependencies: read twice, card shows the new name.
 - `npm test` 796/796, `npm run test:ts` 127/127, lint and build clean, `npm run test:ui:fixtures`
   passes. Not in the installed build.
+
+## 2026-09-27 — Windows systems review fixes (`aa1f437`..`26a7262`)
+
+Reproduced or confirmed before fixing:
+- **Registry key:** `Get-Acl HKLM:\SOFTWARE\Dialed` on the owner's PC (read only): owner
+  `PRICEPC\itach`, which also has FullControl. The key holds only `ProtectedDataRoot`; no startup
+  backups exist under it yet.
+- **History lost from view:** a probe with the real journal module in temp folders showed a log
+  moved to protected folder A reads `[]` once the next start is handed a fresh folder B, and an
+  entry written to per-user data during a failed start is not read on the next normal start.
+- **History limit:** 1,000 entries read; 1,001 throws. `appendEntry` had no limit check.
+- **Module path:** Windows PowerShell 5.1 started with `PSModulePath` removed, or set to system
+  folders only, still lists `OneDrive\Documents\WindowsPowerShell\Modules` first.
+- **Dev URL and consumer-content key:** confirmed from source.
+
+Checked after fixing:
+- The key lock's check (`Test-DialedKeyLocked`) run for real on in-memory security objects: the
+  locked form passes; user full control, user owner, Users write and inheritance each fail. Run on
+  the real key (read only), it reports the current key as not locked, which is correct. The lock
+  itself was **not** applied to this PC: that happens when Dialed next starts as administrator.
+- Dialed's real `runPowerShell`, run with a read-only script: module path is only
+  `System32\WindowsPowerShell\v1.0\Modules` and `Program Files\WindowsPowerShell\Modules`,
+  `Get-ItemProperty` loads from System32, and the process is the System32 `powershell.exe`. The
+  stdin launch form used by Input devices works with the extra first line.
+- The delete helper, compiled with Add-Type and run on scratch files the test creates
+  (`tests/safe-delete.test.cjs`): old and read-only files are deleted; a recent file, a file with a
+  second hard link, a folder, and a file reached through a junction to another folder are refused
+  and still exist.
+- The temp inventory script run for real (read only): one root, the user's temp folder, 1,555
+  eligible files, nothing deleted. The deleting scripts were parsed, not run.
+- Every changed PowerShell script parses with the Windows PowerShell parser.
+- New tests: rename settling by trust (a folder squatted at the vacated old name, a forged marker,
+  a failed put-back), rejected roots, the journal pause, the kept-aside per-user log, the history
+  limit (fails without the fix), registry keys created only when missing (fails without the fix),
+  the packaged dev URL, and the launcher helper through the injectable launchers.
+- `npm test` 809/809, `npm run test:ts` 127/127, lint and build clean, `npm run test:ui:fixtures`
+  passes, including a new check that Restore shows the protected-folder notices with the raw
+  reason behind Details.
+
+Not verified: `Protect-DialedKey` actually changing a key's owner and permissions (it writes the
+registry); the pause and the notices in a running Electron app; `New-Item -Force` wiping an
+existing key on this PC (a registry write); whether a user environment variable can override
+`SystemRoot` for an elevated Dialed. None of this is in the installed build.

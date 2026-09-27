@@ -54,11 +54,48 @@ random name. A folder named plain `Dialed` is never renamed: it may hold the hel
 
 How the rename keeps the change log safe: it is one directory rename on the same drive, so the
 folder is only ever under one name and keeps its own permissions. Before renaming, Dialed records
-its intent in `HKLM\SOFTWARE\Dialed\ProtectedDataRootPending` (administrators only); the next
-start finishes or abandons an interrupted rename by which name exists. The new name is recorded
+its intent in `HKLM\SOFTWARE\Dialed\ProtectedDataRootPending` (the key is locked to administrators
+at every start; see 2026-09-27); the next start finishes or abandons an interrupted rename by which
+folder passes the admin-only checks, not by which name exists. The new name is recorded
 only after the moved folder passes the admin-only checks; otherwise the folder is put back.
 Windows refuses the rename if the name is taken or a file inside is open, and the folder then
 keeps its name.
 
 The rename ships switched off (`RENAME_PROTECTED_FOLDER` in `electron/main.cjs`) until the owner
 approves running it on their own PC.
+
+## 2026-09-27 — Windows systems review: trust boundaries and the change history
+
+From the whole-app Windows systems review. Each finding was reproduced or confirmed before it
+was fixed; the evidence is in `VERIFICATION.md`.
+
+- **`HKLM\SOFTWARE\Dialed` is locked at every start.** The earlier note that only administrators
+  can write it was wrong: on the owner's PC the key was owned by, and fully writable for, the
+  signed-in account, through `HKLM\SOFTWARE`'s CREATOR OWNER entry. Dialed now sets owner
+  Administrators, no inheritance, full control for Administrators and SYSTEM, read for Users, and a
+  read-only OWNER RIGHTS entry so whoever owns a subkey cannot rewrite its permissions. Values found
+  in the key are still only trusted after their own checks.
+- **A protected folder that fails the checks is never used again, and never forgotten.** Its path
+  goes into `ProtectedDataRootRejected`, and Restore says that history is no longer used and where
+  it is. Dialed does not adopt it: it may have been altered.
+- **Once the change log has been protected, a start that cannot open the folder pauses changes and
+  undo** instead of recording in per-user data that the next start would not read. A per-user log
+  left by an older build is kept aside as `journal.recorded-while-unprotected.*.json`, listed in
+  Restore, and never undone from, because any program running as the user could have edited it.
+- **The change history refuses new changes at 950 entries or 4.5 MB**, before touching Windows.
+  Undo may go up to the 1,000-entry and 5 MB reading limits, so existing changes can always be
+  undone.
+- **Every elevated Windows PowerShell** starts from the fixed System32 path, resets its module
+  path to the two system folders as its first statement (Windows PowerShell 5.1 always puts the
+  user's Documents modules first otherwise), and, once the protected folder is open, uses a Temp
+  folder inside it so Add-Type cannot be raced.
+- **File cleanup covers the user's own temp folder only, and deletes through the checked handle.**
+  `Windows\Temp` is left alone because every account can write there. Cleaning refuses when the
+  protected Temp folder is not in use.
+- **A packaged build always loads its own files.** `VITE_DEV_SERVER_URL` is honoured only in a
+  source run, and only for a loopback address.
+- Registry keys are created only when missing; `New-Item -Force` on an existing key replaces it.
+
+Not yet addressed from the same review: running under a different administrator account
+(over-the-shoulder elevation), boot settings on non-English Windows, and the medium and low
+findings. They are listed in the review queue.

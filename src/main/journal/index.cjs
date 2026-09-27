@@ -284,9 +284,16 @@ function writeJournal(userDataPath, entries) {
   if (entries.length > MAX_JOURNAL_ENTRIES || Buffer.byteLength(serialized, 'utf8') > MAX_JOURNAL_BYTES) {
     throw new Error('The change history is full, so this could not be recorded. Delete some completed history in Restore.');
   }
-  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temporary, serialized, 'utf8');
-  fs.renameSync(temporary, target);
+  const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    // Flushed before the rename: after a power cut or a crash the log is either the old one
+    // or the new one, never a renamed file whose contents never reached the disk.
+    const descriptor = fs.openSync(temporary, 'wx', 0o600);
+    try { fs.writeFileSync(descriptor, serialized, 'utf8'); fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+    fs.renameSync(temporary, target);
+  } finally {
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+  }
 }
 
 function snapshotRegularFile(filePath) {

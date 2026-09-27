@@ -35,4 +35,18 @@ function isAllowedAppNavigation(value, trustedEntry) {
   }
 }
 
-module.exports = { isAllowedAppNavigation, normalizeExternalTarget };
+// The window gets the full native bridge, and Dialed always runs as administrator, so the
+// page it loads must not be choosable through a per-user environment variable. A packaged
+// build always loads its own files; a source run may use a dev server on this machine only.
+function developmentEntryUrl({ isPackaged, value }) {
+  if (isPackaged || typeof value !== 'string' || !value) return null;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+    return ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname.toLowerCase()) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { developmentEntryUrl, isAllowedAppNavigation, normalizeExternalTarget };

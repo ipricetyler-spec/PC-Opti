@@ -31,3 +31,14 @@ test('packaged navigation stays on the exact bundled entry file', () => {
   assert.equal(isAllowedAppNavigation('file:///E:/Dialed/resources/app.asar/dist/other.html', trusted), false);
   assert.equal(isAllowedAppNavigation('https://example.com/', trusted), false);
 });
+
+test('a packaged build never loads a page named by the environment, and a source run only a local one', () => {
+  const { developmentEntryUrl } = require('../src/main/navigation/index.cjs');
+  assert.equal(developmentEntryUrl({ isPackaged: true, value: 'http://localhost:5173/' }), null);
+  assert.equal(developmentEntryUrl({ isPackaged: true, value: 'https://example.com/' }), null);
+  assert.equal(developmentEntryUrl({ isPackaged: false, value: 'http://localhost:5173' }), 'http://localhost:5173/');
+  assert.equal(developmentEntryUrl({ isPackaged: false, value: 'http://127.0.0.1:5178/' }), 'http://127.0.0.1:5178/');
+  for (const value of ['https://example.com/', 'file:///C:/evil/index.html', 'http://user:pw@localhost/', 'http://localhost.example.com/', 'not a url', '', undefined]) {
+    assert.equal(developmentEntryUrl({ isPackaged: false, value }), null, String(value));
+  }
+});

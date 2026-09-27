@@ -20,7 +20,7 @@ const { createInputService } = require('../src/main/input-devices/index.cjs');
 const { createInputDriverLifecycleService } = require('../src/main/input-driver-lifecycle/index.cjs');
 const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundled-status.cjs');
 const { readNativeBrokerStatus, createNativeBrokerLauncher } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
-const { isAllowedAppNavigation, normalizeExternalTarget } = require('../src/main/navigation/index.cjs');
+const { developmentEntryUrl, isAllowedAppNavigation, normalizeExternalTarget } = require('../src/main/navigation/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
 const { listGameProfiles, previewGameProfile, applyGameProfile, assertGameClosed } = require('../src/main/game-profiles/index.cjs');
 const {
@@ -470,7 +470,7 @@ function createWindow() {
     },
   });
 
-  const developmentEntry = process.env.VITE_DEV_SERVER_URL;
+  const developmentEntry = developmentEntryUrl({ isPackaged: app.isPackaged, value: process.env.VITE_DEV_SERVER_URL });
   const packagedEntry = path.join(__dirname, '../dist/index.html');
   const trustedEntry = developmentEntry || pathToFileURL(packagedEntry).toString();
   if (developmentEntry) {

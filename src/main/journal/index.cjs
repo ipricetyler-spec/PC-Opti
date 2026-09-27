@@ -1353,7 +1353,7 @@ async function writeConsumerFeaturesPolicy() {
   const { registryPath, valueName } = CONSUMER_FEATURES_POLICY;
   const key = encodePowerShellValue(registryPath);
   const name = encodePowerShellValue(valueName);
-  const script = `& { $keyPath = ${decodeInPowerShell(key)}; $valueName = ${decodeInPowerShell(name)}; New-Item -Path $keyPath -Force -ErrorAction Stop | Out-Null; New-ItemProperty -LiteralPath $keyPath -Name $valueName -PropertyType DWord -Value 1 -Force -ErrorAction Stop | Out-Null; [pscustomobject]@{ registryPath = $keyPath; valueName = $valueName; value = 1; enabled = $true } | ConvertTo-Json -Compress }`;
+  const script = `& { $keyPath = ${decodeInPowerShell(key)}; $valueName = ${decodeInPowerShell(name)}; if (-not (Test-Path -LiteralPath $keyPath)) { New-Item -Path $keyPath -Force -ErrorAction Stop | Out-Null }; New-ItemProperty -LiteralPath $keyPath -Name $valueName -PropertyType DWord -Value 1 -Force -ErrorAction Stop | Out-Null; [pscustomobject]@{ registryPath = $keyPath; valueName = $valueName; value = 1; enabled = $true } | ConvertTo-Json -Compress }`;
   const { stdout, stderr, exitCode } = await runPowerShell(script);
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }
@@ -1367,7 +1367,7 @@ async function restoreConsumerFeaturesPolicy(preAction) {
   const key = encodePowerShellValue(preAction.registryPath);
   const name = encodePowerShellValue(preAction.valueName);
   const script = preAction.valueExists
-    ? `& { $keyPath = ${decodeInPowerShell(key)}; $valueName = ${decodeInPowerShell(name)}; New-Item -Path $keyPath -Force -ErrorAction Stop | Out-Null; New-ItemProperty -LiteralPath $keyPath -Name $valueName -PropertyType DWord -Value ${Number(preAction.value)} -Force -ErrorAction Stop | Out-Null; [pscustomobject]@{ registryPath = $keyPath; valueName = $valueName; value = ${Number(preAction.value)}; restored = $true } | ConvertTo-Json -Compress }`
+    ? `& { $keyPath = ${decodeInPowerShell(key)}; $valueName = ${decodeInPowerShell(name)}; if (-not (Test-Path -LiteralPath $keyPath)) { New-Item -Path $keyPath -Force -ErrorAction Stop | Out-Null }; New-ItemProperty -LiteralPath $keyPath -Name $valueName -PropertyType DWord -Value ${Number(preAction.value)} -Force -ErrorAction Stop | Out-Null; [pscustomobject]@{ registryPath = $keyPath; valueName = $valueName; value = ${Number(preAction.value)}; restored = $true } | ConvertTo-Json -Compress }`
     : `& { $keyPath = ${decodeInPowerShell(key)}; $valueName = ${decodeInPowerShell(name)}; if (Test-Path -LiteralPath $keyPath) { Remove-ItemProperty -LiteralPath $keyPath -Name $valueName -ErrorAction SilentlyContinue }; [pscustomobject]@{ registryPath = $keyPath; valueName = $valueName; value = $null; restored = $true } | ConvertTo-Json -Compress }`;
   const { stdout, stderr, exitCode } = await runPowerShell(script);
   const verified = await readConsumerFeaturesPolicy();

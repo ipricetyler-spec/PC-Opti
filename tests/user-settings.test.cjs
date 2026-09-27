@@ -233,3 +233,21 @@ test('background recording is reported as blocked while the Game DVR policy swit
   const main = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
   assert.match(main, /const blocked = await blockingPolicyReason\(settingId\)\.catch\(\(\) => null\);\s*if \(blocked\) throw new Error/);
 });
+
+test('global timer resolution is not offered on Windows 10, and an unknown build blocks nothing', async () => {
+  const settings = require('../src/main/user-settings/index.cjs');
+  const timer = settings.USER_SETTINGS['global-timer-resolution'];
+  assert.deepEqual(settings.buildSupport(timer, 19045), { supported: false, reason: 'Windows 10 does not have this setting, so turning it on would do nothing. It needs Windows 11.' });
+  assert.equal(settings.buildSupport(timer, 22000).supported, true);
+  assert.equal(settings.buildSupport(timer, 26100).supported, true);
+  assert.equal(settings.buildSupport(timer, null).supported, true, 'unknown is not refused');
+  assert.equal(settings.buildSupport(settings.USER_SETTINGS['game-mode'], 19045).supported, true, 'settings without a minimum are unaffected');
+  assert.equal(await settings.readWindowsBuild(async (script) => { assert.ok(script.includes(String.raw`'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuild`), script); return { stdout: '26100\r\n' }; }), 26100);
+  assert.equal(await settings.readWindowsBuild(async () => ({ stdout: 'garbage' })), null);
+});
+
+test('the main process hides and refuses a setting this Windows build does not read', () => {
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
+  assert.match(main, /const byBuild = buildSupport\(setting, await windowsBuild\(\)\);\s*if \(!byBuild\.supported\) \{ states\[settingId\] = \{ enabled: null, manageable: false, unsupported: byBuild\.reason \}; continue; \}/);
+  assert.match(main, /if \(enabled && !byBuild\.supported\) throw new Error/);
+});

@@ -78,6 +78,9 @@ const USER_SETTINGS = Object.freeze({
     offValue: null,
     absentMeans: false,
     restartRequired: true,
+    // The value first exists in Windows 11 (build 22000); Windows 10 does not read it.
+    minimumBuild: 22000,
+    minimumBuildReason: 'Windows 10 does not have this setting, so turning it on would do nothing. It needs Windows 11.',
   }),
   'block-background-apps': Object.freeze({
     capabilityId: 'policy:block-background-apps',
@@ -256,6 +259,20 @@ function editionSupport(editions, family) {
   return { supported: false, reason: `${EDITION_LABELS[family] || 'This Windows edition'} ignores this policy. Microsoft documents it for ${names} only, so Dialed does not offer it here.` };
 }
 
+/**
+ * Whether this Windows build reads the setting. An unknown build is not blocked, as with editions.
+ */
+function buildSupport(setting, build) {
+  if (!setting?.minimumBuild || !Number.isInteger(build) || build >= setting.minimumBuild) return { supported: true, reason: null };
+  return { supported: false, reason: setting.minimumBuildReason };
+}
+
+async function readWindowsBuild(run = runPowerShell) {
+  const { stdout } = await run("& { [string](Get-ItemProperty -LiteralPath 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name CurrentBuild -ErrorAction Stop).CurrentBuild }");
+  const build = Number.parseInt(String(stdout || '').trim(), 10);
+  return Number.isInteger(build) && build > 0 ? build : null;
+}
+
 async function readWindowsEdition(run = runPowerShell) {
   const { stdout } = await run("& { [string](Get-ItemProperty -LiteralPath 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID }");
   const editionId = String(stdout || '').trim().slice(0, 64);
@@ -303,6 +320,8 @@ module.exports = {
   USER_SETTINGS,
   applyUserSettingValue,
   blockingPolicyReason,
+  buildSupport,
+  readWindowsBuild,
   differsFromWindowsDefault,
   unsupportedReasonFor,
   editionFamily,

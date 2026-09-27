@@ -56,7 +56,7 @@ const {
   readBenchmarks,
 } = require('../src/main/benchmarks/index.cjs');
 const { listPowerPlans } = require('../src/main/power-plans/index.cjs');
-const { USER_SETTINGS, blockingPolicyReason, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
+const { USER_SETTINGS, blockingPolicyReason, buildSupport, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsBuild, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
 
 // Microsoft documents the consumer-experience policy for Enterprise and Education only.
 const CONSUMER_FEATURES_EDITIONS = Object.freeze(['enterprise', 'education']);
@@ -65,6 +65,12 @@ function windowsEdition() {
   // Read once per run; a failed read is treated as unknown, which never blocks.
   windowsEditionPromise ||= readWindowsEdition().catch(() => ({ editionId: '', family: 'unknown' }));
   return windowsEditionPromise;
+}
+let windowsBuildPromise = null;
+function windowsBuild() {
+  // Read once per run; a failed read is treated as unknown, which never blocks.
+  windowsBuildPromise ||= readWindowsBuild().catch(() => null);
+  return windowsBuildPromise;
 }
 async function assertEditionSupports(editions) {
   const { family } = await windowsEdition();
@@ -965,6 +971,8 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
       states[settingId] = { enabled: null, manageable: false, unsupported: unsupportedReasonFor(settingId, family, support.reason), leftover };
       continue;
     }
+    const byBuild = buildSupport(setting, await windowsBuild());
+    if (!byBuild.supported) { states[settingId] = { enabled: null, manageable: false, unsupported: byBuild.reason }; continue; }
     const blocked = await blockingPolicyReason(settingId).catch(() => null);
     if (blocked) { states[settingId] = { enabled: null, manageable: false, unsupported: blocked }; continue; }
     try {
@@ -1056,6 +1064,8 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
   // Enabling a policy this edition ignores would record a change that does nothing.
   // Turning one off (removing the value) stays allowed, so leftovers can be cleaned up.
   if (enabled) await assertEditionSupports(USER_SETTINGS[settingId].editions);
+  const byBuild = buildSupport(USER_SETTINGS[settingId], await windowsBuild());
+  if (enabled && !byBuild.supported) throw new Error(`${byBuild.reason} Nothing was changed.`);
   // A setting overridden by a policy would record a change that does nothing.
   const blocked = await blockingPolicyReason(settingId).catch(() => null);
   if (blocked) throw new Error(`${blocked} Nothing was changed.`);

@@ -21,6 +21,7 @@ const { createInputDriverLifecycleService } = require('../src/main/input-driver-
 const { readBundledStatus } = require('../src/main/input-driver-lifecycle/bundled-status.cjs');
 const { readNativeBrokerStatus, createNativeBrokerLauncher } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 const { usePowerShellTempDirectory } = require('../src/main/shared/windows-powershell-env.cjs');
+const { accountMismatchMessage, assertPerUserCapabilityAllowed, readSessionIdentity } = require('../src/main/session-user/index.cjs');
 const { developmentEntryUrl, isAllowedAppNavigation, normalizeExternalTarget } = require('../src/main/navigation/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
 const { listGameProfiles, previewGameProfile, applyGameProfile, assertGameClosed } = require('../src/main/game-profiles/index.cjs');
@@ -171,6 +172,19 @@ let protectedDataStatus = null;
 // Off until the owner has approved running it on their own PC; an unfinished rename is settled
 // either way.
 const RENAME_PROTECTED_FOLDER = false;
+// Which account Dialed runs as, compared with the one signed in. Null until read, or when it
+// could not be read; then nothing is refused on its account.
+let sessionIdentity = null;
+async function prepareSessionIdentity() {
+  if (process.platform !== 'win32') return;
+  try {
+    sessionIdentity = await readSessionIdentity();
+    if (sessionIdentity.sameUser === false) console.warn(`Dialed runs as ${sessionIdentity.processName}, but ${sessionIdentity.sessionName} is signed in; per-user changes are refused.`);
+  } catch (error) {
+    console.warn(`Could not compare the Windows accounts: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function prepareProtectedData() {
   if (process.platform !== 'win32') return;
   try {
@@ -396,7 +410,9 @@ function resolveRuntimeProfileForApp() {
 }
 
 function assertCapabilityAvailable(capabilityId) {
-  return requireCapability(capabilityId, resolveRuntimeProfileForApp());
+  const capability = requireCapability(capabilityId, resolveRuntimeProfileForApp());
+  assertPerUserCapabilityAllowed(capabilityId, sessionIdentity);
+  return capability;
 }
 
 function runtimeProfileState() {
@@ -404,6 +420,7 @@ function runtimeProfileState() {
   return {
     profile,
     capabilities: listCapabilities(profile),
+    accountMismatch: sessionIdentity?.sameUser === false ? accountMismatchMessage(sessionIdentity) : null,
   };
 }
 
@@ -1396,7 +1413,7 @@ ipcMain.handle('pc-opti:rollback-audit-entry', async (_event, entryId) => {
 
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
   // Before any window can read or write the change log.
-  await prepareProtectedData();
+  await Promise.all([prepareProtectedData(), prepareSessionIdentity()]);
   createWindow();
 
   app.on('activate', () => {

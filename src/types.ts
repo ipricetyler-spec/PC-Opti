@@ -835,6 +835,8 @@ export interface RuntimeProfileState {
   profile: 'public' | 'consumer-premium' | 'owner';
   capabilities: CapabilityRecord[];
   license?: ConsumerLicenseState;
+  /** Set when Dialed runs as a different account from the one signed in. */
+  accountMismatch?: string | null;
 }
 
 export interface MaintenanceAction {

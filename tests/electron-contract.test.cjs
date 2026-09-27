@@ -26,6 +26,7 @@ function harness(displays = []) {
   const modules = {
     '../src/main/acceptance-user-data/index.cjs':{configureAcceptanceUserDataPath:()=>{}},
     '../src/main/shared/preview-store.cjs':require('../src/main/shared/preview-store.cjs'),
+    '../src/main/session-user/index.cjs':require('../src/main/session-user/index.cjs'),
     '../src/main/capabilities/index.cjs':{resolveRuntimeProfile:()=> 'public',requireCapability:()=>{},listCapabilities:()=>[]},
     '../src/main/scanner/index.cjs':{listManageableProcesses:async()=>({items:[{...observed}],errors:[]})},
     '../src/main/journal/index.cjs':{enableProcessEcoQos:async(_directory,selected)=>{mutations.push(selected);return {success:true};}},

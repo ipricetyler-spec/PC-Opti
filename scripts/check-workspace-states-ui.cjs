@@ -37,7 +37,7 @@ async function main() {
       }));
       // Every method is a closed in-memory adapter; unavailable methods cannot fall back to the host.
       window.pcOptiNative = {
-        getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
+        getRuntimeProfile: async () => ({ profile: 'public', capabilities, accountMismatch: 'Dialed is running as a different Windows account (FIXTURE\\admin) from the one signed in (FIXTURE\\player), because another account\'s administrator password was used to start it. Settings for the signed-in account cannot be changed this way. Sign in to an administrator account, or ask its owner to make the change.' }), listCapabilities: async () => capabilities,
         getAuditHistory: async () => ({ entries, recovery: null, protection: { notices: [{ title: 'An earlier change history is no longer used.', body: "The folder C:\\ProgramData\\Dialed-0123456789ab failed Dialed's admin-only checks, so something other than Dialed may have changed it. Changes recorded there cannot be undone from Dialed. The folder was left as it was.", detail: null }, { title: 'Your change history is in your user folder this time.', body: 'Dialed could not open its protected folder, so other programs running as you could change this history.', detail: 'Fixture detail: the folder script timed out.' }] } }),
         listStartupItems: rows, listSafePolicies: rows, listTimingExperiments: rows,
         listManageableProcesses: async () => {
@@ -89,6 +89,8 @@ async function main() {
       await page.evaluate(() => { document.documentElement.style.zoom = ''; });
     }
     await openFixture(page, origin);
+    await page.getByRole('alert').filter({ hasText: 'running as a different Windows account (FIXTURE\\admin)' }).waitFor();
+    report.checks.push({ state: 'A different administrator account is named above every section', passed: true });
     const search = page.getByRole('searchbox', { name: 'Find a section' });
     // "polling" is a keyword alias of Input devices and matches no tweak, so Enter has exactly
     // one place to go. ("controller" now also finds the USB selective suspend tweak.)

@@ -190,3 +190,20 @@ Real-PC checks are read-only unless the owner explicitly approves a change. Deta
 - Not verified, and not run: the rename on this PC, the registry commands against real HKLM, and
   that Windows keeps the folder's protected permissions across the rename (reasoned; the moved
   folder is re-checked by the admin-only checks before its new name is recorded).
+
+## 2026-09-26 — signed build of `7a33a94` installed
+
+- First package refused by `npm run candidate:verify`: the native helpers had been built on
+  2026-09-20, before two changes to `usb-native.cs`, which the helper compiles in. Cause: only the
+  `electron-builder` step was run. Rebuilt with `build:hidusbf-native`, `build`, `sbom` and
+  `license:inventory` first, then the signed `electron-builder --win nsis`.
+- Second package: verifier `SIGNED_INSTALLER_CANDIDATE`; installer `Valid`, CN=Tyler Price,
+  timestamped; SHA-256 `C2E507E90B918C7A9DBF66F7030635FEEF400E62E0A61CADD8A7503B470E114B`. The
+  packaged `app.asar` contains the section chunks, the Saved tests link, the new faint colour and
+  `RENAME_PROTECTED_FOLDER = false`.
+- Installed per-machine over the 2026-09-20 build (same version 2.8.0); installer exit 0.
+  Installed `app.asar` is byte-identical to the verified candidate. `Dialed.exe`, the uninstaller
+  and `Dialed.HidusbfHost.exe` are `Valid`, CN=Tyler Price. No Code Integrity block or audit event
+  mentioning Dialed in the 30 minutes around the install. The protected folder was not renamed.
+- Not verified: behaviour of the installed app beyond starting (it was running afterwards); the
+  update-feed `release:*` steps were not run because there is no feed.

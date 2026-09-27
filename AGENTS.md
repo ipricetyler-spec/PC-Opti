@@ -66,6 +66,9 @@ modify, uninstall, decompile or copy it.
 - **Leave `dialed.update.publisherThumbprint` empty.** Azure Trusted Signing rotates certificates
   every few days; the expected thumbprint travels per release inside the Ed25519-signed update
   manifest. Pinning one thumbprint would make Dialed refuse every future update.
+- **Packaging is more than `electron-builder`.** Rebuild the native helpers, renderer, SBOM and
+  license inventory first, and install only what `npm run candidate:verify -- dist-electron`
+  accepts. The full order is in `docs/RELEASE_PACKAGING_CHECKLIST.md`.
 - **Signing needs `DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS=SharedTokenCacheCredential`**, the
   Azure CLI on PATH in Windows form, and the right tenant. The full recipe is in
   `docs/RELEASE_PACKAGING_CHECKLIST.md`. Without it, signing fails with errors that point nowhere

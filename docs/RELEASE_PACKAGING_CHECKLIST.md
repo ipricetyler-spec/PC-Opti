@@ -25,8 +25,18 @@ $env:DIALED_ARTIFACT_SIGNING_ENDPOINT = "https://eus.codesigning.azure.net/"
 $env:DIALED_ARTIFACT_SIGNING_ACCOUNT = "gpcownersign260808"
 $env:DIALED_ARTIFACT_SIGNING_PROFILE = "gpc-owner-beta-publictrust"
 $env:DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS = "SharedTokenCacheCredential"
+npm run build:hidusbf-native
+npm run build
+npm run sbom
+npm run license:inventory
 npx --no-install electron-builder --win nsis
+npm run candidate:verify -- dist-electron
 ```
+
+`electron-builder` alone packages whatever native helpers and renderer were built last. On
+2026-09-26 that shipped helpers compiled before two changes to `usb-native.cs`, and the verifier
+refused the package ("Native source changed after build"). Install only a candidate the verifier
+reports as `SIGNED_INSTALLER_CANDIDATE`.
 
 Three things that cost an hour and will again if forgotten:
 

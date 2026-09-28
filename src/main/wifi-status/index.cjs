@@ -63,6 +63,14 @@ async function readWifiStatus(run = runPowerShell) {
     return { collectedAt: new Date().toISOString(), status: 'UNAVAILABLE', reason: error instanceof Error ? error.message.slice(0, 240) : 'Wi-Fi status could not be read.', interfaces: [] };
   }
   const interfaces = parseWifiInterfaces(stdout).map((item) => ({ ...item, signalQuality: classifySignal(item.signalPercent) }));
+  // Since Windows 11 24H2, netsh answers with a location-permission notice instead of the
+  // interface list while Location is off. It carries the ms-settings link in any language.
+  if (interfaces.length === 0 && /ms-settings:privacy-location|location permission/i.test(stdout)) {
+    return { collectedAt: new Date().toISOString(), status: 'UNAVAILABLE', reason: 'Windows only shares Wi-Fi details with apps while Location is on. Turn on Location services in Settings › Privacy & security › Location, then check again. Dialed does not change this setting.', interfaces: [] };
+  }
+  if (interfaces.length === 0 && /There is no wireless interface on the system/i.test(stdout)) {
+    return { collectedAt: new Date().toISOString(), status: 'NO_WIFI', reason: 'This PC has no Wi-Fi adapter.', interfaces: [] };
+  }
   if (interfaces.length === 0) {
     return { collectedAt: new Date().toISOString(), status: 'NO_WIFI', reason: 'Windows reported no Wi-Fi interface, or its output is in a language Dialed cannot read yet.', interfaces: [] };
   }

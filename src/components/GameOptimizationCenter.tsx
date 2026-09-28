@@ -10,9 +10,10 @@ interface Props {
   onBusyChange: (busy: boolean) => void;
   onBackupCreated: (backup: GameConfigBackup) => void;
   onRestore: (backupId: string) => void;
+  onUndoProfile?: (backupId: string) => void;
 }
 
-export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBusyChange, onBackupCreated, onRestore }: Props) {
+export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBusyChange, onBackupCreated, onRestore, onUndoProfile }: Props) {
   const [profiles, setProfiles] = useState<GameOptimizationProfile[]>([]);
   const [preview, setPreview] = useState<GameOptimizationPreview | null>(null);
   const [result, setResult] = useState<GameOptimizationResult | null>(null);
@@ -84,7 +85,7 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
     {progress ? <p role="status" className="mt-3 text-xs text-cyan-200">{progress}</p> : null}
     {restoreStatus ? <p role="status" className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-950/15 p-3 text-xs text-cyan-100/80">{restoreStatus}</p> : null}
     {restoreError ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={restoreError} /></p> : null}
-    {result ? <div className="mt-4 rounded-xl border border-emerald-400/20 bg-slate-950/60 p-4"><h3 className="flex items-center gap-2 text-sm font-bold text-emerald-300"><Check className="h-4 w-4" />Applied and checked</h3><ol aria-label="Profile operation log" className="mt-3 space-y-1 text-xs text-slate-300">{result.log.map((line, index) => <li key={index}>{index + 1}. {line}</li>)}</ol><p className="mt-3 text-[11px] text-slate-500">Backup: {result.backup.backupId}<br />Backup: {result.recoveryPath}</p><button type="button" disabled={busy} onClick={() => onRestore(result.backup.backupId)} className={`${buttonClass} mt-3`}><ArchiveRestore className="h-3.5 w-3.5" />Restore this backup</button></div> : null}
+    {result ? <div className="mt-4 rounded-xl border border-emerald-400/20 bg-slate-950/60 p-4"><h3 className="flex items-center gap-2 text-sm font-bold text-emerald-300"><Check className="h-4 w-4" />Applied and checked</h3><ol aria-label="Profile operation log" className="mt-3 space-y-1 text-xs text-slate-300">{result.log.map((line, index) => <li key={index}>{index + 1}. {line}</li>)}</ol><p className="mt-3 text-[11px] text-slate-500">Backup: {result.backup.backupId}<br />Backup: {result.recoveryPath}</p><button type="button" disabled={busy} onClick={() => (onUndoProfile ?? onRestore)(result.backup.backupId)} className={`${buttonClass} mt-3`}><ArchiveRestore className="h-3.5 w-3.5" />{onUndoProfile ? 'Undo these settings' : 'Restore this backup'}</button></div> : null}
     {error ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={error} /></p> : null}
   </section>;
 }

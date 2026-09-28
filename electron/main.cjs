@@ -24,7 +24,7 @@ const { usePowerShellTempDirectory } = require('../src/main/shared/windows-power
 const { accountMismatchMessage, assertPerUserCapabilityAllowed, readSessionIdentity } = require('../src/main/session-user/index.cjs');
 const { developmentEntryUrl, isAllowedAppNavigation, normalizeExternalTarget } = require('../src/main/navigation/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
-const { listGameProfiles, previewGameProfile, applyGameProfile, assertGameClosed } = require('../src/main/game-profiles/index.cjs');
+const { listGameProfiles, previewGameProfile, applyGameProfile, assertGameClosed, readProfileRecord, previewGameProfileUndo, applyGameProfileUndo } = require('../src/main/game-profiles/index.cjs');
 const {
   applyGameConfigRestore,
   createGameConfigBackup,
@@ -279,6 +279,7 @@ function verifiedUpdater() {
   return verifiedUpdaterService;
 }
 const gameProfilePreviews = createPreviewStore();
+const gameProfileUndoPreviews = createPreviewStore();
 ipcMain.handle('pc-opti:scan-input-devices', () => {
   assertCapabilityAvailable('input:usb-advisor');
   return inputDevices().scan();
@@ -848,7 +849,32 @@ ipcMain.handle('pc-opti:apply-game-profile', async (_event, token) => {
 
 ipcMain.handle('pc-opti:list-game-config-backups', async () => {
   assertCapabilityAvailable('game:config-backup');
-  return listGameConfigBackups(app.getPath('userData'));
+  const backups = listGameConfigBackups(app.getPath('userData'));
+  // A backup made by a profile can also be undone key by key, keeping what the game wrote since.
+  return backups.map((backup) => {
+    let record = null;
+    try { record = readProfileRecord(app.getPath('userData'), backup.backupId); } catch { record = null; }
+    return { ...backup, profileUndo: record ? { available: !record.undone, game: record.profile.game, keys: record.changes.map((change) => change.key) } : null };
+  });
+});
+
+ipcMain.handle('pc-opti:preview-game-profile-undo', async (_event, backupId) => {
+  assertCapabilityAvailable('game:reviewed-profile');
+  assertShortString(backupId, 'Game-config backup id', /^[0-9a-f-]{36}$/i);
+  gameProfileUndoPreviews.clear();
+  const preview = await previewGameProfileUndo(app.getPath('userData'), backupId, gameProfileRoots());
+  const pending = gameProfileUndoPreviews.issue(preview);
+  return { ...preview, token: pending.token };
+});
+
+ipcMain.handle('pc-opti:apply-game-profile-undo', async (_event, token) => {
+  assertCapabilityAvailable('game:reviewed-profile');
+  assertShortString(token, 'Game profile undo token', /^[0-9a-f-]{36}$/i);
+  const pending = gameProfileUndoPreviews.take(token);
+  return serializeMutation(() => {
+    gameProfileUndoPreviews.assertFresh(pending);
+    return applyGameProfileUndo(app.getPath('userData'), pending.preview, gameProfileRoots());
+  });
 });
 
 ipcMain.handle('pc-opti:create-game-config-backup', async (_event, gameId) => {

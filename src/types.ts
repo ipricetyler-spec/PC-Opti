@@ -408,6 +408,17 @@ export interface GameConfigBackup {
   createdAt: string;
   totalBytes: number;
   files: Array<{ name: string; sourcePath: string; bytes: number; sha256: string }>;
+  /** Set when a game profile made this backup: its keys can be undone one by one. */
+  profileUndo?: { available: boolean; game: string; keys: string[] } | null;
+}
+
+export interface GameProfileUndoPreview {
+  token: string;
+  backupId: string;
+  profileId: string;
+  game: string;
+  sourcePath: string;
+  changes: Array<{ section: string; key: string; before: string; after: string }>;
 }
 
 export interface GameConfigRestorePreview {

@@ -506,6 +506,35 @@ export default function App() {
     }
   };
 
+  // Puts back only the keys a profile changed, keeping anything the game wrote since.
+  const undoGameProfile = async (backupId: string) => {
+    if (!window.pcOptiNative || isGameConfigBusy) return;
+    setIsGameConfigBusy(true);
+    setGameConfigError(null);
+    setGameConfigStatus(null);
+    try {
+      const preview = await window.pcOptiNative.previewGameProfileUndo(backupId);
+      const confirmed = await confirmAction({
+        title: `Undo the ${preview.game} profile settings?`,
+        description: `${preview.changes.length} setting${preview.changes.length === 1 ? '' : 's'} go back to what ${preview.changes.length === 1 ? 'it was' : 'they were'} before the profile. Everything else in the file stays as it is now, including changes made in the game.`,
+        details: preview.changes.map((change) => `• ${change.key}: ${change.before} → ${change.after}`).join('\n'),
+        notice: 'Close the game and its launcher first. Dialed rechecks the file before writing and verifies it afterwards.',
+        confirmLabel: 'Undo settings',
+      });
+      if (!confirmed) {
+        setGameConfigStatus('Undo canceled. No game settings file was changed.');
+        return;
+      }
+      const result = await window.pcOptiNative.applyGameProfileUndo(preview.token);
+      setGameConfigBackups(await window.pcOptiNative.listGameConfigBackups());
+      setGameConfigStatus(`Put back ${result.changedCount} setting${result.changedCount === 1 ? '' : 's'} and checked the file.`);
+    } catch (error) {
+      setGameConfigError(error instanceof Error ? error.message : 'The profile settings could not be undone.');
+    } finally {
+      setIsGameConfigBusy(false);
+    }
+  };
+
   const restoreGameConfigBackup = async (backupId: string) => {
     if (!window.pcOptiNative || isGameConfigBusy) return;
     setIsGameConfigBusy(true);
@@ -1451,7 +1480,7 @@ export default function App() {
     {activeTab === 'performance-lab' && measureView === 'results' && <details open={savedTestsOpen || undefined} onToggle={(event) => setSavedTestsOpen(event.currentTarget.open)} className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><summary className="cursor-pointer text-sm font-semibold text-slate-100">Saved tests: notes, decisions, export and import</summary><div className="mt-4"><ExperimentSessions history={history} evidence={benchmarkEvidence} onNavigate={(destination, evidenceId) => { if (destination === 'history') { setFocusedAuditId(evidenceId || null); setVerifyView('history'); setActiveTab('drift'); } else if (destination === 'measure') { setActiveTab('performance-lab'); } else { setOptimizeView('recommended'); setActiveTab('startup'); } }} onCompare={openComparison} /></div></details>}
     {activeTab === 'network-quality' && <Suspense fallback={<p className="text-sm text-slate-400">Loading connection tools…</p>}><NetworkQualityLab snapshot={snapshot} onOpenScan={() => setActiveTab('overview')} /></Suspense>}
     </TabPanel>}
-    {activeTab === 'game-settings' && <><TabRow<typeof gameView> ariaLabel="Game categories" items={([['detected', 'Detected'], ['profiles', 'Profiles'], ['guides', 'Guides'], ['backups', 'Backups'], ['display', 'Display setup']] as const).map(([id, label]) => ({ id, label }))} value={gameView} onChange={setGameView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" /><TabPanel ariaLabel="Game categories" value={gameView}>{gameView === 'display' && <><DisplaySetupGuide onOpenMeasure={() => { setMeasureView('test'); setActiveTab('performance-lab'); }} onTest={(prefill) => openTest(prefill)} snapshot={snapshot} discovery={installedGameDiscovery} /></>}{gameView === 'profiles' && capabilityIds.has('game:reviewed-profile') && <Suspense fallback={<p className="text-sm text-slate-400">Loading game profiles…</p>}><GameOptimizationCenter busy={isGameConfigBusy} restoreStatus={gameConfigStatus} restoreError={gameConfigError} onBusyChange={setIsGameConfigBusy} onBackupCreated={(backup) => setGameConfigBackups((items) => [backup, ...items.filter((item) => item.backupId !== backup.backupId)])} onRestore={restoreGameConfigBackup} /></Suspense>}{gameView === 'detected' && <GameConfigCenter mode="discovery" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} />}{gameView === 'guides' && <GameSettingsCenter guides={gameSettingsGuides} loading={isGameSettingsLoading} error={gameSettingsError} onRefresh={loadGameSettingsGuides} />}{gameView === 'backups' && <GameConfigCenter mode="backups" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} />}</TabPanel></>}
+    {activeTab === 'game-settings' && <><TabRow<typeof gameView> ariaLabel="Game categories" items={([['detected', 'Detected'], ['profiles', 'Profiles'], ['guides', 'Guides'], ['backups', 'Backups'], ['display', 'Display setup']] as const).map(([id, label]) => ({ id, label }))} value={gameView} onChange={setGameView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" /><TabPanel ariaLabel="Game categories" value={gameView}>{gameView === 'display' && <><DisplaySetupGuide onOpenMeasure={() => { setMeasureView('test'); setActiveTab('performance-lab'); }} onTest={(prefill) => openTest(prefill)} snapshot={snapshot} discovery={installedGameDiscovery} /></>}{gameView === 'profiles' && capabilityIds.has('game:reviewed-profile') && <Suspense fallback={<p className="text-sm text-slate-400">Loading game profiles…</p>}><GameOptimizationCenter busy={isGameConfigBusy} restoreStatus={gameConfigStatus} restoreError={gameConfigError} onBusyChange={setIsGameConfigBusy} onBackupCreated={(backup) => setGameConfigBackups((items) => [backup, ...items.filter((item) => item.backupId !== backup.backupId)])} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} /></Suspense>}{gameView === 'detected' && <GameConfigCenter mode="discovery" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} />}{gameView === 'guides' && <GameSettingsCenter guides={gameSettingsGuides} loading={isGameSettingsLoading} error={gameSettingsError} onRefresh={loadGameSettingsGuides} />}{gameView === 'backups' && <GameConfigCenter mode="backups" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} />}</TabPanel></>}
     {activeTab === 'gpu' && <TweaksOverview heading={{ title: 'GPU', intro: 'Graphics card settings in Windows, with what each one does and when to leave it alone. The machine-wide settings need Dialed running as administrator and a restart; every change is confirmed, checked afterwards and can be undone.' }} cards={tweakCards.filter((card) => card.definition.id === 'gpu-scheduling' || card.definition.id === 'mpo' || card.definition.id === 'windowed-games')} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
     {activeTab === 'gpu' && capabilityIds.has('graphics:per-app-gpu-preference') && <div className="mt-8"><GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} /></div>}
     {activeTab === 'gpu' && capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}

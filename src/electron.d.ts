@@ -71,6 +71,8 @@ declare global {
       listGameProfiles: () => Promise<import('./types').GameOptimizationProfile[]>;
       previewGameProfile: (profileId: string) => Promise<import('./types').GameOptimizationPreview>;
       applyGameProfile: (token: string) => Promise<import('./types').GameOptimizationResult>;
+      previewGameProfileUndo: (backupId: string) => Promise<import('./types').GameProfileUndoPreview>;
+      applyGameProfileUndo: (token: string) => Promise<{ backupId: string; undoneAt: string; changedCount: number; status: 'FILE_VERIFIED' }>;
       discoverInstalledGames: () => Promise<InstalledGameDiscovery>;
       listGameConfigBackups: () => Promise<GameConfigBackup[]>;
       createGameConfigBackup: (gameId: string) => Promise<{ canceled: boolean; backup?: GameConfigBackup }>;

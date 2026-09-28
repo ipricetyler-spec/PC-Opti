@@ -37,6 +37,7 @@ async function main() {
   const closed = { listProcessNames: async () => ['System', 'FixtureOnly'] };
   const store = createPreviewStore();
   const restoreStore = createPreviewStore();
+  const undoStore = createPreviewStore();
   const calls = [];
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   // Game-config backups and restores are confined to the user's own profile folders, read
@@ -60,6 +61,11 @@ async function main() {
         if (mode === 'stale') fs.appendFileSync(source, '; fixture external edit\r\n');
         return profiles.applyGameProfile(userData, pending.preview, roots, closed);
       }
+      if (method === 'undo-preview') {
+        const pending = undoStore.issue(await profiles.previewGameProfileUndo(userData, id, roots, closed));
+        return { ...pending.preview, token: pending.token };
+      }
+      if (method === 'undo') return profiles.applyGameProfileUndo(userData, undoStore.take(id).preview, roots, closed);
       throw new Error('Unknown fixture method');
     });
     // Restore uses its own explicit binding so the real preview remains private.
@@ -96,6 +102,7 @@ async function main() {
         listStartupItems: rows, listManageableProcesses: rows, listSafePolicies: rows, listTimingExperiments: rows,
         listGameSettingsGuides: async () => guides, listGameProfiles: () => call('list'),
         previewGameProfile: (id) => call('preview', id), applyGameProfile: (token) => call('apply', token),
+        previewGameProfileUndo: (id) => call('undo-preview', id), applyGameProfileUndo: (token) => call('undo', token),
         listGameConfigBackups: () => call('backups'), discoverInstalledGames: async () => ({ scannedAt: new Date().toISOString(), games: [], limitations: 'Fixture-only inventory.' }),
         previewGameConfigRestore: (id) => window.__restoreFixture(id, false), applyGameConfigRestore: (token) => window.__restoreFixture(token, true),
         getNetworkProbeInfo: async () => ([{ id:'cloudflare-warmed-http-v2-quick',mode:'quick',methodVersion:'warmed-https-v2',title:'Fixture only',url:'https://example.com',requests:22,idleRequests:9,loadedRequestsPerDirection:5,maximumDownloadBytes:100,maximumUploadBytes:100,maximumTotalBytes:200,maximumDurationSeconds:60,maximumParallelConnections:6,privacy:'Fixture only.' }]),
@@ -141,12 +148,16 @@ async function main() {
     await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     assert.equal(calls.filter((name) => name === 'apply').length, 1);
     assert.equal(await section.getByRole('list', { name: 'Profile operation log' }).locator('li').count(), 5);
-    await section.getByRole('button', { name: 'Restore this backup' }).click();
-    // Restoring asks first, in Dialed's own dialog; nothing is written until it is confirmed.
-    assert.equal(calls.filter((name) => name === 'restore').length, 0);
-    await page.getByRole('dialog').getByRole('button', { name: 'Restore files', exact: true }).click();
-    await page.getByRole('status').filter({ hasText: /Restored and hash-verified 1 file/ }).waitFor();
-    assert.equal(fs.readFileSync(source, 'utf8'), original);
+    // The game rewrites its file on exit; a setting outside the profile changes meanwhile.
+    fs.writeFileSync(source, fs.readFileSync(source, 'utf8').replace('sg.TextureQuality=3', 'sg.TextureQuality=1'));
+    await section.getByRole('button', { name: 'Undo these settings' }).click();
+    // Undo asks first, in Dialed's own dialog; nothing is written until it is confirmed.
+    assert.equal(calls.filter((name) => name === 'undo').length, 0);
+    await page.getByRole('dialog').getByText(/Everything else in the file stays as it is now/).waitFor();
+    await page.getByRole('dialog').getByRole('button', { name: 'Undo settings', exact: true }).click();
+    await page.getByRole('status').filter({ hasText: /Put back 3 settings and checked the file/ }).waitFor();
+    assert.equal(fs.readFileSync(source, 'utf8'), original.replace('sg.TextureQuality=3', 'sg.TextureQuality=1'), 'profile keys undone; the game\'s own change kept');
+    fs.writeFileSync(source, original);
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();
     await section.getByRole('button', { name: 'Back up & apply 2 changes', exact: true }).click();
     await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();

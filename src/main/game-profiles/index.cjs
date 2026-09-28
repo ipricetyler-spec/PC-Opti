@@ -95,6 +95,14 @@ function listGameProfiles() {
 // Refuse new, missing, duplicate or unexpected values instead of guessing schemas.
 function patchIni(bytes, profileId) {
   const profile = profileById(profileId);
+  return editIni(bytes, profile, () => profile.value);
+}
+
+/**
+ * Rewrites only the profile's keys in its one section. valueFor(key, before) returns the value
+ * to write, or null to leave that key as it is. Everything else in the file is kept byte for byte.
+ */
+function editIni(bytes, profile, valueFor) {
   let encoding = 'utf8';
   let bom = Buffer.alloc(0);
   let body = bytes;
@@ -124,9 +132,11 @@ function patchIni(bytes, profileId) {
     found.add(key);
     const before = assignment[3].trim();
     if (!profile.valid.test(before)) throw new Error(`Unrecognized value for ${key}. No file was changed.`);
-    if (before.toLowerCase() === profile.value.toLowerCase()) continue;
-    lines[index] = `${assignment[1]}${profile.value}${assignment[4]}`;
-    changes.push({ section: profile.section, key, before, after: profile.value });
+    const target = valueFor(key, before);
+    if (target === null || before.toLowerCase() === target.toLowerCase()) continue;
+    if (!profile.valid.test(target)) throw new Error(`Refused to write an unexpected value for ${key}. No file was changed.`);
+    lines[index] = `${assignment[1]}${target}${assignment[4]}`;
+    changes.push({ section: profile.section, key, before, after: target });
   }
   if (sectionCount !== 1 || found.size !== profile.keys.length) throw new Error('Expected config section or keys are missing or ambiguous. Launch the game once, then close it, or use its in-game controls. No file was changed.');
   return { after: Buffer.concat([bom, Buffer.from(lines.join(''), encoding)]), changes };
@@ -191,8 +201,72 @@ async function applyGameProfile(userDataPath, preview, roots, dependencies = {})
   // Verify the durable backup itself before mutation, not just its manifest.
   const backupBytes = readConfigFile(path.join(userDataPath, 'game-config-backups', backup.backupId, `01-${path.basename(fresh.sourcePath)}`), fileSystem);
   if (sha256(backupBytes) !== preview.beforeSha256) throw new Error('Backup verification failed. No file was changed.');
+  // What this apply changes, key by key, so undo can put back only these keys later instead of
+  // the whole file (the game rewrites the file on every exit).
+  fileSystem.writeFileSync(profileRecordPath(userDataPath, backup.backupId), JSON.stringify({ schemaVersion: 1, profileId: preview.profileId, sourcePath: fresh.sourcePath, changes: fresh.changes, afterSha256: fresh.afterSha256 }, null, 2), { encoding: 'utf8', flag: 'wx' });
   const result = replaceConfigFiles(userDataPath, backup.backupId, [{ sourcePath: fresh.sourcePath, before, after }], 'PROFILE_APPLY', dependencies);
   return { profileId: preview.profileId, backup, appliedAt: result.restoredAt, afterSha256: fresh.afterSha256, changedCount: fresh.changes.length, recoveryPath: result.recoveryPath, status: 'FILE_VERIFIED', gameEffect: 'UNVERIFIED', log: ['Game closed check passed.', 'Current configuration matches preview.', 'Exact backup saved and hash-verified.', `${fresh.changes.length} settings written and file hash verified.`, 'In-game acceptance and performance have not been tested.'] };
 }
 
-module.exports = { listGameProfiles, patchIni, assertGameClosed, previewGameProfile, applyGameProfile };
+const BACKUP_ID = /^[0-9a-f-]{36}$/i;
+
+function profileRecordPath(userDataPath, backupId) {
+  if (typeof backupId !== 'string' || !BACKUP_ID.test(backupId)) throw new Error('Game-config backup id is invalid.');
+  return path.join(userDataPath, 'game-config-backups', backupId, 'profile-apply.json');
+}
+
+/** The key changes a profile apply recorded with its backup, or null when there are none. */
+function readProfileRecord(userDataPath, backupId, fileSystem = fs) {
+  const recordPath = profileRecordPath(userDataPath, backupId);
+  let bytes;
+  try { bytes = readConfigFile(recordPath, fileSystem); } catch (error) { if (error?.code === 'ENOENT') return null; throw error; }
+  const record = JSON.parse(bytes.toString('utf8'));
+  const profile = PROFILES.find((item) => item.id === record?.profileId);
+  if (record?.schemaVersion !== 1 || !profile || typeof record.sourcePath !== 'string' || !Array.isArray(record.changes) || !record.changes.length) throw new Error('The saved profile record is not valid.');
+  for (const change of record.changes) {
+    if (!profile.keys.includes(change?.key) || !profile.valid.test(String(change.before)) || !profile.valid.test(String(change.after))) throw new Error('The saved profile record is not valid.');
+  }
+  const undone = fileSystem.existsSync(path.join(path.dirname(recordPath), 'profile-undo.json'));
+  return { ...record, profile, undone };
+}
+
+/**
+ * Undo that puts back only the keys the profile changed, and only while each still holds the
+ * value Dialed wrote. A key changed since (in the game, or anywhere) is not overwritten.
+ */
+async function previewGameProfileUndo(userDataPath, backupId, roots, dependencies = {}) {
+  const fileSystem = dependencies.fileSystem || fs;
+  const record = readProfileRecord(userDataPath, backupId, fileSystem);
+  if (!record) throw new Error('This backup was not made by a game profile, so there is nothing to undo key by key. Nothing was changed.');
+  if (record.undone) throw new Error('This profile was already undone. Nothing was changed.');
+  const { profile } = record;
+  await assertGameClosed(profile.gameId, dependencies);
+  const sourcePath = profilePath(profile, roots, fileSystem);
+  if (sourcePath.toLowerCase() !== record.sourcePath.toLowerCase()) throw new Error('The game now keeps its settings in a different file. Nothing was changed.');
+  let current;
+  try { current = readConfigFile(sourcePath, fileSystem); }
+  catch (error) { throw new Error(`Cannot read the game's settings: ${error.code || error.message}. Nothing was changed.`); }
+  const now = {};
+  editIni(current, profile, (key, before) => { now[key] = before; return null; });
+  const changedSince = record.changes.filter((change) => String(now[change.key]).toLowerCase() !== String(change.after).toLowerCase());
+  if (changedSince.length) {
+    throw new Error(`Since the profile was applied, ${changedSince.map((change) => `${change.key} changed to ${now[change.key]}`).join(', ')}. Dialed will not overwrite ${changedSince.length === 1 ? 'that' : 'those'}. Change ${changedSince.length === 1 ? 'it' : 'them'} in the game, or restore the whole file from this backup. Nothing was changed.`);
+  }
+  const restoreTo = Object.fromEntries(record.changes.map((change) => [change.key, String(change.before)]));
+  const { after, changes } = editIni(current, profile, (key) => restoreTo[key] ?? null);
+  return { backupId, profileId: profile.id, game: profile.game, sourcePath, beforeSha256: sha256(current), afterSha256: sha256(after), changes };
+}
+
+async function applyGameProfileUndo(userDataPath, preview, roots, dependencies = {}) {
+  const fileSystem = dependencies.fileSystem || fs;
+  const fresh = await previewGameProfileUndo(userDataPath, preview.backupId, roots, dependencies);
+  if (fresh.sourcePath !== preview.sourcePath || fresh.beforeSha256 !== preview.beforeSha256 || fresh.afterSha256 !== preview.afterSha256) throw new Error('The settings file changed after preview. Nothing was changed. Request a new preview.');
+  const before = readConfigFile(fresh.sourcePath, fileSystem);
+  if (sha256(before) !== preview.beforeSha256) throw new Error('The settings file changed after preview. Nothing was changed.');
+  const { after } = editIni(before, profileById(preview.profileId), (key) => Object.fromEntries(fresh.changes.map((change) => [change.key, change.after]))[key] ?? null);
+  const result = replaceConfigFiles(userDataPath, preview.backupId, [{ sourcePath: fresh.sourcePath, before, after }], 'PROFILE_UNDO', dependencies);
+  fileSystem.writeFileSync(path.join(path.dirname(profileRecordPath(userDataPath, preview.backupId)), 'profile-undo.json'), JSON.stringify({ undoneAt: result.restoredAt, afterSha256: fresh.afterSha256 }, null, 2), { encoding: 'utf8', flag: 'wx' });
+  return { backupId: preview.backupId, undoneAt: result.restoredAt, changedCount: fresh.changes.length, status: 'FILE_VERIFIED' };
+}
+
+module.exports = { listGameProfiles, patchIni, assertGameClosed, previewGameProfile, applyGameProfile, readProfileRecord, previewGameProfileUndo, applyGameProfileUndo };

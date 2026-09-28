@@ -61,6 +61,8 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   listGameProfiles: () => ipcRenderer.invoke('pc-opti:list-game-profiles'),
   previewGameProfile: (profileId) => ipcRenderer.invoke('pc-opti:preview-game-profile', profileId),
   applyGameProfile: (token) => ipcRenderer.invoke('pc-opti:apply-game-profile', token),
+  previewGameProfileUndo: (backupId) => ipcRenderer.invoke('pc-opti:preview-game-profile-undo', backupId),
+  applyGameProfileUndo: (token) => ipcRenderer.invoke('pc-opti:apply-game-profile-undo', token),
   discoverInstalledGames: () => ipcRenderer.invoke('pc-opti:discover-installed-games'),
   listGameConfigBackups: () => ipcRenderer.invoke('pc-opti:list-game-config-backups'),
   createGameConfigBackup: (gameId) => ipcRenderer.invoke('pc-opti:create-game-config-backup', gameId),

@@ -1976,9 +1976,11 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     const current = await readPlans();
     const plan = current.items.find((item) => item.guid === guid);
     if (!plan) throw new Error('The plan Dialed added is no longer in the list. Nothing to remove.');
-    // Only a copy that still carries the Ultimate Performance name is removed; a renamed or
-    // repurposed plan is left alone.
-    if (!/ultimate performance/i.test(plan.name)) throw new Error('That plan has been renamed since Dialed added it. Remove it in Windows yourself if you no longer want it.');
+    // Only a copy that still carries the name Windows gave it when Dialed added it is removed; a
+    // renamed or repurposed plan is left alone. The recorded name is in the PC's own language.
+    const recordedName = typeof original.resultingState?.name === 'string' ? original.resultingState.name.trim() : '';
+    const stillNamed = recordedName ? plan.name.trim() === recordedName : /ultimate performance/i.test(plan.name);
+    if (!stillNamed) throw new Error('That plan has been renamed since Dialed added it. Remove it in Windows yourself if you no longer want it.');
     if (current.activeGuid === guid) throw new Error('The Ultimate Performance plan is active. Switch to another plan first, then undo.');
     return runRestore(userDataPath, original, {
       actionId: `power:remove-ultimate-plan:${original.id}`,
@@ -2394,7 +2396,7 @@ async function setGpuPreference(userDataPath, exePath, preference, adapters = {}
 async function addUltimatePlan(userDataPath, adapters = {}) {
   const duplicate = adapters.duplicateUltimatePlan || powerTweaks.duplicateUltimatePlan;
   const readPlans = adapters.listPowerPlans || listPowerPlans;
-  const before = await powerTweaks.ultimatePlanState({ listPowerPlans: readPlans });
+  const before = await powerTweaks.ultimatePlanState({ listPowerPlans: readPlans, readUltimateSourceName: adapters.readUltimateSourceName });
   if (before.present) throw new Error('An Ultimate Performance plan is already in your plan list. Choose it under Power plan.');
   const beforeGuids = before.inventory.items.map((item) => item.guid);
   const entry = createEntry(

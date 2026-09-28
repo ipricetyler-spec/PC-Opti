@@ -108,3 +108,23 @@ test('powercfg commands only ever carry fixed GUIDs and a checked percentage', a
   assert.match(scripts[0], new RegExp(`/setacvalueindex ${BALANCED} ${power.SUB_PROCESSOR} ${power.PROCTHROTTLEMIN} 100`));
   assert.doesNotMatch(scripts[0], /setdcvalueindex/);
 });
+
+test('on a non-English PC the Ultimate plan copy is recognised by its local name, and undo removes it', async () => {
+  const directory = userData();
+  const fake = fakePlans(PLANS);
+  const localName = 'Ultimative Leistung';
+  fake.adapters.duplicateUltimatePlan = async () => { fake.state.items.push({ guid: NEW, name: localName }); return { exitCode: 0, stdout: '', stderr: '', output: {} }; };
+  fake.adapters.readUltimateSourceName = async () => localName;
+  const applied = await journal.addUltimatePlan(directory, fake.adapters);
+  assert.equal(applied.entry.resultingState.name, localName);
+  await assert.rejects(journal.addUltimatePlan(directory, fake.adapters), /already in your plan list/, 'no duplicate copy');
+  const restored = await journal.rollbackAuditEntry(directory, applied.entry.id, fake.adapters);
+  assert.equal(restored.success, true, 'undo accepts the name Windows gave the copy');
+  assert.deepEqual(fake.state.items.map((item) => item.guid), [BALANCED, HIGH]);
+});
+
+test('the source plan name is read from powercfg in any language', async () => {
+  const german = 'GUID des Energieschemas: e9a42b02-d5df-448d-aa00-03f14749eb61  (Ultimative Leistung)\r\n';
+  assert.equal(await power.readUltimateSourceName(async () => ({ stdout: german })), 'Ultimative Leistung');
+  assert.equal(await power.readUltimateSourceName(async () => ({ stdout: 'Invalid parameters\r\n' })), null);
+});

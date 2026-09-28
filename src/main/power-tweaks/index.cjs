@@ -71,10 +71,25 @@ async function writeUsbSelectiveSuspendAc(guid, value, run = runPowerShell) {
   return { output: { schemeGuid: safeGuid, ac: value }, stdout, stderr, exitCode };
 }
 
-/** The plan list with the English "Ultimate Performance" name flagged; localized names are not guessed. */
+/**
+ * The built-in source plan's name in this PC's display language, read from powercfg's own
+ * header line ("<GUID>  (<name>)"), or null. A copy carries the same name, so on a
+ * non-English PC this is how an existing copy is recognised.
+ */
+async function readUltimateSourceName(run = runPowerShell) {
+  const { stdout } = await run(`& { & powercfg.exe /query ${ULTIMATE_SOURCE_GUID} 2>&1 | Select-Object -First 1 | Out-String }`);
+  const match = new RegExp(`${ULTIMATE_SOURCE_GUID}\\s+\\((.{1,128})\\)\\s*$`, 'im').exec(String(stdout || ''));
+  return match ? match[1].trim() : null;
+}
+
+/** The plan list with any copy of Ultimate Performance flagged, by its English or local name. */
 async function ultimatePlanState(adapters = {}) {
   const inventory = await (adapters.listPowerPlans || listPowerPlans)();
-  const existing = inventory.items.filter((item) => item.guid === ULTIMATE_SOURCE_GUID || /ultimate performance/i.test(item.name));
+  // Never reaches powercfg from the test runner unless a test passes its own reader.
+  const readName = adapters.readUltimateSourceName || (process.env.NODE_TEST_CONTEXT ? async () => null : readUltimateSourceName);
+  const localName = await readName().catch(() => null);
+  const names = new Set(['ultimate performance', ...(localName ? [localName.toLowerCase()] : [])]);
+  const existing = inventory.items.filter((item) => item.guid === ULTIMATE_SOURCE_GUID || names.has(String(item.name).trim().toLowerCase()) || /ultimate performance/i.test(item.name));
   return { inventory, present: existing.length > 0, plans: existing };
 }
 
@@ -88,6 +103,7 @@ module.exports = {
   duplicateUltimatePlan,
   parseSettingIndexes,
   readCpuMinimumState,
+  readUltimateSourceName,
   readUsbSelectiveSuspend,
   ultimatePlanState,
   writeCpuMinimumAc,

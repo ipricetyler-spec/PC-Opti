@@ -350,6 +350,13 @@ permissions denied); the Location notice on a real 24H2 PC with Wi-Fi.
   exit 0. Installed `app.asar`, `Dialed.exe` and `Dialed.HidusbfHost.exe` are byte-identical to the
   verified candidate. `Dialed.exe`, the uninstaller and the helper are `Valid`, CN=Tyler Price. No
   Code Integrity event mentioning Dialed since the install.
-- Not verified: the installed app has not been started. Its first elevated start will lock
-  `HKLM\SOFTWARE\Dialed`, create the protected Temp folder, and copy PresentMon captures and the
-  input history into the protected folder; none of that has been observed yet.
+- First start of the installed app by the owner (06:05:57), checked read-only afterwards:
+  `HKLM\SOFTWARE\Dialed` is owned by Administrators with inheritance blocked; SYSTEM and
+  Administrators FullControl, Users and OWNER RIGHTS ReadKey; the owner's account no longer has
+  full control. `ProtectedDataRoot` is unchanged (`Dialed-ad0f83361119`), with no pending or
+  rejected value. `Temp` exists with only inherited SYSTEM/Administrators/OWNER RIGHTS entries.
+  PresentMon captures: 11 files (4 CSV, 7 JSON) in the protected folder and the old per-user
+  folder removed, so none were skipped. Input history moved, identical in content to the kept
+  `input-devices.moved-to-protected-folder.*.json`. Change log: 50 entries, none pending. No file
+  under the protected folder has a non-inherited permission entry.
+- Not verified: the Restore page and the other workspaces in the running app were not inspected.

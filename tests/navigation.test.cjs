@@ -42,3 +42,11 @@ test('a packaged build never loads a page named by the environment, and a source
     assert.equal(developmentEntryUrl({ isPackaged: false, value }), null, String(value));
   }
 });
+
+test('web permissions are denied except writing text to the clipboard, before the window opens', () => {
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
+  assert.match(main, /const ALLOWED_WEB_PERMISSIONS = new Set\(\['clipboard-sanitized-write'\]\);/);
+  assert.match(main, /setPermissionRequestHandler\(\(_contents, permission, callback\) => callback\(ALLOWED_WEB_PERMISSIONS\.has\(permission\)\)\)/);
+  assert.match(main, /setPermissionCheckHandler\(\(_contents, permission\) => ALLOWED_WEB_PERMISSIONS\.has\(permission\)\)/);
+  assert.ok(main.indexOf('setPermissionRequestHandler') < main.indexOf('  createWindow();\n'), 'set before the first window');
+});

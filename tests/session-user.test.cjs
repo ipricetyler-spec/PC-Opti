@@ -39,6 +39,7 @@ test('every per-user capability is registered, and the session is never read ins
 
 test('startup reads the accounts before the window opens, and every capability check applies it', () => {
   const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
-  assert.match(main, /await Promise\.all\(\[prepareProtectedData\(\), prepareSessionIdentity\(\)\]\);\s*createWindow\(\);/);
+  const reads = main.indexOf('await Promise.all([prepareProtectedData(), prepareSessionIdentity()]);');
+  assert.ok(reads > 0 && reads < main.indexOf('  createWindow();\n'), 'both are read before the first window opens');
   assert.match(main, /function assertCapabilityAvailable\(capabilityId\) \{\s*const capability = requireCapability\(capabilityId, resolveRuntimeProfileForApp\(\)\);\s*assertPerUserCapabilityAllowed\(capabilityId, sessionIdentity\);/);
 });

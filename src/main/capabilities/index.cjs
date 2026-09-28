@@ -125,7 +125,9 @@ const CAPABILITIES = Object.freeze([
   {
     id: 'input:xhci-tier', actionPattern: 'pc-opti:apply-input-tier',
     title: 'Guarded HIDUSBF 4–8 kHz tier setup', category: 'Input devices',
-    description: 'Previews, configures, reconciles and restores the existing signed HIDUSBF driver’s global xHCI patch tier without installing a driver, restarting a device or rebooting Windows automatically.',
+    // Setting a new tier is switched off in production (legacy new writes), so the description
+    // must not claim Dialed configures it there.
+    description: 'Reconciles and restores the global xHCI patch tier changes Dialed recorded earlier for the existing signed HIDUSBF driver. Setting a new tier is switched off in this version. Never installs a driver, restarts a device or reboots Windows automatically.',
     supportedWindows: ['Windows 10', 'Windows 11'],
     prerequisites: ['Exact reviewed Microsoft-signed HIDUSBF patching build already running', 'Healthy selected High-Speed input device with an existing filter and interval', 'Every other filtered High-Speed device isolated to 1 kHz', 'No legacy or ambiguous tier value', 'Memory Integrity verified disabled without changing it', 'Explicit preview', 'Elevated session'],
     detectionMethod: 'Fresh SetupAPI inventory, exact driver hash/signature, two fixed registry locations, boot-session evidence and Device Guard status',
@@ -143,7 +145,7 @@ const CAPABILITIES = Object.freeze([
     knownConflicts: ['Other High-Speed filtered devices', 'Composite audio interfaces', 'Memory Integrity', 'Unrecognized or changed driver', 'Legacy/conflicting tier values', 'Missing reboot evidence'],
     gamingConsiderations: 'Higher request rates can add CPU/USB work and may not be accepted by every game or device; no game hook or anti-cheat change is made.',
     securityImplications: 'Dialed never disables Windows protections, downloads or installs a driver, restarts the service, or auto-reboots.',
-    unavailableReason: 'Unsafe filtered-device scope, incompatible security state, unrecognized driver, missing elevation, stale preview or pending restart',
+    unavailableReason: 'New tier changes are switched off in this version. A restore is refused for an unsafe filtered-device scope, incompatible security state, unrecognized driver, missing elevation, stale preview or pending restart',
     profiles: ['public', 'owner'], publicAvailability: 'ENABLED',
   },
   {

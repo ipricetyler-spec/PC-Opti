@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, screen } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, screen, session } = require('electron');
 const crypto = require('crypto');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -537,6 +537,8 @@ function assertInputPortLabel(value) {
   if (typeof value !== 'string' || value.length > 60 || /[\x00-\x1f\x7f]/.test(value)) throw new Error('Input port label is not valid.');
   return value;
 }
+
+const ALLOWED_WEB_PERMISSIONS = new Set(['clipboard-sanitized-write']);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -1473,6 +1475,10 @@ ipcMain.handle('pc-opti:rollback-audit-entry', async (_event, entryId) => {
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
   // Before any window can read or write the change log.
   await Promise.all([prepareProtectedData(), prepareSessionIdentity()]);
+  // Electron grants web permissions (camera, microphone, notifications, location...) unless told
+  // otherwise. Dialed's pages need none except writing text for its Copy buttons.
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(ALLOWED_WEB_PERMISSIONS.has(permission)));
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) => ALLOWED_WEB_PERMISSIONS.has(permission));
   createWindow();
 
   app.on('activate', () => {

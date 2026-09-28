@@ -611,6 +611,11 @@ async function main() {
       }
       if (workspace === 'Restore') {
         await page.locator('summary', { hasText: 'Readiness checks before changing anything' }).click();
+        // With Technical details hidden (the default), the reader still learns whether copying worked.
+        await page.getByRole('button', { name: 'Copy summary', exact: true }).click();
+        const copied = page.getByRole('status').filter({ hasText: /Summary copied\.|Copying was blocked/ });
+        await copied.waitFor();
+        assert.equal(await copied.isVisible(), true, 'the copy result is visible without Technical details');
         await page.evaluate(() => { document.documentElement.dataset.technicalDetails = 'shown'; });
         await page.getByRole('heading', { name: 'Checks', exact: true }).waitFor();
       }

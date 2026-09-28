@@ -343,7 +343,8 @@ export function ReadinessCenter({
       </div>
 
       {scanError && <p className="mt-4 rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-200"><ErrorText text={scanError} /></p>}
-      {!compact && passportStatus && <p data-technical-detail className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-200">{passportStatus}</p>}
+      {/* Always shown: whether the copy worked must be visible without Technical details. */}
+      {!compact && passportStatus && <p role="status" className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-200">{passportStatus}</p>}
       {!compact && <pre data-technical-detail className="mt-4 rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-[11px] leading-relaxed text-slate-400">{passportText}</pre>}
     </section>
 

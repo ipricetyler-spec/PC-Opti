@@ -136,3 +136,19 @@ findings are listed in the review queue.
   recorded when it was added, and presence reads the source plan's name from `powercfg`.
 - The reviewer's ARC Raiders process-name finding was wrong: the game runs as `PioneerGame.exe`.
   VALORANT's game process was missing from the closed-game check and has been added.
+
+## 2026-09-28 — Windows systems review: the low findings
+
+- **Bracketed registry value names are not a problem.** The finding was wrong: every
+  `Remove-ItemProperty -Name` call uses `-LiteralPath`, under which PowerShell does not expand
+  wildcards in `-Name`. No change.
+- **Interrupted Ultimate Performance adds and removals are settled from recorded state** instead of
+  "unknown"; more than one new plan is ambiguous and nothing is removed. Any other interrupted
+  undo explains that a later "changed since" refusal most likely means it finished.
+- **A Wi-Fi check blocked by Location says so**, recognised by the `ms-settings:privacy-location`
+  link in any language. Dialed does not change the Location setting.
+- **Tweak card text vs code** was fixed with the medium findings.
+- **The input tier capability says new tier changes are switched off** in this version.
+- **Web permissions are denied** except `clipboard-sanitized-write` for the Copy buttons. The
+  external-link handler keeps its URL check (public HTTPS and plain mailto only) and gets no
+  separate capability.

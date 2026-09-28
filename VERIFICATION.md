@@ -311,3 +311,25 @@ Not verified: any per-user refusal with a real second administrator account; a b
 a non-English PC; the Startup reading on a 32-bit machine entry (none here); key-level undo against
 a real game's rewrite; the Ultimate plan on a non-English Windows; any of this in a running
 Electron app or the installed build.
+
+## 2026-09-28 — Windows systems review, the low findings (`acf9450`..`11e2a03`)
+
+- **Bracketed value names:** checked read-only with `Get-ItemProperty -LiteralPath HKCU:\Environment`:
+  `-Name 'Pat*'` and `-Name 'P[a]th'` return nothing although `Path` exists, so `-Name` is literal
+  under `-LiteralPath`. The finding is wrong; nothing changed.
+- **Interrupted plan add and undo:** tests with PENDING entries and a fake plan list cover done, not
+  done and ambiguous adds, a finished and an unfinished removal (the finished one closes the
+  original change), and the new message for any other interrupted undo.
+- **Wi-Fi:** `netsh wlan show interfaces` here says "There is no wireless interface on the system";
+  Dialed now reports "This PC has no Wi-Fi adapter". The Windows 11 24H2 Location notice was not
+  observed (no Wi-Fi on this PC); it is tested from its documented wording and link.
+- **Input tier wording:** production creates the input service without `allowLegacyNewWrites`, so new
+  tier writes are refused; the capability text now says so.
+- **Web permissions:** the handlers are checked from source only; Electron was not started.
+
+- Run one at a time at `11e2a03`: `npm test` 841/841, `npm run lint` clean,
+  `npm run check:clean-room-parity` passed, `npm run test:ts` 128/128, `npm run build` clean,
+  `npm run test:ui:fixtures` passed (58 workspace checks, no page errors).
+
+Not verified: the permission handlers in a running app (clipboard Copy buttons still working, other
+permissions denied); the Location notice on a real 24H2 PC with Wi-Fi.

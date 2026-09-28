@@ -1744,6 +1744,39 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
         continue;
       }
 
+      // The plan list from before the add is recorded, so the plan it added (if any) is the new one.
+      if (entry.actionId === 'power:add-ultimate-plan' && Array.isArray(entry.preAction?.beforeGuids)) {
+        const plans = await readPlans();
+        const added = plans.items.filter((item) => !entry.preAction.beforeGuids.includes(item.guid));
+        if (added.length === 0) {
+          setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'No new power plan is in the list; the interrupted add did not take effect.', { planCount: plans.items.length }, false);
+        } else if (added.length === 1) {
+          setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The new power plan is in the list after the interruption. It was not switched on.', { createdGuid: added[0].guid, name: added[0].name, activated: plans.activeGuid === added[0].guid, performanceOutcome: 'UNVERIFIED', recoveredAfterInterruption: true }, true);
+        } else {
+          setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'More than one new power plan appeared, so Dialed cannot tell which one it added. It will not remove any of them.', { added: added.map((item) => ({ guid: item.guid, name: item.name })) }, false);
+        }
+        continue;
+      }
+
+      // An undo that was interrupted: the change it was undoing stays listed, so say plainly
+      // what a later "changed since" refusal on that change most likely means.
+      if (entry.preAction?.originalAuditEntryId) {
+        const original = entries.find((item) => item.id === entry.preAction.originalAuditEntryId);
+        const createdGuid = original?.resultingState?.createdGuid;
+        if (String(entry.actionId).startsWith('power:remove-ultimate-plan:') && typeof createdGuid === 'string') {
+          const plans = await readPlans();
+          if (!plans.items.some((item) => item.guid === createdGuid)) {
+            setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The power plan Dialed added is gone; the interrupted undo finished.', { removedGuid: createdGuid, recoveredAfterInterruption: true }, false);
+            original.rollback = { available: false, reason: `Restored by audit entry ${entry.id}.`, completedAt: new Date().toISOString() };
+          } else {
+            setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The power plan Dialed added is still in the list; the undo did not take effect. You can undo it again.', { presentGuid: createdGuid }, false);
+          }
+          continue;
+        }
+        setReconciliation(entry, 'NEEDS_REVIEW', 'UNKNOWN', 'This undo was interrupted before Dialed could check it. The change it was undoing is still listed. If undoing that again says the setting changed since, this undo most likely finished: compare the current setting with the value recorded before the change.', null, false);
+        continue;
+      }
+
       setReconciliation(entry, 'NEEDS_REVIEW', 'UNKNOWN', 'This interrupted operation cannot be reconstructed safely from current state. Review the retained evidence.', null, false);
     } catch (error) {
       setReconciliation(

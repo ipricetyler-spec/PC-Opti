@@ -301,8 +301,11 @@ Checked after fixing:
 - Browser fixtures: the account banner in both themes and every zoom; Memory Integrity text both
   ways in Input devices; game profile undo keeping a setting the game changed.
 - `npm test` 835/835 and `npm run lint` clean after the last commit; `npm run test:ts` 128/128 and
-  `npm run test:ui:fixtures` (which builds first) passed after `b1573f8`. The final all-at-once
-  run was interrupted when the PC froze; see the checks below this entry.
+  `npm run test:ui:fixtures` (which builds first) passed after `b1573f8`. A single chained run of
+  every check was cut off when the owner's PC hard-froze (cause unknown; see the review queue).
+- Rerun at `40d11b9`, one command at a time: `npm run lint` clean, `npm run check:clean-room-parity`
+  passed, `npm run test:ts` 128/128, `npm test` 835/835, `npm run build` clean with no warnings,
+  `npm run test:ui:fixtures` passed (58 workspace checks, no page errors). The PC stayed up.
 
 Not verified: any per-user refusal with a real second administrator account; a boot-timing write on
 a non-English PC; the Startup reading on a 32-bit machine entry (none here); key-level undo against

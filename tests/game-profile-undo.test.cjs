@@ -50,6 +50,14 @@ test('a profile key changed since the apply is not overwritten, and nothing is w
   assert.equal(fs.readFileSync(f.source, 'utf8'), changed);
 });
 
+test('the closed-game check recognises the processes the games really run as', async () => {
+  const running = (names) => ({ listProcessNames: async () => ['explorer', ...names] });
+  await assert.rejects(profiles.assertGameClosed('valorant-pc-performance-review', running(['VALORANT-Win64-Shipping.exe'])), /Close the game/);
+  await assert.rejects(profiles.assertGameClosed('arc-raiders-pc-performance-review', running(['PioneerGame'])), /Close the game/);
+  await assert.rejects(profiles.assertGameClosed('fortnite-pc-performance-review', running(['FortniteClient-Win64-Shipping'])), /Close the game/);
+  await assert.doesNotReject(profiles.assertGameClosed('valorant-pc-performance-review', running(['ValorantTracker'])));
+});
+
 test('undo refuses while the game runs, after the file changed since preview, and for backups not made by a profile', async () => {
   const f = fixture();
   const result = await applied(f);

@@ -58,7 +58,9 @@ const GAME_PROCESSES = {
   'rocket-league-pc-performance-review': /^rocketleague$/i,
   'apex-legends-pc-performance-review': /^(r5apex|r5apex_dx12)$/i,
   'counter-strike-2-display-review': /^cs2$/i,
-  'valorant-pc-performance-review': /^(valorant|riotclientservices|riotclientux|riotclientuxrender)$/i,
+  // The game itself runs as VALORANT-Win64-Shipping; VALORANT.exe is only its launcher.
+  'valorant-pc-performance-review': /^(valorant|valorant-win64-shipping|riotclientservices|riotclientux|riotclientuxrender)$/i,
+  // Both the launcher stub and Binaries\Win64 are PioneerGame.exe (read on the owner's PC).
   'arc-raiders-pc-performance-review': /^pioneergame$/i,
   'battlefield-6-pc-performance-review': /^(bf6|battlefield6)$/i,
   'league-of-legends-pc-performance-review': /^(league of legends|leagueclient|leagueclientux)$/i,

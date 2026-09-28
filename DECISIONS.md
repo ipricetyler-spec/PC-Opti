@@ -96,6 +96,43 @@ was fixed; the evidence is in `VERIFICATION.md`.
   source run, and only for a loopback address.
 - Registry keys are created only when missing; `New-Item -Force` on an existing key replaces it.
 
-Not yet addressed from the same review: running under a different administrator account
-(over-the-shoulder elevation), boot settings on non-English Windows, and the medium and low
-findings. They are listed in the review queue.
+The high and medium findings not covered above are decided in the next section. The low
+findings are listed in the review queue.
+
+## 2026-09-28 — Windows systems review: the rest of the high and medium findings
+
+- **Per-user changes need the signed-in account.** Before the window opens, Dialed compares the
+  account it runs as with the owner of Explorer in its session. When they are known to differ (a
+  standard user approved the prompt with another administrator's password), every capability that
+  writes the current user's hive or files is refused, and a banner says why. When it cannot tell,
+  nothing is refused.
+- **Boot timing is read from the BCD WMI provider for `{current}`**, not from `bcdedit` text, which
+  is translated and lists every loader. Writes still use `bcdedit`, whose command words are not
+  translated. `disabledynamictick` is element 0x260000A5, confirmed on the owner's PC.
+- **The Memory Integrity guide appears only when this build can use the higher USB tier.**
+  Otherwise the reader is told there is no reason to turn it off.
+- **A setting can carry a minimum Windows build.** A known older build hides it and refuses turning
+  it on; an unknown build blocks nothing, as with editions. Global timer resolution needs 22000.
+- **Wording states what Microsoft documents** where Dialed cannot check the effect (no automatic
+  restart), and every "Some Home editions may ignore this" text now says Dialed refuses it on Home.
+- **An access-denied error is not blamed on administrator rights** (Dialed always has them); only
+  "requires elevation" is. A missing registry value is not called a missing file.
+- **Startup shows Task Manager's own on/off record** (`StartupApproved`, first byte odd = off, as
+  Windows writes it; not documented by Microsoft) and never offers to disable Windows Security or a
+  known anti-cheat.
+- **Efficiency Mode undo restores both recorded bits exactly**, and while anti-cheat is installed
+  Dialed does not change a program that has a window.
+- **The change log is flushed to disk before it replaces the old one.** Keeping a previous
+  generation was not added.
+- **PresentMon captures and the input tier history live in the admin-only folder.** They are copied
+  or rewritten there (inheriting its permissions); a folder move would carry the old, user-writable
+  ones in and make the folder fail its own checks. Recording is refused while it is unavailable.
+  Restoring a tier above 1 kHz passes the same Memory Integrity gate as setting it.
+- **Game-config backups stay in per-user data.** A forged backup can only write the user's own game
+  settings, and the remaining race could only place a fixed-name game config file elsewhere.
+- **A game profile is undone key by key**: only the keys it changed, only while each still holds
+  the value Dialed wrote. Whole-file restore stays, with a note that it discards in-game changes.
+- **The Ultimate Performance plan is recognised by its local name**: undo compares with the name
+  recorded when it was added, and presence reads the source plan's name from `powercfg`.
+- The reviewer's ARC Raiders process-name finding was wrong: the game runs as `PioneerGame.exe`.
+  VALORANT's game process was missing from the closed-game check and has been added.

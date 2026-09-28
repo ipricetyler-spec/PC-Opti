@@ -270,3 +270,41 @@ Not verified: `Protect-DialedKey` actually changing a key's owner and permission
 registry); the pause and the notices in a running Electron app; `New-Item -Force` wiping an
 existing key on this PC (a registry write); whether a user environment variable can override
 `SystemRoot` for an elevated Dialed. None of this is in the installed build.
+
+## 2026-09-28 — Windows systems review, the rest of the high and medium findings (`e847972`..`6d70f88`)
+
+Reproduced or confirmed before fixing, all read-only on the owner's PC unless noted:
+- **Accounts:** no code compared the elevated account with the signed-in one. The new read returns
+  the same account for both on this PC (`PRICEPC\itach`).
+- **Boot timing:** `bcdedit /enum {current}` shows `disabledynamictick Yes`; the BCD WMI provider
+  lists element 0x260000A5 as the only boolean loader element, reading True. Dialed's new read
+  returns `usePlatformClock: null, disableDynamicTick: 'YES'`, matching `bcdedit`.
+- **Startup:** Task Manager records Steam, Battle.net, SteelSeriesGG and an Edge auto-launch as off
+  (odd first byte plus a timestamp); Dialed showed all four as Enabled and offered Windows Security
+  and Riot Vanguard for disabling. After the fix Dialed's real listing matches those records and
+  marks both protected.
+- **Efficiency Mode:** from source, undo left the "controlled" bit set. The new native helper was run
+  on a throwaway process the probe started and ended: bits 0 → 3 → 0 and 1 → 3 → 1, and a restore
+  while Efficiency Mode was off was refused.
+- **Windows build:** reads 26200 here. **Game processes:** ARC Raiders' binaries are
+  `PioneerGame.exe` (the reviewer's claim was wrong); Apex is `r5apex_dx12.exe`; VALORANT is not
+  installed here, so its process name comes from public sources, not from this PC.
+- **Ultimate plan:** `powercfg` names the source plan "Ultimate Performance" here, and Dialed finds the
+  existing copy `a21971bb…`.
+- **Memory Integrity guide, friendly errors, history limits, fsync, benchmark temp name, PresentMon
+  and input history paths:** confirmed from source.
+
+Checked after fixing:
+- New tests with real files in temp folders: key-level game profile undo (the game's own change is
+  kept; a changed profile key is refused), PresentMon capture copy (hard-linked file refused),
+  input history move, journal flush-before-rename and failed-write cleanup.
+- Browser fixtures: the account banner in both themes and every zoom; Memory Integrity text both
+  ways in Input devices; game profile undo keeping a setting the game changed.
+- `npm test` 835/835 and `npm run lint` clean after the last commit; `npm run test:ts` 128/128 and
+  `npm run test:ui:fixtures` (which builds first) passed after `b1573f8`. The final all-at-once
+  run was interrupted when the PC froze; see the checks below this entry.
+
+Not verified: any per-user refusal with a real second administrator account; a boot-timing write on
+a non-English PC; the Startup reading on a 32-bit machine entry (none here); key-level undo against
+a real game's rewrite; the Ultimate plan on a non-English Windows; any of this in a running
+Electron app or the installed build.

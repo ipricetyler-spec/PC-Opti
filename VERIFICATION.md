@@ -333,3 +333,23 @@ Electron app or the installed build.
 
 Not verified: the permission handlers in a running app (clipboard Copy buttons still working, other
 permissions denied); the Location notice on a real 24H2 PC with Wi-Fi.
+
+## 2026-09-28 — signed build of `df9c9ae` installed
+
+- Owner approved packaging and install. Full order, one step at a time: `build:hidusbf-native`,
+  `build`, `sbom` (392 components), `license:inventory` (525 records), signed
+  `electron-builder --win nsis`. Signing reported "Signed and verified" for `Dialed.exe`, both
+  HIDUSBF helpers, `elevate.exe`, the uninstaller and the installer.
+- `npm run candidate:verify -- dist-electron`: `SIGNED_INSTALLER_CANDIDATE`. Installer SHA-256
+  `14E84B1B2F316B03E5E767CD08ECB2674457A935AC1524AE154CEFB3960DBCC6`, Authenticode `Valid`,
+  CN=Tyler Price. The input-driver lifecycle stays `UNCONFIGURED`, as intended.
+- The packaged `app.asar` contains the permission handler, the account check, the dev-URL guard,
+  game-profile undo, the Wi-Fi Location reason, the registry key lock, the Ultimate plan local
+  name and the interrupted-add reconciliation, with `RENAME_PROTECTED_FOLDER = false`.
+- Installed silently (`/S`) per-machine over the 2026-09-26 build (same version 2.8.0); installer
+  exit 0. Installed `app.asar`, `Dialed.exe` and `Dialed.HidusbfHost.exe` are byte-identical to the
+  verified candidate. `Dialed.exe`, the uninstaller and the helper are `Valid`, CN=Tyler Price. No
+  Code Integrity event mentioning Dialed since the install.
+- Not verified: the installed app has not been started. Its first elevated start will lock
+  `HKLM\SOFTWARE\Dialed`, create the protected Temp folder, and copy PresentMon captures and the
+  input history into the protected folder; none of that has been observed yet.

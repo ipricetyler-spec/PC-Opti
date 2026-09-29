@@ -25,7 +25,7 @@ $env:DIALED_ARTIFACT_SIGNING_ENDPOINT = "https://eus.codesigning.azure.net/"
 $env:DIALED_ARTIFACT_SIGNING_ACCOUNT = "gpcownersign260808"
 $env:DIALED_ARTIFACT_SIGNING_PROFILE = "gpc-owner-beta-publictrust"
 $env:DIALED_ARTIFACT_SIGNING_EXCLUDE_CREDENTIALS = "SharedTokenCacheCredential"
-npm run build:hidusbf-native
+npm run release:native
 npm run build
 npm run sbom
 npm run license:inventory
@@ -37,6 +37,26 @@ npm run candidate:verify -- dist-electron
 2026-09-26 that shipped helpers compiled before two changes to `usb-native.cs`, and the verifier
 refused the package ("Native source changed after build"). Install only a candidate the verifier
 reports as `SIGNED_INSTALLER_CANDIDATE`.
+
+**`npm run release:native` is what makes "Change rate…" work in the installed app (2026-09-28).**
+It builds the two native helpers, signs them with the same Azure profile, and signs a general
+release policy for exactly those signed files with the owner's policy key
+(`C:\Users\itach\.dialed-signing`, DPAPI-encrypted to the owner's Windows account; custody in
+`private-notes/docs/NATIVE_POLICY_KEY_CUSTODY_2026-09-06.md`). The helpers refuse to run without
+that policy. It must run for **every** release, because each build changes the helpers' hashes,
+and never be followed by `npm run build:hidusbf-native`, which would replace the pinned files.
+The policy lasts 395 days; an installed build stops offering rate changes when it expires.
+`candidate:verify` refuses a package whose policy is missing, unsigned by the compiled key, for
+other helper bytes or a different signer, or with fewer than 30 days left.
+
+If the policy key is ever lost (new PC, Windows reinstall), create a new one with
+`scripts/native-policy-key.ps1 -Action Create`, compile its public half with
+`scripts/native-release-policy.cjs anchors … --write`, and release again. Older installs keep
+working until their own policy expires.
+
+If Inspect refuses the key folder, check its permissions first: on 2026-09-28 the Codex sandbox
+had added read access for its `CodexSandboxUsers` group, and the tool rightly refused until that
+entry was removed.
 
 Three things that cost an hour and will again if forgotten:
 

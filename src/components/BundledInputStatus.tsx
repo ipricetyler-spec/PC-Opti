@@ -2,7 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useState } from 'react';
 import type { BundledInputStatus as BundleStatus, InputDevice } from '../lib/inputDevices';
 
-export function BundledInputStatus({ device, busy = false, setupOpen = false, onSetupStateChange }: { device: InputDevice; busy?: boolean; setupOpen?: boolean; onSetupStateChange?: (open: boolean) => void }) {
+export function BundledInputStatus({ device, busy = false, setupOpen = false, onSetupStateChange, onAvailabilityChange }: { device: InputDevice; busy?: boolean; setupOpen?: boolean; onSetupStateChange?: (open: boolean) => void; onAvailabilityChange?: (available: boolean) => void }) {
   const [bundle, setBundle] = useState<BundleStatus | null>(null);
   const [error, setError] = useState('');
   const [opening, setOpening] = useState(false);
@@ -30,7 +30,7 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
     let mounted = true;
     const read = window.pcOptiNative?.getBundledInputStatus;
     if (!read) { setError('Open the updated desktop app to verify its bundled files.'); return; }
-    void read().then((value) => { if (mounted) setBundle(value); }, () => { if (mounted) setError('Bundled driver verification is unavailable. No setting was changed.'); });
+    void read().then((value) => { if (mounted) { setBundle(value); onAvailabilityChange?.(value?.identity === 'VERIFIED' && value.nativeBroker?.available === true); } }, () => { if (mounted) setError('Bundled driver verification is unavailable. No setting was changed.'); });
     return () => { mounted = false; };
   }, []);
   return <section aria-label="Bundled HIDUSBF setup" className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/50 p-4">

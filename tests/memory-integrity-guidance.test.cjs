@@ -14,10 +14,12 @@ test('the Memory Integrity guide only explains and opens Windows Security; it ne
   assert.match(guide, /openWindowsSettings\('core-isolation'\)/);
   assert.match(guide, /Dialed does not change Memory Integrity/);
   assert.match(guide, /NoPatch/);
-  // Shown only when this build can set up the higher tier, for an eligible High-Speed device
-  // with the filter attached; otherwise the reader is told to keep the protection on.
-  assert.match(center, /memoryIntegrity !== 'Disabled' && legacyWrites && selected\?\.speed === 'High-Speed' && selected\.filterActive \? <MemoryIntegrityGuide/);
-  assert.match(center, /memoryIntegrity !== 'Disabled' && !legacyWrites \? <p[^>]*>.*no reason to turn Memory Integrity off for Dialed/);
+  // Shown only when this build can set up the higher tier (the signed native setup, or the legacy
+  // route), for a High-Speed device; otherwise the reader is told to keep the protection on.
+  assert.match(center, /const higherRatesPossible = legacyWrites \|\| nativeSetupAvailable;/);
+  assert.match(center, /onAvailabilityChange=\{setNativeSetupAvailable\}/);
+  assert.match(center, /memoryIntegrity !== 'Disabled' && higherRatesPossible && selected\?\.speed === 'High-Speed' && \(selected\.filterActive \|\| nativeSetupAvailable\) \? <MemoryIntegrityGuide/);
+  assert.match(center, /memoryIntegrity !== 'Disabled' && !higherRatesPossible \? <p[^>]*>.*no reason to turn Memory Integrity off for Dialed/);
   assert.match(guide, /anti-cheat/);
 });
 

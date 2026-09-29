@@ -145,6 +145,7 @@
     "test:ui:fixtures": "node scripts/check-ui-fixtures.cjs",
     "sbom": "node scripts/generate-sbom.cjs",
     "license:inventory": "bun scripts/generate-license-inventory.cjs",
+    "release:native": "node scripts/prepare-native-release.cjs",
     "release:checksums": "node scripts/generate-checksums.cjs",
     "release:sign": "node scripts/sign-release-artifacts.cjs",
     "release:manifest": "node scripts/generate-release-manifest.cjs",
@@ -153,7 +154,7 @@
     "release:verify": "bun run release:checksums && bun run release:manifest && node scripts/verify-release-manifest.cjs",
     "candidate:verify": "node scripts/verify-private-candidate.cjs",
     "electron:dev": "bun run build && electron .",
-    "electron:build": "bun run build:hidusbf-native && bun run build && bun run sbom && bun run license:inventory && electron-builder --win nsis && bun run release:checksums && bun run release:sign && bun run release:manifest"
+    "electron:build": "bun run release:native && bun run build && bun run sbom && bun run license:inventory && electron-builder --win nsis && bun run release:checksums && bun run release:sign && bun run release:manifest"
   },
   "type": "module"
 }

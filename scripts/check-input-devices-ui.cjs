@@ -148,6 +148,7 @@ async function main() {
         return next;
       }
       if (method === 'nativeSetupReady') { nativeSetupReady = true; return true; }
+      if (method === 'nativeSetupUnavailable') { nativeSetupReady = false; return true; }
       if (method === 'nativeExpired') { nativeExpired = true; return true; }
       if (method === 'messageCase') { messageCase = args[0]; return true; }
       if (method === 'legacyWrites') { legacyWrites = args[0]; return true; }
@@ -577,10 +578,17 @@ async function main() {
     await section.getByRole('button', { name: 'Review exact restore' }).click();
     await section.getByRole('region', { name: 'Confirm polling change' }).waitFor();
     await section.getByRole('button', { name: 'Cancel', exact: true }).click();
-    // Memory Integrity on: with rate changes switched off the reader is told to keep it on, and
-    // the guide to turning it off appears only when this build could use the higher tier.
+    // Memory Integrity on: the guide to turning it off appears only when this build can use the
+    // higher tier (the signed native setup, or the legacy route); otherwise keep it on.
     await deviceList.getByRole('button', { name: /Fixture High-Speed Controller/ }).click();
     await page.evaluate(() => window.__inputFixture('memoryIntegrity', 'Enabled'));
+    await section.getByRole('button', { name: 'Refresh devices' }).click();
+    // The native setup has been ready since earlier in this run.
+    await section.getByText(/Rates above 1 kHz need Memory Integrity turned off/).waitFor({ state: 'attached' });
+    assert.equal(await section.getByText(/no reason to turn Memory Integrity off for Dialed/).count(), 0, 'The signed setup can reach 2–8 kHz, so "keep it on" would be wrong.');
+    await page.evaluate(() => window.__inputFixture('nativeSetupUnavailable'));
+    await connectionTool.click();
+    await pollingTool.click();
     await section.getByRole('button', { name: 'Refresh devices' }).click();
     await section.getByText(/no reason to turn Memory Integrity off for Dialed/).waitFor({ state: 'attached' });
     assert.equal(await section.getByText(/Rates above 1 kHz need Memory Integrity turned off/).count(), 0, 'No guide to switching a protection off for a feature this build cannot use.');

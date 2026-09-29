@@ -9,6 +9,8 @@ const asar = require('@electron/asar');
 const { NATIVE_INPUT_SOURCE_SHA256 } = require('../src/main/input-devices/index.cjs');
 const { verifyBundledInventory } = require('../src/main/input-driver-lifecycle/bundled-inventory.cjs');
 const { assertArtifactVersion } = require('./artifact-version.cjs');
+const { checkAnchors, anchorValues } = require('./native-release-policy.cjs');
+const { verifyPolicy, readNativeBrokerStatus } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
 
 const root = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -144,21 +146,46 @@ assert.deepEqual(lifecycleFiles.map(({ relativePath }) => path.posix.basename(re
 const hidusbfRoot = path.join(directory, 'win-unpacked', 'resources', 'hidusbf');
 const hidusbfBundle = verifyBundledInventory(hidusbfRoot, { packaged: true });
 const nativeRoot = path.join(directory, 'win-unpacked', 'resources', 'hidusbf-native');
-assert.deepEqual(fs.readdirSync(nativeRoot).sort(), ['BUILD_MANIFEST.json', 'Dialed.HidusbfBroker.exe', 'Dialed.HidusbfHost.exe']);
+// A checkout that carries the release public key ships polling-rate changes, so its package must
+// carry a signed policy for its own helpers. Without one, "Change rate…" silently never opens.
+const nativeReleaseConfigured = checkAnchors(root) === 'PUBLIC_KEY_COMPILED_INACTIVE';
+const policyFiles = nativeReleaseConfigured ? ['release-policy.json', 'release-policy.sig'] : [];
+assert.deepEqual(fs.readdirSync(nativeRoot).sort(), ['BUILD_MANIFEST.json', 'Dialed.HidusbfBroker.exe', 'Dialed.HidusbfHost.exe', ...policyFiles].sort(),
+  nativeReleaseConfigured ? 'The package has no signed native release policy. Run npm run release:native before packaging.' : 'Unexpected native helper files.');
 const nativeBuild = JSON.parse(fs.readFileSync(path.join(nativeRoot, 'BUILD_MANIFEST.json'), 'utf8'));
-assert.equal(nativeBuild.status, 'UNSIGNED_UNCONFIGURED_SOURCE_BUILD');
+assert.equal(nativeBuild.status, nativeReleaseConfigured ? 'UNSIGNED_PUBLIC_KEY_COMPILED_SOURCE_BUILD' : 'UNSIGNED_UNCONFIGURED_SOURCE_BUILD');
 assert.equal(nativeBuild.executed, false); assert.equal(nativeBuild.signed, false); assert.equal(nativeBuild.physicalAcceptance, false);
 for (const source of nativeBuild.sources) assert.equal(hashFile(path.join(root, source.file)), source.sha256, `Native source changed after build: ${source.file}`);
-// Signing appends to an executable, so a signed packaged helper cannot match the digest its
-// build manifest recorded. Check the digest against the unsigned build output the manifest
-// describes, and let the Authenticode checks above cover the packaged copies.
-const nativeDigestRoot = signed ? path.join(root, 'output', 'hidusbf-native') : nativeRoot;
-for (const artifact of nativeBuild.artifacts) {
-  assert.equal(
-    hashFile(path.join(nativeDigestRoot, artifact.file)),
-    artifact.sha256,
-    `Native helper differs from its build manifest: ${artifact.file}`,
-  );
+// Days a fresh package must still allow rate changes; the release step signs for 395.
+const NATIVE_POLICY_MINIMUM_DAYS = 30;
+let nativeRelease = null;
+if (nativeReleaseConfigured) {
+  assert.ok(signed, 'A package with a native release policy must be signed.');
+  const publicKey = anchorValues(root)[0].value;
+  assert.equal(nativeBuild.policyPublicKeySpkiSha256, crypto.createHash('sha256').update(crypto.createPublicKey(publicKey).export({ type: 'spki', format: 'der' })).digest('hex'), 'Native helpers were built for a different release key.');
+  // The policy pins the signed bytes, so the packaged helpers are checked against it directly.
+  const policy = verifyPolicy(fs.readFileSync(path.join(nativeRoot, 'release-policy.json')), fs.readFileSync(path.join(nativeRoot, 'release-policy.sig')), publicKey);
+  assert.equal(policy.Purpose, 'ACCEPTED_RELEASE', 'The package carries a validation policy, not a release policy.');
+  const daysLeft = (Date.parse(policy.ExpiresAt) - Date.now()) / (24 * 60 * 60 * 1000);
+  assert.ok(daysLeft >= NATIVE_POLICY_MINIMUM_DAYS, `The native release policy expires in ${Math.floor(daysLeft)} days. Run npm run release:native to sign a new one.`);
+  assert.equal(hashFile(nativeExecutables[0]), policy.BrokerSha256, 'Packaged broker differs from the signed release policy.');
+  assert.equal(hashFile(nativeExecutables[1]), policy.HelperSha256, 'Packaged helper differs from the signed release policy.');
+  for (const file of nativeExecutables) assert.equal(inspectionFor(file)?.thumbprint.toUpperCase(), policy.PublisherThumbprint.toUpperCase(), `Native helper signer differs from the release policy: ${file}`);
+  const brokerStatus = readNativeBrokerStatus(nativeRoot);
+  assert.ok(brokerStatus.available, `The packaged app would refuse the native release: ${brokerStatus.message}`);
+  nativeRelease = { purpose: policy.Purpose, expiresAt: policy.ExpiresAt, publisherThumbprint: policy.PublisherThumbprint, deviceClasses: policy.DeviceClasses, speedClasses: policy.SpeedClasses, minimumWindowsBuild: policy.MinimumWindowsBuild };
+} else {
+  // Signing appends to an executable, so a signed packaged helper cannot match the digest its
+  // build manifest recorded. Check the digest against the unsigned build output the manifest
+  // describes, and let the Authenticode checks above cover the packaged copies.
+  const nativeDigestRoot = signed ? path.join(root, 'output', 'hidusbf-native') : nativeRoot;
+  for (const artifact of nativeBuild.artifacts) {
+    assert.equal(
+      hashFile(path.join(nativeDigestRoot, artifact.file)),
+      artifact.sha256,
+      `Native helper differs from its build manifest: ${artifact.file}`,
+    );
+  }
 }
 const bundleInventory = JSON.parse(fs.readFileSync(path.join(hidusbfRoot, 'inventory.json'), 'utf8'));
 const expectedDriverPayloads = bundleInventory.files.filter((file) => file.selected && /\.(?:inf|sys|cat)$/i.test(file.path)).map((file) => path.join(hidusbfRoot, 'payload', ...file.path.split('/'))).sort();
@@ -202,6 +229,7 @@ const report = {
   inputDriverLifecycle: {
     bundle: hidusbfBundle,
     nativeBuild,
+    nativeRelease,
     status: packagedInputDriver.status,
     frameworkFilesPresent: lifecycleFiles.length,
     payloadFilesPresent: driverPayloadFiles.length,

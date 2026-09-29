@@ -73,3 +73,29 @@ test('the Tailwind Vite build does not retain an unused autoprefixer dependency'
   assert.doesNotMatch(lockfile, /\bautoprefixer\b/);
   assert.doesNotMatch(viteConfig, /\bautoprefixer\b/);
 });
+
+test('a release build signs a native release policy for its own helpers, and the verifier refuses a package without one', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
+  // electron:build must not rebuild the helpers after the policy pins them.
+  assert.match(pkg.scripts['electron:build'], /^bun run release:native && /);
+  assert.doesNotMatch(pkg.scripts['electron:build'], /build:hidusbf-native/);
+  assert.equal(pkg.scripts['release:native'], 'node scripts/prepare-native-release.cjs');
+  const release = require('../scripts/prepare-native-release.cjs');
+  assert.ok(release.LIFETIME_DAYS > 30 && release.LIFETIME_DAYS < 400);
+  const { parseGeneralPolicy } = require('../src/main/input-driver-lifecycle/release-policy-contract.cjs');
+  const policy = { SchemaVersion: 2, ExpiresAt: new Date(Date.now() + release.LIFETIME_DAYS * 86400000).toISOString(), BrokerSha256: 'a'.repeat(64), HelperSha256: 'b'.repeat(64), PublisherThumbprint: 'C'.repeat(40), Purpose: 'ACCEPTED_RELEASE', ...release.RELEASE_SCOPE };
+  assert.doesNotThrow(() => parseGeneralPolicy(Buffer.from(JSON.stringify(policy))));
+  assert.throws(() => release.keyDirectoryFrom(['--key-directory', 'relative']));
+  assert.throws(() => release.keyDirectoryFrom(['--other', 'C:/x']));
+  const script = fs.readFileSync(path.join(__dirname, '../scripts/prepare-native-release.cjs'), 'utf8');
+  // Sign the helpers first, then hash, then sign the policy, then verify both contracts.
+  const order = ['build-hidusbf-native.cjs', 'signFile(', 'hashFile(path.join(native', "'prepare-release'", "'-Release'", "'verify-release'", 'readNativeBrokerStatus(native)'].map(marker => script.indexOf(marker));
+  assert.ok(order.every(index => index > 0), 'release step is missing a stage');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'release stages are out of order');
+  assert.doesNotMatch(script, /spawn\(|Start-Process|Dialed\.HidusbfBroker\.exe'\s*,\s*\[/);
+  const verifier = fs.readFileSync(path.join(__dirname, '../scripts/verify-private-candidate.cjs'), 'utf8');
+  assert.match(verifier, /The package has no signed native release policy/);
+  assert.match(verifier, /NATIVE_POLICY_MINIMUM_DAYS = 30/);
+  assert.match(verifier, /Packaged broker differs from the signed release policy/);
+  assert.match(verifier, /Native helper signer differs from the release policy/);
+});

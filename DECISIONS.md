@@ -166,3 +166,24 @@ findings are listed in the review queue.
   `src/main/input-driver-lifecycle/native-broker.cjs`), and the older direct route is switched off.
   The owner asked for whatever is needed to restore it and retain it. Plan and facts: review queue
   Section 50.
+
+## 2026-09-28 — Polling-rate changes ship in release builds
+
+- **The owner's policy key is compiled into the app** (public half only, SPKI SHA256
+  `9b4276c9…a2cef9`). The bundled setup now runs when a package carries a general release policy
+  (schema 2, `ACCEPTED_RELEASE`) signed by that key for its exact signed helpers.
+- **Scope of the release policy:** USB mice, keyboards, gamepads and joysticks at Full-Speed
+  (125–1000 Hz) or High-Speed (1000–8000 Hz), Windows 10 build 19041 or later, no denied devices.
+  Tested only on the owner's devices and Windows build 26200; other compatible hardware is
+  expected to work but untested, as the release notes must say. The helper still refuses
+  Low-Speed, unknown-speed and non-USB devices on its own.
+- **Lifetime 395 days** (the contract allows 400). Each release re-signs, so the practical limit
+  is how long someone runs an old build.
+- **`npm run release:native` is part of `electron:build`**, and `candidate:verify` refuses a
+  package without a valid policy for its own helpers, or with fewer than 30 days left. The manual
+  unsigned CI workflow builds the helpers without a policy, so rate changes stay off there.
+- **The Memory Integrity guide follows what this build can actually do**: with the signed setup
+  available, a High-Speed device may go above 1 kHz, so the "keep it on" sentence is shown only
+  when neither the setup nor the legacy route is available.
+- The policy key stays DPAPI-encrypted in `C:\Users\itach\.dialed-signing`. No portable backup
+  exists; losing it means a new key and a release, not a broken install.

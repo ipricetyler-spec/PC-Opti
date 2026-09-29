@@ -28,6 +28,16 @@ fs.writeFileSync(path.join(candidate, 'Dialed.HidusbfHost.exe'), helper);
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const policy = { SchemaVersion: 1, ExpiresAt: new Date(Date.now() + 86400000).toISOString(), BrokerSha256: sha(broker), HelperSha256: sha(helper), PublisherThumbprint: 'c'.repeat(40), AcceptedPlatformDigests: ['f'.repeat(64), 'd'.repeat(64)], Purpose: 'VALIDATION_ONLY', AuthorizedDeviceDigests: ['e'.repeat(64)] };
 const raw = value => Buffer.from(JSON.stringify(value));
+// The checkout carries the owner's reviewed release key since 2026-09-28. Unconfigured-build
+// refusal is still covered, on copies whose two anchors are emptied.
+const RELEASE_FINGERPRINT = '9b4276c9991b35c7f3e784357080e4ba709ecaeab8255d34e79df92023a2cef9';
+const EMPTY_ANCHOR = { 'native/hidusbf-helper/ReleasePolicy.cs': [/static readonly string ReleasePublicKeyPem = "(?:[^"\\]|\\.)*";/, 'static readonly string ReleasePublicKeyPem = "";'],
+  'src/main/input-driver-lifecycle/native-broker.cjs': [/const RELEASE_PUBLIC_KEY = (?:''|"(?:[^"\\]|\\.)*");/, "const RELEASE_PUBLIC_KEY = '';"] };
+const unconfiguredAnchors = () => workflow.anchorValues(root).map(entry => ({ ...entry, value: '', text: entry.text.replace(EMPTY_ANCHOR[entry.file][0], () => EMPTY_ANCHOR[entry.file][1]) }));
+function assertReleaseKeyCompiled() {
+  assert.equal(workflow.checkAnchors(root), 'PUBLIC_KEY_COMPILED_INACTIVE');
+  assert.equal(sha(crypto.createPublicKey(workflow.anchorValues(root)[0].value).export({ type: 'spki', format: 'der' })), RELEASE_FINGERPRINT);
+}
 const review = raw(policy);
 const sign = bytes => crypto.sign('sha256', bytes, { key: pair.privateKey, padding: crypto.constants.RSA_PKCS1_PSS_PADDING, saltLength: 32 });
 after(() => fs.rmSync(temporary, { recursive: true, force: true }));
@@ -98,13 +108,14 @@ test('external secret input refuses workspace/output containment, links, wrong k
 
 test('public-key compilation changes only two literal spans in temporary sources and checks parity', () => {
   const fixtureRoot = path.join(temporary, 'source');
-  const before = workflow.anchorValues(root);
+  const before = unconfiguredAnchors();
   for (const entry of before) {
     fs.mkdirSync(path.dirname(path.join(fixtureRoot, entry.file)), { recursive: true });
     fs.writeFileSync(path.join(fixtureRoot, entry.file), entry.text);
   }
-  assert.equal(workflow.checkAnchors(root), 'UNCONFIGURED');
-  assert.equal(readNativeBrokerStatus('unused').code, 'NATIVE_RELEASE_TRUST_UNCONFIGURED');
+  assertReleaseKeyCompiled();
+  // With the key compiled, a directory without a signed policy is refused, not unconfigured.
+  assert.equal(readNativeBrokerStatus('unused').code, 'NATIVE_RELEASE_REJECTED');
   assert.throws(() => workflow.checkAnchors(root, identity), /not compiled/);
   assert.ok(workflow.compileAnchors(identity, { root: fixtureRoot }).every(edit => edit.changed));
   assert.equal(workflow.checkAnchors(fixtureRoot), 'UNCONFIGURED');
@@ -120,7 +131,7 @@ test('public-key compilation changes only two literal spans in temporary sources
   assert.throws(() => workflow.checkAnchors(fixtureRoot), /differ/);
   fs.appendFileSync(path.join(fixtureRoot, before[1].file), '\nconst RELEASE_PUBLIC_KEY = "";');
   assert.throws(() => workflow.compileAnchors(identity, { root: fixtureRoot, write: true }), /exactly one/);
-  assert.equal(workflow.checkAnchors(root), 'UNCONFIGURED');
+  assertReleaseKeyCompiled();
 });
 
 test('release CLI rejects omitted, duplicate and extra options before any mutation', () => {
@@ -135,7 +146,7 @@ test('release CLI rejects omitted, duplicate and extra options before any mutati
 
 test('native build with a closed compiler refuses source drift before issuing a manifest', () => {
   const fixtureRoot = path.join(temporary, 'build-source');
-  const files = workflow.anchorValues(root).map(entry => [entry.file, entry.text]);
+  const files = unconfiguredAnchors().map(entry => [entry.file, entry.text]);
   files.push(['src/main/input-driver-lifecycle/release-policy-contract.cjs', '// inert fixture'], ['src/main/input-devices/usb-native.cs', '// inert fixture'], ['native/hidusbf-host/Fixture.cs', '// inert fixture'], ['native/hidusbf-broker/Fixture.cs', '// inert fixture']);
   for (const [file, text] of files) { fs.mkdirSync(path.dirname(path.join(fixtureRoot, file)), { recursive: true }); fs.writeFileSync(path.join(fixtureRoot, file), text); }
   const source = fs.readFileSync(path.join(root, 'scripts/build-hidusbf-native.cjs'), 'utf8');
@@ -172,6 +183,7 @@ test('isolated CLI prepares, signs and re-verifies exact policy files without pa
     fs.mkdirSync(path.dirname(path.join(isolated, file)), { recursive: true });
     fs.copyFileSync(path.join(root, file), path.join(isolated, file));
   }
+  for (const entry of unconfiguredAnchors()) fs.writeFileSync(path.join(isolated, entry.file), entry.text);
   const publicFile = path.join(temporary, 'cli-public.pem'); fs.writeFileSync(publicFile, pem);
   const reviewFile = path.join(temporary, 'cli-review.json'); fs.writeFileSync(reviewFile, review);
   const script = path.join(isolated, 'scripts/native-release-policy.cjs');
@@ -203,7 +215,7 @@ test('isolated CLI prepares, signs and re-verifies exact policy files without pa
   assert.match(run(['verify', ...common, '--policy-dir', prepared]), /VALIDATION_POLICY_CONTRACT_VERIFIED/);
   fs.writeFileSync(path.join(signed, 'release-policy.sig'), Buffer.alloc(384));
   assert.throws(() => run(['verify', ...common, '--policy-dir', signed]), /operation refused/);
-  assert.equal(workflow.checkAnchors(root), 'UNCONFIGURED');
+  assertReleaseKeyCompiled();
 });
 
 test('JavaScript signed-policy verdicts match the actual C# contract on the same adversarial corpus', { timeout: 60000 }, () => {

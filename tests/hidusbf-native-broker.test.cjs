@@ -14,8 +14,17 @@ test('native setup exit emits one refresh signal without inventing an operation 
 });
 
 test('native source cannot activate without a compiled release trust anchor', async () => {
-  assert.equal(readNativeBrokerStatus('nonexistent').code, 'NATIVE_RELEASE_TRUST_UNCONFIGURED');
-  await assert.rejects(createNativeBrokerLauncher('nonexistent')('a'.repeat(64)), /no signed native release/);
+  // The checkout carries the release key, so the empty-anchor refusal is checked on a copy.
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/input-driver-lifecycle/native-broker.cjs'), 'utf8')
+    .replace(/const RELEASE_PUBLIC_KEY = (?:''|"(?:[^"\\]|\\.)*");/, () => "const RELEASE_PUBLIC_KEY = '';");
+  const module = { exports: {} };
+  vm.runInNewContext(source, { module, Buffer, process, require: name => name.startsWith('./') ? require('../src/main/input-driver-lifecycle/' + name.slice(2)) : require(name) });
+  assert.equal(module.exports.readNativeBrokerStatus('nonexistent').code, 'NATIVE_RELEASE_TRUST_UNCONFIGURED');
+  await assert.rejects(module.exports.createNativeBrokerLauncher('nonexistent')('a'.repeat(64)), /no signed native release/);
+  // The shipped key never opens a folder that has no signed policy.
+  assert.equal(readNativeBrokerStatus('nonexistent').code, 'NATIVE_RELEASE_REJECTED');
+  await assert.rejects(createNativeBrokerLauncher('nonexistent')('a'.repeat(64)));
 });
 
 test('setup accepts only a bounded selection hint and never an operation, path or rate', async () => {
@@ -42,7 +51,7 @@ test('actual broker launcher passes only the selection digest and keeps launch e
   const spawns = []; let child;
   const module = { exports: {} };
   const source = fs.readFileSync(path.join(__dirname, '../src/main/input-driver-lifecycle/native-broker.cjs'), 'utf8')
-    .replace("const RELEASE_PUBLIC_KEY = '';", 'const RELEASE_PUBLIC_KEY = ' + JSON.stringify(publicKey.export({ type: 'spki', format: 'pem' })) + ';');
+    .replace(/const RELEASE_PUBLIC_KEY = (?:''|"(?:[^"\\]|\\.)*");/, () => 'const RELEASE_PUBLIC_KEY = ' + JSON.stringify(publicKey.export({ type: 'spki', format: 'pem' })) + ';');
   vm.runInNewContext(source, { module, Buffer,
     process: { env: { SystemRoot: 'C:\\Windows', NODE_OPTIONS: '--require=unexpected', CORECLR_ENABLE_PROFILING: '1' } },
     require: name => {

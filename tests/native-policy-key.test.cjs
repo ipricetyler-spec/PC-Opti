@@ -39,6 +39,19 @@ test('owner-only DPAPI custody reopens, signs without plaintext export, and refu
     fs.writeFileSync(policyPath, JSON.stringify(policy).replace('"SchemaVersion":1', '"SchemaVersion":1,"SchemaVersion":1'));
     assert.throws(() => run(args), /operation refused/);
     assert.equal(fs.existsSync(signaturePath), false);
+    // -Release signs only a schema 2 general release, and never a validation policy.
+    const release = { SchemaVersion: 2, ExpiresAt: new Date(Date.now() + 300 * 86400000).toISOString(), BrokerSha256: 'a'.repeat(64), HelperSha256: 'b'.repeat(64), PublisherThumbprint: 'C'.repeat(40), Purpose: 'ACCEPTED_RELEASE', DeviceClasses: ['GAMEPAD', 'MOUSE'], SpeedClasses: ['FULL', 'HIGH'], MinimumWindowsBuild: 22000, DeniedDevices: [] };
+    fs.writeFileSync(policyPath, JSON.stringify(release));
+    assert.throws(() => run(args), /operation refused/);
+    assert.equal(fs.existsSync(signaturePath), false);
+    assert.equal(JSON.parse(run([...args, '-Release'])).action, 'Sign');
+    assert.equal(verifyPolicy(fs.readFileSync(policyPath), fs.readFileSync(signaturePath), publicKey).Purpose, 'ACCEPTED_RELEASE');
+    fs.unlinkSync(signaturePath);
+    fs.writeFileSync(policyPath, JSON.stringify(policy));
+    assert.throws(() => run([...args, '-Release']), /operation refused/);
+    fs.writeFileSync(policyPath, JSON.stringify({ ...release, ExpiresAt: new Date(Date.now() + 500 * 86400000).toISOString() }));
+    assert.throws(() => run([...args, '-Release']), /operation refused/);
+    assert.equal(fs.existsSync(signaturePath), false);
     assert.deepEqual(fs.readFileSync(path.join(directory, 'release-policy-private.dpapi')), encryptedBefore);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });

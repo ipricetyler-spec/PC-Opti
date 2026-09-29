@@ -5,7 +5,9 @@ param(
   [Parameter(Mandatory)][string]$KeyDirectory,
   [string]$PolicyPath,
   [string]$SignaturePath,
-  [string]$PublicFingerprint
+  [string]$PublicFingerprint,
+  # Signs a schema 2 general release (ACCEPTED_RELEASE) instead of a VALIDATION_ONLY policy.
+  [switch]$Release
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -92,7 +94,11 @@ try {
     $bytes = Read-Bounded $policyFile 65536
     # Validation uses the shared strict parser before any policy signature is made.
     # Only the public policy path is passed to Bun; private material stays here.
-    $validator = "try{const fs=require('node:fs');const {parsePolicy}=require(process.argv[1]);const p=parsePolicy(fs.readFileSync(process.argv[2]));if(p.Purpose!=='VALIDATION_ONLY'||Date.parse(p.ExpiresAt)>Date.now()+7*86400000)process.exit(1);process.exit(0);}catch{process.exit(1);}"
+    $validator = if ($Release) {
+      "try{const fs=require('node:fs');const {parseGeneralPolicy,isGeneralRelease}=require(process.argv[1]);const b=fs.readFileSync(process.argv[2]);if(!isGeneralRelease(b)||parseGeneralPolicy(b).Purpose!=='ACCEPTED_RELEASE')process.exit(1);process.exit(0);}catch{process.exit(1);}"
+    } else {
+      "try{const fs=require('node:fs');const {parsePolicy}=require(process.argv[1]);const p=parsePolicy(fs.readFileSync(process.argv[2]));if(p.Purpose!=='VALIDATION_ONLY'||Date.parse(p.ExpiresAt)>Date.now()+7*86400000)process.exit(1);process.exit(0);}catch{process.exit(1);}"
+    }
     & bun -e $validator (Join-Path $repository 'src/main/input-driver-lifecycle/release-policy-contract.cjs') $policyFile *> $null
     if ($LASTEXITCODE -ne 0) { throw 'Policy contract refused.' }
     if ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)) -cne [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData((Read-Bounded $policyFile 65536)))) { throw 'Policy changed during validation.' }

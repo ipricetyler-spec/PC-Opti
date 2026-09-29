@@ -23,7 +23,7 @@ namespace Dialed.HidusbfHelper {
   public sealed class ReleasePolicy {
     // Set only for a reviewed signing release. No environment variable, request,
     // adjacent key file or synthetic 'signed' flag can replace this trust anchor.
-    static readonly string ReleasePublicKeyPem = "";
+    static readonly string ReleasePublicKeyPem = "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA4IbQWYUyZlk1v99Q47u/\nUBDTAh+HG++NEaQdBPzd23cOKye+DeijbW8ZPOHeMM/7GrckszuDC8yz4dCJUJXW\n06iFrI0O/DQsnD3tSs86LMhVR6xj72aWJEcXsnMV3S+hxljNQWogcHYFf+EHSVv8\nFq0wagiOg+EBTeDYAYIvbQZTfjcZpFnnnsvFVBCA+9wv8aQ0kPBCqMxFtsbOQpfR\n6U805YCUdAFS2EldjO6YWtsKdGkaat8JCvrHiEdvpsMfymyNnwvm2zB7SlClKkC0\nAzSx1CWt7YbCOxJeQ5ygIKQ1H5I2tNOODvS1OpMJpYLrwQPogBbq+eOBOAWkOK5G\nSXfu6fwXhlzGcj+pA1AHtzVEBMRblOtb+JcN8aVqup270K6wtB8A/AIBX+NQgR8v\nNNcdDRosaJ3UOgA7GxwLmo5a9xaj/Xtgsz6I+lZLT+/QbHB6EDjjJhe/WimUzTa/\nAKZ7S9ad8JBVtUXU/guZZ68ZIczK4a0Kj5nSAVKx9OrBAgMBAAE=\n-----END PUBLIC KEY-----\n";
     public ReleasePolicyData Data { get; }
     ReleasePolicy(ReleasePolicyData data) { Data = data; }
     public static ReleasePolicy Load(string directory) {

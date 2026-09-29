@@ -20,7 +20,18 @@ jobs:
           dotnet-version: '8.0.x'
       - run: bun test
       - run: bun run lint
-      - run: bun run electron:build
+      # Unsigned artifacts cannot carry a signed native release policy (npm run release:native
+      # needs the owner's policy key and code-signing certificate), so polling-rate changes stay
+      # unavailable in them. The signed release is built locally; see
+      # docs/RELEASE_PACKAGING_CHECKLIST.md.
+      - run: bun scripts/build-hidusbf-native.cjs --output "${{ github.workspace }}\output\hidusbf-native"
+      - run: bun run build
+      - run: bun run sbom
+      - run: bun run license:inventory
+      - run: bunx --no-install electron-builder --win nsis
+      - run: bun run release:checksums
+      - run: bun run release:sign
+      - run: bun run release:manifest
       - name: Verify release artifact manifest and checksums
         env:
           DIALED_ENABLE_SIGNING: ${{ vars.DIALED_ENABLE_SIGNING || vars.PC_OPTI_ENABLE_SIGNING || '1' }}

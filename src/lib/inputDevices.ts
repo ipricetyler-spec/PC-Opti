@@ -57,7 +57,7 @@ export interface InputResult {
   status: string; historyId: string; reconnectRequired: boolean; message: string;
 }
 export interface InputTest {
-  capturedAt: string; deviceId: string; method: string; configuredRequestHz: number | null;
+  capturedAt: string; deviceId: string; purpose?: 'RATE' | 'CONTROLS'; method: string; configuredRequestHz: number | null;
   measurement: { unit: 'WINDOWS_RAW_INPUT_MESSAGES'; controlActivity: 'NOT_MEASURED' | 'DECODED_CONTROL_CHANGES' };
   controlActivity?: {
     status: 'UNAVAILABLE' | 'DETECTED' | 'NO_SIGNIFICANT_CHANGE' | 'INCONCLUSIVE';

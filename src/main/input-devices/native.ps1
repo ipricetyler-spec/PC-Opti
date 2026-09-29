@@ -190,7 +190,7 @@ switch ($DialedInputMode) {
       return $false
     } | ForEach-Object { $_.id })
     if($ids.Count -eq 0) { throw 'This device exposes no supported mouse, keyboard, or game-controller Raw Input channel.' }
-    $captured = @([Dialed.Input.TimingWindow]::CaptureEvents([string[]]$ids))
+    $captured = @([Dialed.Input.TimingWindow]::CaptureEvents([string[]]$ids, ($request.purpose -eq 'RATE')))
     $channels = @($captured | ForEach-Object {
       $source = $map[$_.id]
       $kind = if($_.keyboard){'KEYBOARD'}elseif($source){[string]$source.inputKind}else{'INPUT'}

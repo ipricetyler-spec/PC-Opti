@@ -364,8 +364,9 @@ ipcMain.handle('pc-opti:apply-input-tier', (_event, token) => {
   assertCapabilityAvailable('input:xhci-tier');
   return serializeMutation(() => inputDevices().applyTier(assertInputOperationToken(token)));
 });
-ipcMain.handle('pc-opti:test-input-device', async (_event, deviceId) => {
+ipcMain.handle('pc-opti:test-input-device', async (_event, deviceId, purpose = 'CONTROLS') => {
   assertCapabilityAvailable('input:usb-advisor');
+  if (purpose !== 'RATE' && purpose !== 'CONTROLS') throw new Error('Choose the polling-rate check or the controls check.');
   // The check needs its own window to hold the foreground for the full eight seconds, and
   // Dialed's window is normally maximised behind it. Left clickable, it takes the foreground
   // back on the reader's first click and the check is cancelled before it can measure
@@ -373,7 +374,7 @@ ipcMain.handle('pc-opti:test-input-device', async (_event, deviceId) => {
   const disabled = mainWindow && !mainWindow.isDestroyed();
   if (disabled) mainWindow.setEnabled(false);
   try {
-    return await inputDevices().test(assertInputDeviceDigest(deviceId));
+    return await inputDevices().test(assertInputDeviceDigest(deviceId), purpose);
   } finally {
     if (disabled && !mainWindow.isDestroyed()) {
       mainWindow.setEnabled(true);

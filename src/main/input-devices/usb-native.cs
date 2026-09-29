@@ -478,14 +478,25 @@ namespace Dialed.Input {
       else { id=name.ToString(); if(id.StartsWith("\\\\?\\")) id=id.Substring(4); int end=id.LastIndexOf("#{",StringComparison.Ordinal); if(end>=0) id=id.Substring(0,end); id=id.Replace('#','\\'); }
       names[handle]=id; return id;
     }
-    public static string Instructions(bool mouse,bool keyboard,bool controller) {
+    // The rate check wants the opposite of the controls check: a controller reports every
+    // interval on its own, so touching it adds nothing, while a mouse reports only while moving.
+    public static string Instructions(bool mouse,bool keyboard,bool controller,bool rateCheck) {
+      if(rateCheck) {
+        var rate="Polling-rate check: eight seconds.\r\n";
+        if(controller) rate+="Leave the controller untouched. It reports continuously on its own.\r\n";
+        if(mouse) rate+="Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves.\r\n";
+        if(keyboard) rate+="Keyboards only report when keys change, so their rate is not measured.\r\n";
+        return rate+"Keep this window focused. Click Cancel check or close this window to cancel.";
+      }
       var text="Use only the selected device for eight seconds.\r\n";
       if(controller) text+="Hold sticks/triggers still for one second, then move them and use buttons/D-pad.\r\n";
       if(mouse) text+="Move the mouse steadily, click buttons and use the wheel.\r\n";
       if(keyboard) text+="Press and release different keys. Key polling rate is not measured.\r\n";
       return text+"Raw reports and key identities are not saved.\r\nKeep this window focused. Click Cancel check or close this window to cancel.";
     }
-    public TimingWindow(string[] ids) {
+    readonly bool rateCheck;
+    public TimingWindow(string[] ids,bool rateCheck=false) {
+      this.rateCheck=rateCheck;
       allowed=new HashSet<string>(ids,StringComparer.OrdinalIgnoreCase);
       uint count=0,size=(uint)Marshal.SizeOf(typeof(RawHandle));
       if(GetRawInputDeviceList(null,ref count,size)==uint.MaxValue || count>4096) throw new InvalidOperationException("Input handle inventory unavailable.");
@@ -494,7 +505,7 @@ namespace Dialed.Input {
       bool mouse=false,keyboard=false,controller=false;
       for(int i=0;i<count;i++) { var item=handles[i]; string id=ResolveName(item.handle); if(!allowed.Contains(id)) continue; selectedHandles.Add(item.handle); if(item.type==1) { keyboardIds.Add(id); keyboard=true; } else if(item.type==0) mouse=true; else controller=true; }
       if(ids.Length>0 && selectedHandles.Count==0) throw new InvalidOperationException("Selected input handles disappeared. Rescan first.");
-      Text="Dialed input activity check - keep this window focused";
+      Text=rateCheck?"Dialed polling-rate check - keep this window focused":"Dialed input activity check - keep this window focused";
       // Dialed's own window is usually maximised behind this one. Without TopMost the check
       // window opens behind it: invisible, so the first click lands on Dialed and cancels
       // the check. ShowInTaskbar keeps a way back to it if anything still covers it.
@@ -503,7 +514,7 @@ namespace Dialed.Input {
       BackColor=System.Drawing.Color.FromArgb(16,22,34); ForeColor=System.Drawing.Color.WhiteSmoke;
       Font=new System.Drawing.Font("Segoe UI",10); Padding=new Padding(16);
       feedback.Height=90; feedback.ForeColor=System.Drawing.Color.LightSkyBlue;
-      var instructions=new Label { Dock=DockStyle.Fill, Text=Instructions(mouse,keyboard,controller), TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
+      var instructions=new Label { Dock=DockStyle.Fill, Text=Instructions(mouse,keyboard,controller,rateCheck), TextAlign=System.Drawing.ContentAlignment.MiddleCenter };
       // Dialed disables its main window during capture, so cancellation must be available here.
       // No keyboard shortcut, Escape included: no ordinary key may cancel a keyboard check.
       // The window's own close command (X or Alt+F4) still cancels on purpose - this window is
@@ -587,6 +598,13 @@ namespace Dialed.Input {
       } finally { Marshal.FreeHGlobal(data); }
     }
     void UpdateFeedback() {
+      if(rateCheck) {
+        // A live estimate only; Dialed computes the reported figure from exact timestamps.
+        double seconds=clock.Elapsed.TotalSeconds; int received=Math.Max(sampleCount,reportCount);
+        feedback.Text=String.Format("{0:0} seconds left\r\n{1}",Math.Max(0,8-seconds),
+          !started||seconds<1||received==0?"Waiting for reports from the device...":String.Format("About {0:0} reports per second so far",received/seconds));
+        return;
+      }
       int buttons=0,keys=0,movement=0,axes=0,hats=0,decoded=0;
       foreach(var tracker in activity.Values) { var a=tracker.Result; buttons+=a.buttons; keys+=a.keys; movement+=a.movement; axes+=a.axes; hats+=a.hats; decoded+=a.decoded; }
       feedback.Text=String.Format("{0:0} seconds left  |  {1} Windows messages\r\nButtons {2}  |  Keys {3}  |  Mouse/wheel {4}  |  Axes {5}  |  D-pad {6}\r\n{7}",Math.Max(0,8-clock.Elapsed.TotalSeconds),sampleCount,buttons,keys,movement,axes,hats,decoded==0?"Waiting for supported control data...":"Control changes are separate from message rate.");
@@ -595,8 +613,8 @@ namespace Dialed.Input {
       if(disposing) { foreach(var decoder in decoders.Values) decoder.Dispose(); decoders.Clear(); }
       base.Dispose(disposing);
     }
-    public static EventChannel[] CaptureEvents(string[] ids) {
-      using(var window=new TimingWindow(ids)) {
+    public static EventChannel[] CaptureEvents(string[] ids,bool rateCheck=false) {
+      using(var window=new TimingWindow(ids,rateCheck)) {
         // A real Windows message loop blocks between events instead of waking
         // every millisecond. The timer exists only to end this explicit test.
         using(var timer=new System.Windows.Forms.Timer()) {

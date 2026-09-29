@@ -12,7 +12,7 @@ const PATCHING_1K_SHA256 = '81f649b34978fe9f74ce5c7c04ba24d5238faec6c70018f14da9
 const PATCHING_2K_4K_SHA256 = 'e2c9fc626bb92d2219fbef3458014c198a3c90c563f948c9a433826e64d77e90';
 const PATCHING_4K_8K_SHA256 = 'db73a8c259e16a0d02f138650497c1bdec81add66d928f3cf3ff39fad4eb421b';
 const PATCHING_SHA256 = PATCHING_1K_SHA256;
-const NATIVE_INPUT_SOURCE_SHA256 = '6ece729c04293c5977e46d177c0416123b3f05f14a0078c5397d24bfce2d45d4';
+const NATIVE_INPUT_SOURCE_SHA256 = '249e3ff075b6e77e1c01602a03dd3c48859d16ad74c60e7fd8a75e0e91440bff';
 const MAX_NATIVE_INPUT_SOURCE_BYTES = 64 * 1024;
 const FULL_SPEED_RATES = Object.freeze([125, 250, 500, 1000]);
 const HIGH_SPEED_RATES = Object.freeze([1000, 2000, 4000, 8000]);
@@ -29,6 +29,13 @@ const digest = (value) => crypto.createHash('sha256').update(typeof value === 's
 // The native setup names a device by SHA256 of its upper-case instance ID as System.Text.Json
 // writes it by default: backslashes doubled and '&' as &. Other characters that encoder
 // would escape never occur in USB instance IDs; an ID containing one gets no selection.
+// A controller reports every interval, and a mouse while it moves, so both show their rate.
+// A keyboard reports only key changes, and a keyboard that also exposes a mouse channel would
+// ask the reader to move a keyboard; neither can be measured this way.
+const RATE_CHECK_UNAVAILABLE = 'Keyboards only report when keys change, so their polling rate cannot be measured by listening to them. The controls check still works.';
+function rateCheckable(kinds = []) {
+  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD'));
+}
 function nativeSetupDeviceId(instanceId) {
   const upper = String(instanceId || '').toUpperCase();
   if (!/^[A-Z0-9_&\\#.-]{1,512}$/.test(upper)) return null;
@@ -827,18 +834,20 @@ function createInputService(directory, adapters = {}) {
       return scan();
     });
   }
-  async function test(deviceId) {
+  async function test(deviceId, purpose = 'CONTROLS') {
+    if (!['RATE', 'CONTROLS'].includes(purpose)) throw new Error('Choose the polling-rate check or the controls check.');
     if (adapters.nativeSetupActive?.()) throw new Error('Close native setup before starting the input check.');
     if (testController || mutationBusy) throw new Error('An input test or device change is already running.');
     const controller = new AbortController(); testController = controller;
     try {
       const inventory = await readInventory(), device = buildDevices(inventory).find((item) => item.id === deviceId);
       if (!device?.canTest) throw new Error('Connect a supported mouse, keyboard, or game controller.');
+      if (purpose === 'RATE' && !rateCheckable(device.testKinds)) throw new Error(RATE_CHECK_UNAVAILABLE);
       const node = [...inventory.map.values()].find((item) => digest(item.id) === deviceId);
       const inputScope = (snapshot) => digest([...snapshot.map.values()].filter((item) => /^HID\\/.test(item.id) && trace(snapshot.map, item.id).nodes.some((ancestor) => ancestor.id === node.id)).sort((a, b) => a.id.localeCompare(b.id)));
       const beforeInputScope = inputScope(inventory);
       if (controller.signal.aborted) throw new Error('Input check canceled. Results were discarded.');
-      const result = await native('Test', { id: node.id }, controller.signal);
+      const result = await native('Test', { id: node.id, purpose }, controller.signal);
       if (controller.signal.aborted) throw new Error('Input check canceled. Results were discarded.');
       const after = await readInventory();
       if (controller.signal.aborted) throw new Error('Input check canceled. Results were discarded.');
@@ -846,7 +855,7 @@ function createInputService(directory, adapters = {}) {
       const channels = summarizeTiming(result, device.configuredHz);
       const controlActivity = summarizeActivity(result);
       return {
-        capturedAt: new Date(now()).toISOString(), deviceId, channels,
+        capturedAt: new Date(now()).toISOString(), deviceId, purpose, channels,
         measurement: { unit: 'WINDOWS_RAW_INPUT_MESSAGES', controlActivity: result.activityVersion === 1 ? 'DECODED_CONTROL_CHANGES' : 'NOT_MEASURED' },
         controlActivity,
         configuredRequestHz: device.configuredHz,
@@ -879,7 +888,7 @@ function createInputService(directory, adapters = {}) {
 }
 
 module.exports = {
-  moveInputHistoryToProtectedFolder, nativeSetupDeviceId,
+  moveInputHistoryToProtectedFolder, nativeSetupDeviceId, rateCheckable,
   UPSTREAM, NOPATCH_SHA256, PATCHING_SHA256, PATCHING_1K_SHA256, PATCHING_2K_4K_SHA256, PATCHING_4K_8K_SHA256, NATIVE_INPUT_SOURCE_SHA256,
   RATES, FULL_SPEED_RATES, HIGH_SPEED_RATES, rateForInterval, intervalForRate,
   normalizeInventory, trace, buildDevices, buildFilteredDevices, filteredScopeSnapshot, filteredScopeHash, describeScopeDrift,

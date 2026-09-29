@@ -81,6 +81,7 @@ function harness(options = {}) {
       return { status: 'CONFIGURED', rebootRequired: true };
     }
     if (mode === 'Test') {
+      options.onTest?.(payload);
       if (options.holdTest) return new Promise((resolve, reject) => {
         heldTest = { resolve, reject };
         signal.addEventListener('abort', () => reject(new Error('Input test canceled. No settings were changed.')), { once: true });
@@ -554,6 +555,30 @@ test('an uninterrupted 4 kHz message stream cannot establish whether the control
   assert.deepEqual(fs.readdirSync(h.directory), [], 'Read-only captures do not persist reports or histories.');
 });
 
+test('the rate and controls checks tell the capture window which one runs, and a keyboard has no rate check', async () => {
+  const purposes = [];
+  const data = { channels: [{ kind: 'GAMEPAD', timesMs: Array.from({ length: 8001 }, (_, i) => i / 4) }] };
+  const h = harness({ speed: 2, value: 2, inputKind: 'GAMEPAD', testResult: data, onTest: (payload) => purposes.push(payload.purpose) });
+  const device = (await h.service.scan()).devices[0];
+  const rate = await h.service.test(device.id, 'RATE');
+  assert.equal(rate.purpose, 'RATE');
+  assert.equal(rate.deliveryAssessment.observedHz, 4000);
+  assert.equal((await h.service.test(device.id)).purpose, 'CONTROLS');
+  await assert.rejects(h.service.test(device.id, 'OTHER'), /polling-rate check or the controls check/);
+  assert.deepEqual(purposes, ['RATE', 'CONTROLS']);
+
+  const keyboard = harness({ inputKind: 'KEYBOARD' });
+  const keys = (await keyboard.service.scan()).devices[0];
+  await assert.rejects(keyboard.service.test(keys.id, 'RATE'), /Keyboards only report when keys change/);
+  assert.equal((await keyboard.service.test(keys.id, 'CONTROLS')).purpose, 'CONTROLS');
+  // A controller always reports; a mouse only while moving; a keyboard composite would ask for mouse movement.
+  assert.equal(input.rateCheckable(['GAMEPAD']), true);
+  assert.equal(input.rateCheckable(['JOYSTICK']), true);
+  assert.equal(input.rateCheckable(['MOUSE']), true);
+  assert.equal(input.rateCheckable(['KEYBOARD', 'MOUSE']), false);
+  assert.equal(input.rateCheckable(['KEYBOARD']), false);
+});
+
 test('each capture is fresh: a stream followed by silence does not reuse the previous rate', async () => {
   const data = { channels: [{ kind: 'GAMEPAD', timesMs: Array.from({ length: 8001 }, (_, i) => i / 4) }] };
   const h = harness({ speed: 2, value: 2, inputKind: 'GAMEPAD', testResult: data });
@@ -725,7 +750,8 @@ test('input-device IPC validates every renderer value before it reaches the serv
   assert.match(main, /apply\(assertInputOperationToken\(token\)\)/);
   assert.match(main, /previewTier\(assertInputDeviceDigest\(deviceId\), assertInputHistoryId\(historyId, true\)\)/);
   assert.match(main, /applyTier\(assertInputOperationToken\(token\)\)/);
-  assert.match(main, /test\(assertInputDeviceDigest\(deviceId\)\)/);
+  assert.match(main, /test\(assertInputDeviceDigest\(deviceId\), purpose\)/);
+  assert.match(main, /if \(purpose !== 'RATE' && purpose !== 'CONTROLS'\) throw/);
   assert.match(main, /reconcile\(assertInputHistoryId\(historyId\)\)/);
   assert.match(main, /reconcileTier\(assertInputHistoryId\(historyId\)\)/);
   assert.match(main, /\^\[a-f0-9\]\{64\}\$/);

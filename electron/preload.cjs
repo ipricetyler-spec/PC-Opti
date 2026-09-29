@@ -54,7 +54,7 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   applyInputPolling: (token) => ipcRenderer.invoke('pc-opti:apply-input-polling', token),
   previewInputTier: (deviceId, historyId) => ipcRenderer.invoke('pc-opti:preview-input-tier', deviceId, historyId),
   applyInputTier: (token) => ipcRenderer.invoke('pc-opti:apply-input-tier', token),
-  testInputDevice: (deviceId) => ipcRenderer.invoke('pc-opti:test-input-device', deviceId),
+  testInputDevice: (deviceId, purpose) => ipcRenderer.invoke('pc-opti:test-input-device', deviceId, purpose === 'RATE' ? 'RATE' : 'CONTROLS'),
   cancelInputTest: () => ipcRenderer.invoke('pc-opti:cancel-input-test'),
   reconcileInputChange: (historyId) => ipcRenderer.invoke('pc-opti:reconcile-input-change', historyId),
   reconcileInputTier: (historyId) => ipcRenderer.invoke('pc-opti:reconcile-input-tier', historyId),

@@ -64,7 +64,7 @@ declare global {
       applyInputPolling: (token: string) => Promise<import('./lib/inputDevices').InputResult>;
       previewInputTier: (deviceId: string, historyId?: string) => Promise<import('./lib/inputDevices').InputTierPreview>;
       applyInputTier: (token: string) => Promise<import('./lib/inputDevices').InputTierResult>;
-      testInputDevice: (deviceId: string) => Promise<import('./lib/inputDevices').InputTest>;
+      testInputDevice: (deviceId: string, purpose?: 'RATE' | 'CONTROLS') => Promise<import('./lib/inputDevices').InputTest>;
       cancelInputTest: () => Promise<{ canceled: boolean }>;
       reconcileInputChange: (historyId: string) => Promise<import('./lib/inputDevices').InputInventory>;
       reconcileInputTier: (historyId: string) => Promise<import('./lib/inputDevices').InputInventory>;

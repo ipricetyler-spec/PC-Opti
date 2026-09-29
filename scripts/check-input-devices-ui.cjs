@@ -165,7 +165,7 @@ async function main() {
       if (method === 'apply') return service.apply(args[0]);
       if (method === 'previewTier') return service.previewTier(args[0], args[1]);
       if (method === 'applyTier') return service.applyTier(args[0]);
-      if (method === 'test') return service.test(args[0]);
+      if (method === 'test') return service.test(args[0], args[1]);
       if (method === 'cancel') return service.cancelTest();
       if (method === 'reconcile') return service.reconcile(args[0]);
       if (method === 'reconcileTier') return service.reconcileTier(args[0]);
@@ -249,7 +249,7 @@ async function main() {
         reconcileInputDriverLifecycle: (operationId) => call('lifecycleReconcile', operationId),
         previewInputPolling: (id, rate, historyId) => call('preview', id, rate, historyId),
         previewInputIsolation: (id) => call('previewIsolation', id),
-        applyInputPolling: (token) => call('apply', token), testInputDevice: (id) => call('test', id),
+        applyInputPolling: (token) => call('apply', token), testInputDevice: (id, purpose) => call('test', id, purpose),
         previewInputTier: (id, historyId) => call('previewTier', id, historyId), applyInputTier: (token) => call('applyTier', token),
         cancelInputTest: () => call('cancel'), reconcileInputChange: (id) => call('reconcile', id),
         reconcileInputTier: (id) => call('reconcileTier', id),
@@ -326,8 +326,10 @@ async function main() {
     assert.equal(await section.getByRole('button', { name: 'Recheck saved change' }).count(), 0);
 
     await section.getByText('SELECTED', { exact: true }).waitFor();
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
-    await section.getByText(/Not enough sustained Windows messages|No supported saved request|Not enough continuous movement/).waitFor();
+    await section.getByText(/Move the mouse in steady, continuous circles/).first().waitFor();
+    await section.getByRole('button', { name: 'Check polling rate' }).click();
+    await section.getByLabel('Polling rate result').getByText('No rate measured', { exact: true }).waitFor();
+    await section.getByLabel('Polling rate result').getByText(/Not enough sustained Windows messages|No supported saved request|Not enough continuous movement/).waitFor();
     await section.getByText('500 Windows messages/s', { exact: true }).waitFor();
     const keyboardDevice = deviceList.getByRole('button', { name: /Fixture TKL Keyboard/ });
     await keyboardDevice.click();
@@ -336,9 +338,11 @@ async function main() {
     const selectedKeyboard = deviceList.locator('button').filter({ hasText: 'Fixture TKL Keyboard' });
     assert.equal(await selectedKeyboard.count(), 1, 'Keyboard must remain in the connected-device list after selection.');
     assert.equal(await selectedKeyboard.getAttribute('aria-pressed'), 'true', 'Keyboard selection must become active before its delivery guidance is checked.');
-    await section.getByRole('heading', { name: 'Input activity & message rate' }).waitFor();
+    await section.getByRole('heading', { name: 'Check this device' }).waitFor();
     await section.getByText(/press different keys continuously|physical product is a keyboard, type continuously/).waitFor();
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
+    assert.equal(await section.getByRole('button', { name: 'Check polling rate' }).isDisabled(), true, 'A keyboard has no rate check.');
+    await section.getByText(/Keyboards only report when keys change/).first().waitFor();
+    await section.getByRole('button', { name: 'Check controls' }).click();
     await section.getByText(/Keyboard traffic reflects key changes/).waitFor();
     await section.getByText(/Keyboard channel 1/).waitFor();
     await deviceList.getByRole('button', { name: /Fixture High-Speed Controller/ }).click();
@@ -363,15 +367,20 @@ async function main() {
     await section.getByRole('button', { name: 'Check after restart' }).click();
     await section.getByText(/Driver setup is ready for the selected device/).waitFor();
     assert.equal(await section.getByLabel('Choose a new polling-rate request').inputValue(), '8000');
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
-    await section.getByText(/About 8000 Windows messages\/s for the 8000 Hz saved request/).waitFor();
-    await section.getByText(/Control activity was not measured by this capture/).waitFor();
+    await section.getByText(/Leave the controller untouched/).first().waitFor();
+    await section.getByRole('button', { name: 'Check polling rate' }).click();
+    const rateCard = section.getByLabel('Polling rate result');
+    await rateCard.getByText('About 8,000 reports per second', { exact: true }).waitFor();
+    await rateCard.getByText('Matches the saved 8000 Hz.', { exact: true }).waitFor();
+    assert.equal(await section.getByLabel('Control activity result').count(), 0, 'A rate check leads with the rate, not control counts.');
+    await section.getByText(/About 8000 Windows messages\/s for the 8000 Hz saved request/).waitFor({ state: 'attached' });
     await page.evaluate(() => { document.documentElement.dataset.technicalDetails = 'hidden'; });
     assert.equal(await section.getByLabel('Polling evidence ladder').isVisible(), false);
     assert.ok(await section.getByText(/HIDUSBF filter present/).count() > 0);
     assert.equal(await section.getByText(/HIDUSBF filter present/).first().isVisible(), false);
     assert.equal(await section.getByText(/GLOBAL TO FILTERED HIGH-SPEED DEVICES/).isVisible(), false);
-    assert.equal(await section.getByText(/About 8000 Windows messages\/s for the 8000 Hz saved request/).isVisible(), true);
+    assert.equal(await rateCard.getByText('About 8,000 reports per second', { exact: true }).isVisible(), true, 'The measured rate stays in plain view.');
+    assert.equal(await section.getByText(/About 8000 Windows messages\/s for the 8000 Hz saved request/).isVisible(), false, 'The long delivery wording is a technical detail.');
     await section.getByText('Signed-package maintenance is currently unavailable.', { exact: true }).waitFor();
     await section.getByRole('heading', { name: 'Existing compatible high polling-rate driver' }).waitFor();
     assert.equal(await section.getByRole('link', { name: 'Open official HIDUSBF project' }).count(), 0, 'Unavailable normal mode must not direct users into a separate installation route.');
@@ -381,29 +390,37 @@ async function main() {
     await page.evaluate(() => window.__inputFixture('nativeRate', 2));
     await section.getByRole('button', { name: 'Refresh devices' }).click();
     await page.evaluate(() => window.__inputFixture('messageCase', '4005_MESSAGES'));
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
-    const messagePanel = section.getByLabel('Windows message check', { exact: true });
+    const messagePanel = section.getByLabel('Input checks', { exact: true });
     const resultPanel = section.getByLabel('Input test results', { exact: true });
-    await resultPanel.getByText(/About 4005 Windows messages\/s for the 4000 Hz saved request/).waitFor();
+    await section.getByRole('button', { name: 'Check polling rate' }).click();
+    await resultPanel.getByLabel('Polling rate result').getByText('About 4,005 reports per second', { exact: true }).waitFor();
+    await resultPanel.getByLabel('Polling rate result').getByText('Matches the saved 4000 Hz.', { exact: true }).waitFor();
+    assert.doesNotMatch(await resultPanel.getByLabel('Polling rate result').getAttribute('class'), /emerald|green/);
+    for (const width of [960, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await messagePanel.screenshot({ path: path.join(out, `input-rate-4005-${width}.png`) });
+    }
+    await section.getByRole('button', { name: 'Check controls' }).click();
+    await resultPanel.getByText(/About 4005 Windows messages\/s for the 4000 Hz saved request/).waitFor({ state: 'attached' });
     await resultPanel.getByRole('status').getByText(/Control activity was not measured by this capture/).waitFor();
     assert.doesNotMatch(await resultPanel.getByRole('status').last().getAttribute('class'), /emerald|green/);
     assert.doesNotMatch(await resultPanel.getByRole('status').last().innerText(), /passed|verified|activity detected/i);
-    await messagePanel.getByText(/See control activity separately from messages sent while idle/).waitFor();
+    await messagePanel.getByText(/Both checks count what Windows receives from this device/).waitFor();
     for (const width of [960, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await messagePanel.screenshot({ path: path.join(out, `input-messages-4005-${width}.png`) });
     }
     await page.evaluate(() => window.__inputFixture('messageCase', 'NO_MESSAGES'));
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
+    await section.getByRole('button', { name: 'Check controls' }).click();
     await resultPanel.getByRole('status').getByText(/No Windows messages were received from this device/).waitFor();
     assert.doesNotMatch(await resultPanel.innerText(), /4005|No input detected/i);
     await messagePanel.screenshot({ path: path.join(out, 'input-messages-none-1280.png') });
     for (const [fixture, expected] of [['IDLE_CONTROLS', /No significant control changes detected/], ['ACTIVE_CONTROLS', /Control activity detected on the selected device/], ['PARTIAL_CONTROLS', /Control activity is inconclusive/], ['UNSUPPORTED_CONTROLS', /Control activity is inconclusive/], ['UNMONITORED_CONTROLS', /Some declared controls are not monitored/]]) {
       await page.evaluate((value) => window.__inputFixture('messageCase', value), fixture);
-      await section.getByRole('button', { name: 'Run 8-second input check' }).click();
+      await section.getByRole('button', { name: 'Check controls' }).click();
       await resultPanel.getByLabel('Control activity result').getByText(expected).waitFor();
       assert.equal(await resultPanel.getByLabel('Control activity result').isVisible(), true);
-      await resultPanel.getByText(/About 4005 Windows messages\/s/).waitFor();
+      await resultPanel.getByText(/About 4005 Windows messages\/s/).waitFor({ state: 'attached' });
       for (const width of [960, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         await messagePanel.screenshot({ path: path.join(out, `input-controls-${fixture}-${width}.png`) });
@@ -508,13 +525,14 @@ async function main() {
     await pollingTool.click();
     const primarySetup = section.getByRole('region', { name: 'Bundled HIDUSBF setup' });
     await primarySetup.getByRole('button', { name: 'Change rate…' }).waitFor();
-    await section.getByRole('button', { name: 'Run 8-second input check' }).click();
+    await section.getByRole('button', { name: 'Check controls' }).click();
     await section.getByLabel('Input test results').waitFor();
     const scansBeforeClose = await page.evaluate(async () => (await window.__inputFixture('scanStats')).count);
     await primarySetup.getByRole('button', { name: 'Change rate…' }).click();
     assert.equal(await section.getByLabel('Input test results').count(), 0, 'Opening setup invalidates previous measurement.');
     assert.equal(await section.getByRole('button', { name: 'Refresh devices' }).isDisabled(), true);
-    assert.equal(await section.getByRole('button', { name: 'Run 8-second input check' }).isDisabled(), true);
+    assert.equal(await section.getByRole('button', { name: 'Check controls' }).isDisabled(), true);
+    assert.equal(await section.getByRole('button', { name: 'Check polling rate' }).isDisabled(), true);
     assert.equal(await deviceList.getByRole('button', { name: /Fixture Pro Mouse/ }).isDisabled(), true);
     await page.evaluate(async () => { await window.__inputFixture('nativeRate', 4); window.__closeNativeSetup(); });
     await primarySetup.getByText('1000 Hz', { exact: true }).waitFor();
@@ -643,7 +661,7 @@ async function main() {
         await section.getByText(/No rate-change path is available/).waitFor();
         assert.equal(await section.getByRole('button',{name:'Change rate…'}).isDisabled(),true);
         assert.ok(Number(await section.getByRole('button',{name:'Change rate…'}).evaluate(el=>getComputedStyle(el).opacity)) < 0.6);
-        assert.equal(await section.getByRole('button',{name:'Run 8-second input check'}).isEnabled(),true);
+        assert.equal(await section.getByRole('button',{name:'Check controls'}).isEnabled(),true);
       }
       if (workspace === 'Games') {
         assert.equal(await page.getByLabel('Display and GPU setup guide').count(),0);

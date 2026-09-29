@@ -21,6 +21,23 @@ const technicalIdentity = (product: string) => {
   const match = product.match(/VID_([0-9A-F]{4})&PID_([0-9A-F]{4})/i);
   return match ? `VID ${match[1].toUpperCase()} · PID ${match[2].toUpperCase()}` : 'VID/PID unavailable';
 };
+// Mirrors rateCheckable in src/main/input-devices/index.cjs, which enforces it.
+function rateCheckable(kinds: InputDevice['testKinds']) {
+  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD'));
+}
+function rateInstruction(kinds: InputDevice['testKinds']) {
+  if (kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK')) return 'Leave the controller untouched. It reports continuously on its own, so this reads its rate directly.';
+  if (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD')) return 'Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves, so pauses read lower.';
+  return 'Keyboards only report when keys change, so their polling rate cannot be measured by listening to them.';
+}
+function rateVerdict(test: InputTest) {
+  const { status, requestedHz, observedHz, message } = test.deliveryAssessment;
+  if (!observedHz) return message;
+  if (status === 'CONSISTENT_WITH_REQUEST') return `Matches the saved ${requestedHz} Hz.`;
+  if (status === 'BELOW_REQUEST_OBSERVED') return `Below the saved ${requestedHz} Hz during this check.`;
+  if (status === 'NO_REQUEST') return 'There is no saved rate to compare it with.';
+  return requestedHz ? `Above the expected range for the saved ${requestedHz} Hz; repeat the check.` : message;
+}
 function activityInstruction(kinds: InputDevice['testKinds']) {
   if (kinds.includes('JOYSTICK') || kinds.includes('GAMEPAD')) return 'Hold sticks and triggers still for one second at the start, then move them clearly. Press and release buttons and the D-pad.';
   if (kinds.includes('KEYBOARD') && kinds.includes('MOUSE')) return 'Windows exposes both keyboard- and mouse-compatible channels for this composite device. If the physical product is a keyboard, type continuously; if it is a mouse, move it continuously. Only channels that actually respond are shown.';
@@ -42,6 +59,7 @@ export function InputDevicesCenter() {
   const [tab, setTab] = useState<'ports' | 'polling'>('polling');
   // Whether the signed native setup can run in this build; it reaches 2–8 kHz on High-Speed devices.
   const [nativeSetupAvailable, setNativeSetupAvailable] = useState(false);
+  const [suggestRateCheck, setSuggestRateCheck] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [busy, setBusy] = useState('');
@@ -90,6 +108,8 @@ export function InputDevicesCenter() {
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; void window.pcOptiNative?.cancelInputTest?.().catch(() => {}); }; }, []);
   useEffect(() => api?.onBundledInputSetupClosed?.(() => {
     setSetupOpen(false); setTest(null); setPreview(null); setTierPreview(null); setDriverPreview(null);
+    // Closing setup proves nothing about delivery; point to the check that does, without running it.
+    setSuggestRateCheck(true);
     refreshAfterSetup.current = true;
     // Complete an in-flight read/test first, then scan. Never let its older result
     // win the refresh race or count closing setup as successful verification.
@@ -251,10 +271,10 @@ export function InputDevicesCenter() {
       finally { try { acceptInventory(await api.scanInputDevices()); } catch { /* Keep the original operation error; refresh remains available. */ } }
     });
   }
-  function testDevice() {
+  function testDevice(purpose: 'RATE' | 'CONTROLS') {
     if (!api || !selected) return;
-    setTest(null); setPreview(null); setStatus('');
-    void run(`Testing input for ${selected.name} — use only this selected device until the 8-second activity check finishes.`, async () => setTest(await api.testInputDevice(selected.id)));
+    setTest(null); setPreview(null); setStatus(''); setSuggestRateCheck(false);
+    void run(`Testing input for ${selected.name} — ${purpose === 'RATE' ? 'the 8-second polling-rate check is running.' : 'use only this selected device until the 8-second controls check finishes.'}`, async () => setTest(await api.testInputDevice(selected.id, purpose)));
   }
   function reconcile(historyId: string) {
     if (!api?.reconcileInputChange) return;
@@ -316,36 +336,51 @@ export function InputDevicesCenter() {
           </div>
         </> : <>
           <BundledInputStatus device={selected} busy={!!busy} setupOpen={setupOpen} onAvailabilityChange={setNativeSetupAvailable} onSetupStateChange={(open) => { setSetupOpen(open); if (open) { setTest(null); setPreview(null); setTierPreview(null); setDriverPreview(null); setStatus(''); } }} />
-          <div className={box} aria-label="Windows message check">
-            <h3 className="text-sm font-semibold text-white">Input activity &amp; message rate</h3>
-            <p className="mt-2 text-xs font-semibold leading-relaxed text-cyan-100">Use only {selected.name} for eight seconds. Keep the capture window focused; switching away cancels the check.</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">{activityInstruction(selectedTestKinds)}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300">See control activity separately from messages sent while idle. Small jitter and repeated states are ignored; controls held from the start may not register.</p>
-            <p className="mt-2 text-[11px] text-slate-400">Key identities and raw reports are not saved. Only activity totals and timing return from the capture window.</p>
-            <p className="mt-1 text-[11px] text-slate-400">For a shared receiver, the check covers its exposed input interfaces and may include more than one paired control.</p>
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">This measures messages received by Dialed from Windows. It does not verify USB polling or lower latency.</p>
+          <div className={box} aria-label="Input checks">
+            <h3 className="text-sm font-semibold text-white">Check this device</h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">Two separate 8-second checks. Each opens a small window; keep it focused, because switching away cancels the check.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div aria-label="Polling-rate check" className="rounded-lg border border-slate-700 p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold text-white"><Gauge className="h-4 w-4 text-cyan-300" />Polling rate</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">{rateInstruction(selectedTestKinds)}</p>
+                {suggestRateCheck && rateCheckable(selectedTestKinds) && !test ? <p role="status" className="mt-2 text-xs text-cyan-100">Setup closed. Check the polling rate to see what Windows receives now.</p> : null}
+                <button type="button" disabled={setupOpen || !!busy || !selected.canTest || !rateCheckable(selectedTestKinds) || !api?.testInputDevice} className={`${primary} mt-3`} onClick={() => testDevice('RATE')}><Gauge className="h-4 w-4" />Check polling rate</button>
+              </div>
+              <div aria-label="Controls check" className="rounded-lg border border-slate-700 p-3">
+                <p className="flex items-center gap-2 text-xs font-semibold text-white"><Activity className="h-4 w-4 text-cyan-300" />Buttons, sticks and keys</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">{activityInstruction(selectedTestKinds)}</p>
+                <button type="button" disabled={setupOpen || !!busy || !selected.canTest || !api?.testInputDevice} className={`${button} mt-3`} onClick={() => testDevice('CONTROLS')}><Activity className="h-4 w-4" />Check controls</button>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">Both checks count what Windows receives from this device. They do not measure latency. Key identities and raw reports are not saved; only totals and timing return. For a shared receiver, the check covers every paired control it exposes.</p>
             <div data-technical-detail className="mt-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-[11px] leading-relaxed text-slate-400">
               <p className="font-semibold text-slate-200">Measurement details</p>
               <p className="mt-1">Windows message counts and HID report counts are separate. Keyboard checks return only counts and an overall span, with no per-key timestamps. Axes use a median baseline of at least 16 samples over 250 ms, extending to one second for sparse input. Movement uses the greater of 6% of range or three times baseline noise, sustained across three reports and 20 ms. Sparse input uses a fixed 6% fallback with partial coverage. Mouse comparison needs at least 500 ms of motion spans; keyboard typing never establishes polling rate. Vendor data and sensors are ignored. These thresholds cannot prove deliberate intent or test every control.</p>
               <p className="mt-1">A lower result may reflect the device, Windows scheduling, message batching, system load, or how continuously you use it. Per-channel rates use the time between the first and last message.</p>
               <p className="mt-1 text-slate-500">The listener runs only for this check. Key identities and raw reports stay in capture memory and are not saved or sent to the app; only totals and message timing return. It does not block or modify the input path.</p>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" disabled={setupOpen || !!busy || !selected.canTest || !api?.testInputDevice} className={button} onClick={testDevice}><Activity className="h-4 w-4" />Run 8-second input check</button>
-            </div>
             {isInputTesting ? <p role="status" aria-live="polite" className="mt-3 flex items-start gap-2 rounded-lg border border-cyan-400/25 bg-cyan-400/10 p-3 text-xs text-cyan-100"><LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /><span><strong>Testing {selected.name} now.</strong> Keep using only this exact device until the 8-second check finishes.</span></p> : null}
             {!selected.canTest && <p className="mt-2 text-[11px] text-slate-500">No supported mouse, keyboard, or game-controller message channel was detected for this device.</p>}
             {test && <div className="mt-3 space-y-2" aria-label="Input test results">
               <p className="text-xs text-slate-400">Measured {Number.isFinite(Date.parse(test.capturedAt)) ? new Date(test.capturedAt).toLocaleString() : 'time unavailable'}. Repeat after a device, driver, port or relevant configuration change.</p>
-              <div aria-label="Control activity result" className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-xs leading-relaxed text-slate-200">
+              {test.purpose === 'RATE' ? <div aria-label="Polling rate result" className={`rounded-lg border p-3 text-xs leading-relaxed ${test.deliveryAssessment.status === 'BELOW_REQUEST_OBSERVED' ? 'border-amber-500/30 bg-amber-950/15 text-amber-100' : 'border-slate-700 bg-slate-900/50 text-slate-200'}`}>
+                <p className="font-semibold text-white">Polling rate</p>
+                <p className="mt-1 text-2xl font-bold text-white">{test.deliveryAssessment.observedHz ? `About ${test.deliveryAssessment.observedHz.toLocaleString()} reports per second` : 'No rate measured'}</p>
+                <p role="status" className="mt-1">{rateVerdict(test)}</p>
+                <p className="mt-2 text-[11px] text-slate-400">What Windows received from the device. A controller reports every interval, so this follows its polling rate; a mouse reports only while it moves, so slow or paused movement reads lower. Not a latency measurement.</p>
+              </div> : <div aria-label="Control activity result" className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-xs leading-relaxed text-slate-200">
                 <p className="font-semibold text-white">Control activity</p>
+                {/^No Windows messages were received/.test(test.deliveryAssessment.message) ? <p role="status" className="mt-1">No Windows messages were received from this device. Check its connection and try again.</p> : null}
                 <p role="status" className="mt-1">{test.controlActivity?.message ?? 'Control activity was not measured by this capture.'}</p>
                 {test.controlActivity && test.controlActivity.coverage !== 'NONE' && <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {[['Button changes', test.controlActivity.buttons], ['Key transitions', test.controlActivity.keys], ['Mouse / wheel', test.controlActivity.movement], ['Axis changes', test.controlActivity.axes], ['D-pad changes', test.controlActivity.hats]].map(([name, count]) => <div key={name}><dt className="text-slate-400">{name}</dt><dd className="font-semibold text-cyan-100">{count}</dd></div>)}
                 </dl>}
                 <p className="mt-2 text-[11px] text-slate-400">Counts describe detected changes, not unique controls or a complete device health test.</p>
-              </div>
-              <p role="status" className={`rounded-lg border p-3 text-xs leading-relaxed ${test.deliveryAssessment.status === 'BELOW_REQUEST_OBSERVED' ? 'border-amber-500/25 bg-amber-950/15 text-amber-100' : 'border-slate-700 bg-slate-900/50 text-slate-200'}`}>{test.deliveryAssessment.message}</p>
+              </div>}
+              {/* The full delivery wording, with its limits, stays available to technical readers;
+                  the polling-rate card above is the plain summary, and a controls check is not a
+                  rate measurement. */}
+              <p data-technical-detail role="status" className={`rounded-lg border p-3 text-xs leading-relaxed ${test.deliveryAssessment.status === 'BELOW_REQUEST_OBSERVED' ? 'border-amber-500/25 bg-amber-950/15 text-amber-100' : 'border-slate-700 bg-slate-900/50 text-slate-200'}`}>{test.deliveryAssessment.message}</p>
               {/* Per-channel lines only when they say something the summary above did not. A
                   composite device exposes several channels that often share one verdict, which
                   repeated the same sentence two or three times in a row. The summary can also be
@@ -358,7 +393,7 @@ export function InputDevicesCenter() {
                   seen.add(assessment.message);
                   return true;
                 });
-                return extra.map((assessment) => <p key={assessment.channel} className="text-xs text-slate-300">{channelName(assessment.kind as InputTest['channels'][number]['kind'])}: {assessment.message}</p>);
+                return extra.map((assessment) => <p data-technical-detail key={assessment.channel} className="text-xs text-slate-300">{channelName(assessment.kind as InputTest['channels'][number]['kind'])}: {assessment.message}</p>);
               })()}
               {test.channels.map((channel) => <div data-technical-detail key={channel.channel} className="rounded-lg border border-slate-700 p-3">
                 <p className="text-xs font-semibold text-slate-200">{channelName(channel.kind)} channel {channel.channel} · {channel.samples} messages</p>

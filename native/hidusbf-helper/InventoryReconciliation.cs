@@ -19,14 +19,21 @@ namespace Dialed.HidusbfHelper {
       return true;
     }
 
+    // Eligible and Authorized describe the device and the policy, not a setting: a newly plugged
+    // mouse is eligible and, under a release policy, authorized, yet nothing on it has changed.
+    // Refusing it latched setup into review whenever someone plugged in a controller.
     static bool Unconfigured(DeviceSetting device, LifecycleOwnership ownership, string controlSet) {
-      if (ownership.Devices.ContainsKey(device.Id) || device.Eligible || device.Authorized ||
+      if (ownership.Devices.ContainsKey(device.Id) ||
           device.Filters.Present || device.Filters.Ordered.Length != 0 || device.Interval.Present ||
           device.IntervalLocation != "Hardware" || !ScopeDigests.IsPhysicalUsb(device.Coordinate?.InstanceId) ||
           !new[] { "UNKNOWN", "FULL", "HIGH" }.Contains(device.Speed)) return false;
       try { IntervalBinding.Validate(device); return IntervalBinding.ControlSet(device.Coordinate) == controlSet; }
       catch (InvalidOperationException) { return false; }
     }
+
+    static bool StaleRemovable(DeviceSetting device, LifecycleOwnership ownership) =>
+      !ownership.Devices.ContainsKey(device.Id) && !device.Present && !device.Eligible && !device.Authorized &&
+      !device.Filters.Present && device.Filters.Ordered.Length == 0 && !device.Interval.Present;
 
     static bool UniqueCoordinate(DeviceSetting device, IEnumerable<DeviceSetting> inventory) =>
       !inventory.Any(other => other.Id != device.Id && other.Coordinate != null &&
@@ -41,9 +48,13 @@ namespace Dialed.HidusbfHelper {
           string.IsNullOrWhiteSpace(expected.BootId) || !expected.SecurityAccepted || expected.MemoryIntegrity ||
           !LifecycleSession.IsDigest(expected.PlatformDigest) || expected.Service == null ||
           !Index(expected.Devices, out var before) || !Index(current.Devices, out var after)) return false;
-      // This includes boot, authorization, platform, shared service, SYS bytes and
-      // patch parameters. Combining a boot change with inventory drift is refused.
-      if (LifecycleSession.Digest(expected with { Devices = current.Devices }) != LifecycleSession.Digest(current) ||
+      // This includes authorization, platform, shared service, SYS bytes and patch
+      // parameters. A later Windows session may accompany the inventory change: a
+      // real PC restarts and plugs things in between setup visits, and refusing
+      // both together left setup stuck for good (2026-09-28). Everything that
+      // decides a rate is still compared exactly below.
+      if (current.BootId != expected.BootId && !BootSessionIdentity.IsLater(expected.BootId, current.BootId)) return false;
+      if (LifecycleSession.Digest(expected with { Devices = current.Devices, BootId = current.BootId }) != LifecycleSession.Digest(current) ||
           LifecycleSession.Digest(expected) == LifecycleSession.Digest(current)) return false;
       string controlSet;
       try {
@@ -64,16 +75,25 @@ namespace Dialed.HidusbfHelper {
         if (!UniqueCoordinate(device, before.Values) || !UniqueCoordinate(device, after.Values)) return false;
       }
       foreach (var device in before.Values) {
-        // Ordinary disconnection preserves an installed devnode. A missing
-        // record could be an incomplete scan or external uninstall; refuse it.
-        if (!after.TryGetValue(device.Id, out var next)) return false;
+        // Ordinary disconnection preserves an installed devnode. A missing record
+        // could be an incomplete scan or an external uninstall, so it is refused,
+        // except an entry that was already absent and carried nothing setup reads
+        // or writes: Windows and users remove such stale entries routinely.
+        if (!after.TryGetValue(device.Id, out var next)) {
+          if (StaleRemovable(device, record.Ownership)) continue;
+          return false;
+        }
         if (LifecycleSession.Digest(device) == LifecycleSession.Digest(next)) continue;
+        // Authorization comes from the signed policy, so a new policy may change it for a device
+        // setup does not own without anything on the PC changing.
+        if (!record.Ownership.Devices.ContainsKey(device.Id) &&
+            LifecycleSession.Digest(device with { Authorized = next.Authorized }) == LifecycleSession.Digest(next)) continue;
         if (!Unconfigured(device, record.Ownership, controlSet) || !Unconfigured(next, record.Ownership, controlSet) ||
             !UniqueCoordinate(device, before.Values) || !UniqueCoordinate(next, after.Values)) return false;
         // Only descriptive topology/presence may differ for an existing default
         // scope. Exact coordinates, value representation and isolation stay bound.
         var restored = next with { InterfaceDigest = device.InterfaceDigest, Present = device.Present,
-          Speed = device.Speed, Name = device.Name };
+          Speed = device.Speed, Name = device.Name, Eligible = device.Eligible, Authorized = device.Authorized };
         if (LifecycleSession.Digest(restored) != LifecycleSession.Digest(device)) return false;
       }
       foreach (var device in after.Values.Where(x => !before.ContainsKey(x.Id))) {

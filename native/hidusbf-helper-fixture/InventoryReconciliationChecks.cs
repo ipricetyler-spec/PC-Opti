@@ -51,9 +51,20 @@ static class InventoryReconciliationChecks {
       hub with { Name = "Renamed hub" }, hub with { InterfaceDigest = LifecycleSession.Digest("different children") }
     }) Check(InventoryReconciliation.CanRefresh(record, baseline with { Devices = new[] { target, changed, headset } }), "only unconfigured topology changes accepted");
     Check(InventoryReconciliation.CanRefresh(record with { Ownership = ownership with { ServiceOwned = true } }, next), "owned service may retain its existing ownership");
+    // A later Windows session may accompany unrelated inventory (2026-09-28: the owner's PC was
+    // stuck after restarts plus a plugged-in keyboard). An unusable session identity may not.
+    Check(InventoryReconciliation.CanRefresh(record, next with { BootId = BootSessionChecks.Next(next.BootId) }), "later boot plus inventory accepted");
+    Check(!InventoryReconciliation.CanRefresh(record, next with { BootId = "not-a-boot-session" }), "unusable boot identity refused");
+    // An absent entry with nothing setup reads or writes may disappear; anything else may not.
+    var staleStick = DefaultDevice(@"USB\VID_0781&PID_5575\STICK", "Old USB stick") with { Present = false };
+    var withStale = record with { Expected = baseline with { Devices = baseline.Devices.Append(staleStick).ToArray() } };
+    Check(InventoryReconciliation.CanRefresh(withStale, next), "absent unconfigured entry may be removed");
+    Check(InventoryReconciliation.CanRefresh(withStale, next with { BootId = BootSessionChecks.Next(next.BootId) }), "stale removal across a restart accepted");
+    foreach (var kept in new[] { staleStick with { Present = true }, staleStick with { Filters = new FilterValue(true, new[] { "hidusbf" }) },
+      staleStick with { Interval = new DwordValue(true, 1) }, staleStick with { Eligible = true }, staleStick with { Authorized = true } })
+      Check(!InventoryReconciliation.CanRefresh(record with { Expected = baseline with { Devices = baseline.Devices.Append(kept).ToArray() } }, next), "present or configured entry may not disappear");
 
     var drifts = new Dictionary<string, Func<LifecycleObservation, LifecycleObservation>> {
-      ["boot plus inventory"] = x => x with { BootId = BootSessionChecks.Next(x.BootId) },
       ["security"] = x => x with { SecurityAccepted = false },
       ["memory integrity"] = x => x with { MemoryIntegrity = true },
       ["platform"] = x => x with { PlatformDigest = new string('e', 64) },
@@ -78,9 +89,15 @@ static class InventoryReconciliationChecks {
       ["target alias"] = x => x with { IntervalIsolated = false },
       ["target remap"] = x => x with { Coordinate = IntervalBinding.Create(x.Coordinate.InstanceId, "Driver", @"{36fc9e60-c465-11cf-8056-444553540000}\0031") }
     }) drifts[mutation.Key] = x => x with { Devices = x.Devices.Select(d => d.Id == target.Id ? mutation.Value(d) : d).ToArray() };
+    // A newly plugged input device is eligible and, under a release policy, authorized, with
+    // nothing on it configured; that is inventory, not drift.
+    foreach (var plugged in new[] { keyboard with { Eligible = true }, keyboard with { Authorized = true }, keyboard with { Eligible = true, Authorized = true, Speed = "FULL" } })
+      Check(InventoryReconciliation.CanRefresh(record, next with { Devices = next.Devices.Select(d => d.Id == keyboard.Id ? plugged : d).ToArray() }), "untouched new input device accepted");
+    // A new policy may authorize a device setup does not own; its settings must not move.
+    Check(InventoryReconciliation.CanRefresh(record, baseline with { Devices = new[] { target, hub, headset with { Authorized = true } } }), "policy-only authorization change on an unowned device accepted");
+    Check(!InventoryReconciliation.CanRefresh(record, baseline with { Devices = new[] { target, hub, headset with { Authorized = true, Interval = new DwordValue(true, 1) } } }), "authorization change cannot hide a setting change");
+    Check(!InventoryReconciliation.CanRefresh(record, baseline with { Devices = new[] { target with { Authorized = false }, hub, headset } }), "owned target authorization stays exact");
     foreach (var mutation in new Dictionary<string, Func<DeviceSetting, DeviceSetting>> {
-      ["eligible addition"] = x => x with { Eligible = true },
-      ["authorized addition"] = x => x with { Authorized = true },
       ["HIDUSBF addition"] = x => x with { Filters = new FilterValue(true, new[] { "HIDUSBF" }) },
       ["third-party filter addition"] = x => x with { Filters = new FilterValue(true, new[] { "external" }) },
       ["present empty filter"] = x => x with { Filters = new FilterValue(true, Array.Empty<string>()) },

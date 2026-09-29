@@ -294,16 +294,19 @@ ipcMain.handle('pc-opti:get-bundled-input-status', () => {
   return readBundledStatus(app.isPackaged ? path.join(process.resourcesPath, 'hidusbf') : path.join(app.getAppPath(), 'vendor', 'hidusbf'), { packaged: app.isPackaged, nativeBroker });
 });
 let launchBundledBroker;
-ipcMain.handle('pc-opti:open-bundled-input-setup', (event, ...args) => {
+ipcMain.handle('pc-opti:open-bundled-input-setup', async (event, ...args) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Driver setup must be opened from the main Dialed window.');
-  if (args.length !== 1) throw new Error('Select exactly one input device for setup.');
+  if (args.length !== 1 || typeof args[0] !== 'string' || !/^[a-f0-9]{64}$/.test(args[0])) throw new Error('Select exactly one input device for setup.');
   assertCapabilityAvailable('input:usb-advisor');
   const directory = app.isPackaged ? path.join(process.resourcesPath, 'hidusbf-native') : path.join(app.getAppPath(), 'output', 'hidusbf-native');
   if (inputDevices().isBusy()) throw new Error('Finish the input check or legacy recovery before opening native setup.');
   launchBundledBroker ||= createNativeBrokerLauncher(directory, () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('pc-opti:bundled-input-setup-closed');
   });
-  return launchBundledBroker(args[0]);
+  // Setup names devices differently from Dialed's list; without this it opened on no device.
+  const selection = await inputDevices().setupSelectionKey(args[0]);
+  if (!selection) throw new Error('That device is no longer connected. Refresh devices, then open setup again.');
+  return launchBundledBroker(selection);
 });
 ipcMain.handle('pc-opti:preview-input-driver-install', (_event, deviceDigest, requestedHz) => {
   assertCapabilityAvailable('input:driver-lifecycle');

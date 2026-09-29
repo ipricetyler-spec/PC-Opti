@@ -13,14 +13,14 @@ public static class SetupSelection {
       throw new InvalidOperationException("Setup accepts only an optional device-selection digest, not commands or rate arguments.");
     return args[1];
   }
-  // Matches the public InputDevice.id: SHA256 of the normalized USB instance ID.
-  public static string DeviceKey(string id) => Convert.ToHexString(SHA256.HashData(
-    Encoding.UTF8.GetBytes(id.Trim().ToUpperInvariant()))).ToLowerInvariant();
+  // The hint is this helper's own device id (LifecycleSession.Digest of the upper-case instance
+  // ID); Dialed computes it. It used to be compared as SHA256(device.Id), which never matched a
+  // real device, so setup opened with nothing selected.
   public static DeviceSetting Choose(DeviceSetting[] inventory, string pendingId, string retainedId, string hint) {
     var devices = inventory.Where(device => device.Eligible).ToArray();
     var id = pendingId ?? retainedId;
     var matches = id != null ? devices.Where(device => device.Id == id) :
-      hint != null ? devices.Where(device => DeviceKey(device.Id) == hint) : devices.Take(1);
+      hint != null ? devices.Where(device => device.Id == hint) : devices.Take(1);
     var exact = matches.Take(2).ToArray();
     // A missing, duplicated or stale selection must not silently choose a peer.
     return exact.Length == 1 ? exact[0] : null;

@@ -26,6 +26,14 @@ const DRIVER_VARIANTS = Object.freeze({
   [PATCHING_4K_8K_SHA256]: Object.freeze({ mode: 'Patching', tier: '4–8 kHz patch tier', defaultPatchUsbXhci: 3 }),
 });
 const digest = (value) => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
+// The native setup names a device by SHA256 of its upper-case instance ID as System.Text.Json
+// writes it by default: backslashes doubled and '&' as &. Other characters that encoder
+// would escape never occur in USB instance IDs; an ID containing one gets no selection.
+function nativeSetupDeviceId(instanceId) {
+  const upper = String(instanceId || '').toUpperCase();
+  if (!/^[A-Z0-9_&\\#.-]{1,512}$/.test(upper)) return null;
+  return digest(`"${upper.replace(/\\/g, '\\\\').replace(/&/g, '\\u0026')}"`);
+}
 const short = (value, limit = 1024) => typeof value === 'string' ? value.replace(/[\x00-\x1f\x7f]/g, '').slice(0, limit) : '';
 const array = (value) => Array.isArray(value) ? value : value == null ? [] : [value];
 const idKey = (value) => short(value).toUpperCase();
@@ -555,6 +563,13 @@ function createInputService(directory, adapters = {}) {
       legacyRestoreAuthority: restoreAuthority(),
     };
   }
+  // Translates a device chosen in Dialed into the native setup's own name for it, from a fresh
+  // scan, so setup opens on the same physical device.
+  async function setupSelectionKey(deviceId) {
+    const inventory = await readInventory();
+    const matches = [...inventory.map.keys()].filter((id) => /^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}\\/i.test(id) && digest(id) === deviceId);
+    return matches.length === 1 ? nativeSetupDeviceId(matches[0]) : null;
+  }
   async function preview(deviceId, rate, historyId) {
     if (testController) throw new Error('Finish or cancel the input test first.');
     assertLegacyAuthority(historyId !== undefined);
@@ -856,7 +871,7 @@ function createInputService(directory, adapters = {}) {
     });
   }
   return {
-    scan, preview, previewIsolation, apply, previewTier, applyTier,
+    scan, setupSelectionKey, preview, previewIsolation, apply, previewTier, applyTier,
     labelPort, test, reconcile, reconcileTier,
     cancelTest: () => { testController?.abort(); return { canceled: Boolean(testController) }; },
     isBusy: () => mutationBusy || Boolean(testController),
@@ -864,7 +879,7 @@ function createInputService(directory, adapters = {}) {
 }
 
 module.exports = {
-  moveInputHistoryToProtectedFolder,
+  moveInputHistoryToProtectedFolder, nativeSetupDeviceId,
   UPSTREAM, NOPATCH_SHA256, PATCHING_SHA256, PATCHING_1K_SHA256, PATCHING_2K_4K_SHA256, PATCHING_4K_8K_SHA256, NATIVE_INPUT_SOURCE_SHA256,
   RATES, FULL_SPEED_RATES, HIGH_SPEED_RATES, rateForInterval, intervalForRate,
   normalizeInventory, trace, buildDevices, buildFilteredDevices, filteredScopeSnapshot, filteredScopeHash, describeScopeDrift,

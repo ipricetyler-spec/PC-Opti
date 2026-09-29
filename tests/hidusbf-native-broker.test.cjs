@@ -27,6 +27,18 @@ test('native source cannot activate without a compiled release trust anchor', as
   await assert.rejects(createNativeBrokerLauncher('nonexistent')('a'.repeat(64)));
 });
 
+test('Dialed opens setup on the same device by sending the setup helper its own device id', () => {
+  const { nativeSetupDeviceId } = require('../src/main/input-devices/index.cjs');
+  // Same value SetupSelectionChecks.cs pins for LifecycleSession.Digest of this instance ID.
+  assert.equal(nativeSetupDeviceId(String.raw`USB\VID_1532&PID_00A5\MOUSE`), '35f0cde70d75188d2506843c34a06a8bffa67d84b73d867fbba7650113cada35');
+  // The owner's DualSense Edge, as the installed setup reported it on 2026-09-28.
+  assert.equal(nativeSetupDeviceId(String.raw`usb\vid_054c&pid_0df2\6&23491980&0&2`), '7a31bcb3aae6e1ea56029dc4cc3654e820d4665e40436f46c07fd1600acf4a04');
+  for (const unusual of ['', null, 'USB\\VID_1<2', 'USB\\VID_1"2', 'USB\\VID_1+2']) assert.equal(nativeSetupDeviceId(unusual), null);
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '../electron/main.cjs'), 'utf8');
+  assert.match(main, /const selection = await inputDevices\(\)\.setupSelectionKey\(args\[0\]\);/);
+  assert.match(main, /return launchBundledBroker\(selection\);/);
+});
+
 test('setup accepts only a bounded selection hint and never an operation, path or rate', async () => {
   const id = 'b'.repeat(64);
   assert.deepEqual(setupSelectionArguments(id), ['--select-device', id]);

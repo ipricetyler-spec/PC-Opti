@@ -610,7 +610,11 @@ async function main() {
         await page.getByRole('heading', { name: 'Worth doing', exact: true }).waitFor();
       }
       if (workspace === 'Restore') {
-        await page.locator('summary', { hasText: 'Readiness checks before changing anything' }).click();
+        // Restore opens on History, with Outside changes and Readiness as tabs at the top.
+        const restoreTabs = page.getByRole('tablist', { name: 'Restore views' });
+        assert.equal(await restoreTabs.getByRole('tab', { name: 'History', exact: true }).getAttribute('aria-selected'), 'true');
+        await restoreTabs.getByRole('tab', { name: 'Outside changes', exact: true }).click();
+        await restoreTabs.getByRole('tab', { name: 'Readiness', exact: true }).click();
         // With Technical details hidden (the default), the reader still learns whether copying worked.
         await page.getByRole('button', { name: 'Copy summary', exact: true }).click();
         const copied = page.getByRole('status').filter({ hasText: /Summary copied\.|Copying was blocked/ });

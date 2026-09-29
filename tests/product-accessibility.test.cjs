@@ -32,8 +32,9 @@ test('every plain subtab row uses one keyboard-operable WAI-ARIA tab component',
   assert.match(component, /aria-selected=\{selected\}/);
   assert.match(component, /tabIndex=\{selected \? 0 : -1\}/);
   for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End']) assert.match(component, new RegExp(key));
-  // Home, Tweaks, Games and Measure. Restore is one page since simplification stage 5.
-  assert.equal([...appSource.matchAll(/<TabRow(?:<[^>]+>)? ariaLabel=/g)].length, 4);
+  // Home, Tweaks, Games, Measure and Restore. Restore was one page from simplification stage 5
+  // until 2026-09-28, when the owner asked for its lower sections as tabs at the top.
+  assert.equal([...appSource.matchAll(/<TabRow(?:<[^>]+>)? ariaLabel=/g)].length, 5);
   assert.doesNotMatch(appSource, /ariaLabel="Verification categories"/);
   assert.equal([...networkSource.matchAll(/<TabRow(?:<[^>]+>)? ariaLabel=/g)].length, 1);
   assert.equal([...inputSource.matchAll(/<TabRow(?:<[^>]+>)? ariaLabel=/g)].length, 1);

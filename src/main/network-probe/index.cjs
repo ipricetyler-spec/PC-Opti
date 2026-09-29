@@ -324,8 +324,15 @@ async function runNetworkQualityProbe(dependencies = {}) {
     report('UPLOAD', 5, 'Measuring upload and verifying response samples overlap active transfer.', (preliminaryDownload?.responseBytes || 0) + (downloadPhase.transfer.responseBytes || 0));
     const uploadPhase = overallController.signal.aborted ? unavailable('upload', uploadConfig.bytes) : await runLoadedPhase({ direction: 'upload', count: LOADED_SAMPLE_COUNT, signal: overallController.signal, now, transfer: (hooks) => measureTransferRound('upload', uploadConfig.bytes, uploadConfig.connections, endpointValue, addresses, overallController.signal, { ...dependencies, agent, measureRequest, now }, hooks), latency });
     const idle = computeProbeMetrics(idleSamples);
-    const downLoaded = computeProbeMetrics(downloadPhase.samples.filter((sample) => sample.overlappedTransfer), LOADED_SAMPLE_COUNT);
-    const upLoaded = computeProbeMetrics(uploadPhase.samples.filter((sample) => sample.overlappedTransfer), LOADED_SAMPLE_COUNT);
+    // A loaded phase that missed the steady-duration or overlap bar is not reported as a number:
+    // showing it would present an unreliable reading as measured.
+    const loadedMetrics = (phase) => computeProbeMetrics(phase.quality.status === 'SUFFICIENT' ? phase.samples.filter((sample) => sample.overlappedTransfer) : [], LOADED_SAMPLE_COUNT);
+    const downLoaded = loadedMetrics(downloadPhase);
+    const upLoaded = loadedMetrics(uploadPhase);
+    // On a fast line the quick check's small transfers finish before the steady-duration bar:
+    // nothing failed, the connection simply outran the sample.
+    const tooShort = (phase) => phase.transfer.success && phase.quality.status !== 'SUFFICIENT' && Number.isFinite(phase.quality.transferDurationMs) && phase.quality.transferDurationMs < MIN_STEADY_DURATION_MS;
+    const transferTooShortForLoad = tooShort(downloadPhase) || tooShort(uploadPhase);
     const increase = (loaded) => idle.medianMs === null || loaded.medianMs === null ? null : loaded.medianMs - idle.medianMs;
     const quality = downloadPhase.quality.status === 'SUFFICIENT' && uploadPhase.quality.status === 'SUFFICIENT' ? 'SUFFICIENT' : 'INSUFFICIENT';
     const metrics = { latencyMs: idle.medianMs, jitterMs: idle.jitterMs, idleLatencyMs: idle.medianMs, idleJitterMs: idle.jitterMs, idleP10Ms: idle.p10Ms, idleP90Ms: idle.p90Ms, idleVariabilityMs: idle.variabilityMs,
@@ -341,8 +348,8 @@ async function runNetworkQualityProbe(dependencies = {}) {
     report('COMPLETE', 6, status === 'COMPLETE' ? 'Measurement complete.' : 'Measurement ended with incomplete evidence.', downloadBytes + uploadBytes);
     return { status, endpoint: endpointValue, methodVersion: NETWORK_METHOD_VERSION, mode, quality, startedAt, completedAt: new Date().toISOString(), warmup,
       samples: idleSamples, idleSamples, loadedSamples: downloadPhase.samples, downloadLoadedSamples: downloadPhase.samples, uploadLoadedSamples: uploadPhase.samples,
-      download: downloadPhase.transfer, upload: uploadPhase.transfer, preliminaryDownload, preliminaryUpload, loadQuality: { download: downloadPhase.quality, upload: uploadPhase.quality }, metrics,
-      limitations: timedOut ? 'The fixed 60-second overall limit stopped this test. Partial values may not represent the connection.' : quality === 'INSUFFICIENT' ? 'The achieved HTTPS transfer samples completed, but one or both loaded-response phases lacked the required steady duration or verified overlap. Loaded values are unavailable rather than inferred. This is not ICMP ping, packet loss, game-server latency, route diagnosis, or proof that a Windows setting should change.' : 'This versioned method reports warmed HTTPS time to first byte, not ICMP ping. Throughput is an achieved bounded Cloudflare transfer sample, not guaranteed line rate. Request failures are not packet loss. Results do not diagnose a game route, DNS, or a Windows setting.',
+      download: downloadPhase.transfer, upload: uploadPhase.transfer, preliminaryDownload, preliminaryUpload, loadQuality: { download: downloadPhase.quality, upload: uploadPhase.quality }, metrics, transferTooShortForLoad,
+      limitations: timedOut ? 'The fixed 60-second overall limit stopped this test. Partial values may not represent the connection.' : transferTooShortForLoad ? `The transfers finished in under ${MIN_STEADY_DURATION_MS} ms, too quickly to measure response time under load, so those values are unavailable rather than inferred. Nothing failed.${mode === 'quick' ? ' The bounded full-speed test uses larger transfers.' : ''}` : quality === 'INSUFFICIENT' ? 'The achieved HTTPS transfer samples completed, but one or both loaded-response phases lacked the required steady duration or verified overlap. Loaded values are unavailable rather than inferred. This is not ICMP ping, packet loss, game-server latency, route diagnosis, or proof that a Windows setting should change.' : 'This versioned method reports warmed HTTPS time to first byte, not ICMP ping. Throughput is an achieved bounded Cloudflare transfer sample, not guaranteed line rate. Request failures are not packet loss. Results do not diagnose a game route, DNS, or a Windows setting.',
       runConditions: { mode, methodVersion: NETWORK_METHOD_VERSION, downloadBytes, uploadBytes, maximumTotalBytes: endpointValue.maximumTotalBytes, maximumParallelConnections: endpointValue.maximumParallelConnections } };
   } finally {
     clearTimeout(timeout); signal?.removeEventListener('abort', abort); if (!dependencies.agent) agent.destroy();

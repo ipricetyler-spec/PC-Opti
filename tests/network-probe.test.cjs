@@ -143,3 +143,20 @@ test('IPC keeps endpoint details main-owned and validates only quick or full ren
   assert.match(componentSource,/This is not packet loss/);
   assert.match(componentSource,/Start full speed test/);
 });
+
+test('a connection too fast for the quick check reports no under-load numbers and says nothing failed', async () => {
+  const result = await probe.runNetworkQualityProbe({
+    resolveAddresses:async () => [{address:'1.1.1.1',family:4}],
+    // Every request succeeds at once: the transfers finish far below the steady-duration bar.
+    measureRequest:async (plan, _addresses, _signal, options = {}) => {
+      if (plan.direction) options.onTransferStart?.(performance.now());
+      return {success:true,responseWaitMs:5,durationMs:5,completedAtMs:performance.now(),responseBytes:plan.responseBytes||plan.expectedResponseBytes||0,requestBytes:plan.requestBytes||0};
+    },
+  });
+  assert.equal(result.status,'PARTIAL');
+  assert.equal(result.transferTooShortForLoad,true);
+  assert.equal(result.metrics.downloadLoadedLatencyMs,null,'an unreliable under-load value is not reported');
+  assert.equal(result.metrics.uploadLoadedLatencyMs,null);
+  assert.equal(result.metrics.failedSamples,0);
+  assert.match(result.limitations,/too quickly to measure response time under load.*Nothing failed\. The bounded full-speed test uses larger transfers\./);
+});

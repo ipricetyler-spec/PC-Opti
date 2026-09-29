@@ -553,6 +553,8 @@ export interface NetworkProbeResult {
   upload: Omit<NetworkProbeSample, 'index'>;
   metrics: NetworkProbeMetrics;
   limitations: string;
+  /** The transfers finished too fast to measure response time under load; nothing failed. */
+  transferTooShortForLoad?: boolean;
   loadQuality: {
     download: { status: 'SUFFICIENT' | 'INSUFFICIENT'; overlappingSuccessfulSamples: number; requiredOverlappingSamples: number; transferDurationMs: number | null; minimumTransferDurationMs: number };
     upload: { status: 'SUFFICIENT' | 'INSUFFICIENT'; overlappingSuccessfulSamples: number; requiredOverlappingSamples: number; transferDurationMs: number | null; minimumTransferDurationMs: number };

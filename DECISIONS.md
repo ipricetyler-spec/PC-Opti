@@ -152,3 +152,17 @@ findings are listed in the review queue.
 - **Web permissions are denied** except `clipboard-sanitized-write` for the Copy buttons. The
   external-link handler keeps its URL check (public HTTPS and plain mailto only) and gets no
   separate capability.
+
+## 2026-09-28 — Owner decisions after testing the installed build
+
+- **Restore has tabs: History, Outside changes, Readiness.** This replaces the "one page" layout
+  from simplification stage 5: the owner found expandable sections at the bottom of the page
+  hard to find.
+- **An under-load network reading that misses the reliability bar is not shown as a number.** A run
+  whose transfers were only too fast says nothing failed and points to the full-speed test.
+- **Changing polling rates is a core feature and must work in release builds, and keep working.**
+  Until now release builds could not change any rate: the bundled HIDUSBF setup refuses to run
+  without a signed release policy (`RELEASE_PUBLIC_KEY` is empty in
+  `src/main/input-driver-lifecycle/native-broker.cjs`), and the older direct route is switched off.
+  The owner asked for whatever is needed to restore it and retain it. Plan and facts: review queue
+  Section 50.

@@ -360,3 +360,27 @@ permissions denied); the Location notice on a real 24H2 PC with Wi-Fi.
   `input-devices.moved-to-protected-folder.*.json`. Change log: 50 entries, none pending. No file
   under the protected folder has a non-inherited permission entry.
 - Not verified: the Restore page and the other workspaces in the running app were not inspected.
+
+## 2026-09-28 — owner testing of the installed build, and fixes (`100887f`, `38be396`)
+
+Owner's report on the installed `df9c9ae` build: Restore history fine; Tweaks › Startup matches
+(Task Manager off labels, Windows Security and Riot Vanguard protected); past PresentMon recordings
+present; Measure "Copy view" works; Ultimate plan shows as in the plan list.
+
+- **Readiness "Copy summary" seemed to do nothing.** A throwaway Electron window with Dialed's exact
+  permission handlers copied successfully (Chromium requests only `clipboard-sanitized-write`), so
+  the copy works; the result message was a technical detail, hidden by default. Now always shown;
+  the fixture clicks it with Technical details hidden. (That probe window stole focus from the
+  owner's game; see the no-visible-windows rule in memory.)
+- **Network quick check "some parts failed".** The owner's saved result: `PARTIAL`, quality
+  `INSUFFICIENT`, 634 Mbps download, 0/9 request failures. The 4.5 MiB quick check finishes in
+  about 50 ms, below the 750 ms steady-duration bar. New test with instant transfers: status
+  `PARTIAL`, `transferTooShortForLoad: true`, both under-load values `null`, no failed samples.
+- **"When did we lose 8 kHz?"** Nothing was lost, read-only: HIDUSBF running, `PatchUSBXHCI = 3`,
+  Memory Integrity off, Dialed's tier record for the DualSense Edge `PRESUMED_ACTIVE`, and Dialed's
+  scan reports `maxHighSpeedHz: 8000`, "4–8 kHz ready". The DualSense was not connected by USB, so
+  only the 1 kHz mouse and keyboard were listed. My checklist wrongly told the owner to expect the
+  Memory Integrity sentence, which appears only while Memory Integrity is on.
+- **Restore tabs:** the fixture checks History is selected first and opens both other tabs.
+- `npm test` 842/842, `npm run test:ts` 128/128, lint clean, `npm run test:ui:fixtures` passed,
+  run one at a time. Not packaged: the installed build still lacks these three fixes.

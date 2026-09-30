@@ -34,10 +34,10 @@ static class SetupPresentation {
   public static string SuggestedAction(SetupDeviceState device) => device?.RecommendedAction;
   public static string RateHelp(SetupDeviceState device) {
     if (device == null) return "Select a device to see available rates.";
-    var available = device.Rates.Where(x => x.Available).Select(x => x.Hz + " Hz").ToArray();
-    string choices = available.Length == 0 ? "No rate is available to review yet." : "Available to review: " + string.Join(", ", available) + ".";
-    var reasons = device.Rates.Where(x => !x.Available).Select(x => x.Reason).Distinct();
-    return choices + "\r\n" + string.Join("\r\n", reasons);
+    // The rate buttons already show what is available; only explain what is missing.
+    bool any = device.Rates.Any(x => x.Available);
+    var reasons = device.Rates.Where(x => !x.Available).Select(x => x.Reason).Distinct().ToArray();
+    return ((any ? "" : "No rate is available to review yet.\r\n") + string.Join("\r\n", reasons)).Trim();
   }
   public static string Progress(LifecycleResult result) => result?.Status switch {
     "RECONNECT_REQUIRED" => "Review complete  →  Setting saved  →  Reconnect device  →  Verify",
@@ -54,7 +54,7 @@ static class SetupPresentation {
   public static string ResultText(LifecycleResult result, string action = null) {
     if (IsRateCompletion(result)) return DeviceLabel(result.DeviceName) + ": " + result.RequestedHz + " Hz saved. " +
       (result.ActivationEvidence == "DEVICE_RECONNECT" ? "Device reconnect verified. No Windows restart is needed." : "Configuration verified after the Windows restart.") +
-      "\r\nThis change is complete. You can close setup. Measured Windows delivery is a separate check in Dialed.";
+      "\r\nDone. Close setup, then use Check polling rate in Dialed to see what Windows receives.";
     return ResultText(result.Status, action ?? result.Action, result.DeviceName);
   }
   public static string DeviceLabel(string name) {
@@ -68,6 +68,15 @@ static class SetupPresentation {
     message?.StartsWith("BOOT_HISTORY_REVIEW_REQUIRED:", StringComparison.Ordinal) == true;
   public static bool IsInventoryRefusal(string message) => message?.StartsWith("INVENTORY_RECONCILE_REQUIRED:", StringComparison.Ordinal) == true ||
     message?.StartsWith("INVENTORY_REFRESH_UNSTABLE:", StringComparison.Ordinal) == true;
+  // Drift that setup can show and let the reader accept; a pending operation's own drift is not.
+  public static bool IsDriftRefusal(string message) => message?.StartsWith("NEEDS_REVIEW:", StringComparison.Ordinal) == true &&
+    !message.Contains("partial operation") && !message.Contains("reconnected device");
+  static readonly string[] DriftRefusalCodes = { "PENDING_OPERATION:", "NOTHING_TO_REVIEW:", "SECURITY_UNKNOWN:", "UNRECOGNIZED_DRIVER:", "OWNED_DEVICE_MOVED:", "REVIEW_STALE:" };
+  public static string DriftReviewText(string[] differences) =>
+    "Something outside setup changed what setup keeps track of, so it stopped before changing anything.\n\n" +
+    "What differs from the saved record:\n" + string.Join("\n", (differences ?? Array.Empty<string>()).Select(x => "•  " + x)) + "\n\n" +
+    "Keep current settings saves this state as the new starting point. Nothing on your devices changes, and the recorded originals are kept, so restoring them is still possible.\n\n" +
+    "Only keep these if you, or software you trust, made these changes. If you are unsure, cancel and leave setup paused.";
   public static string ReconcileLabel(bool inventoryChanged) => inventoryChanged ? "Refresh USB inventory" : "Check saved operation";
   public static bool IsReconnectPending(string status) => status == "RECONNECT_REQUIRED" || status == "RECONNECT_WAITING_FOR_DEVICE";
   public static string FailureText(string message) => message?.StartsWith("BOOT_IDENTITY_RECONCILE_REQUIRED:", StringComparison.Ordinal) == true
@@ -88,10 +97,14 @@ static class SetupPresentation {
     string explained = FailureText(message);
     int diagnostic = explained.IndexOf("\r\nDetails: ", StringComparison.Ordinal);
     if (diagnostic >= 0) return explained.Substring(0, diagnostic);
+    if (IsDriftRefusal(message))
+      return "Something outside setup changed settings it keeps track of, so it stopped before changing anything. Choose Review what changed to see exactly what differs.";
+    var code = DriftRefusalCodes.FirstOrDefault(x => message?.StartsWith(x, StringComparison.Ordinal) == true);
+    if (code != null) { string rest = message.Substring(code.Length).Trim(); return rest.Length == 0 ? message : char.ToUpperInvariant(rest[0]) + rest.Substring(1); }
     if (message == "Adopt exact existing scope first.") return "This device needs recorded originals. Choose Record current settings, review and confirm it once, then choose Change polling rate.";
     if (message == "Adoption refused.") return "Current settings could not be recorded. If this device was already recorded, choose Change polling rate. Otherwise review Technical details before continuing.";
     if (message == "Patching acknowledgement/security required." || message == "Patching requires explicit acknowledgement and an already compatible security configuration.")
-      return "Read the HIDUSBF requirement above and check its acknowledgement before reviewing. If it is already checked, this configuration does not meet the requirement. Keep your security settings unchanged.";
+      return "This plan needs HIDUSBF's patching mode, which cannot run while Memory Integrity is on. Keep your security settings unchanged unless you have decided otherwise; Dialed will not change them, and its Input devices page explains the trade-off.";
     if (message.StartsWith("RECONNECT_MONITOR_UNAVAILABLE:", StringComparison.Ordinal))
       return "The saved rate change is still pending. Close and reopen setup, then choose Check saved operation before unplugging the device. Do not apply the rate again.";
     if (message.StartsWith("RECONNECT_UNSTABLE:", StringComparison.Ordinal))
@@ -112,14 +125,15 @@ static class SetupPresentation {
       (action.Code == "ADOPT" ? "Record these current settings?" : "Apply this exact preview?");
   }
   public static string ResultText(string status, string action = null, string deviceName = null) => status switch {
-    "RECONNECT_REQUIRED" => "Rate setting saved for " + DeviceLabel(deviceName) + ". Keep this window open. Unplug that device and reconnect it to the same USB port; Dialed will check it automatically. No Windows restart is required for this rate-only change. If setup was reopened, it needs to see a fresh unplug/reconnect. Delivered rate has not been measured.",
+    "RECONNECT_REQUIRED" => "Saved. Now unplug " + DeviceLabel(deviceName) + " and plug it back into the same USB port. Keep this window open; setup checks it automatically. No Windows restart is needed. If setup was reopened, it needs to see a fresh unplug and reconnect.",
     "RECONNECT_WAITING_FOR_DEVICE" => DeviceLabel(deviceName) + " disconnected. Reconnect it to the same USB port and leave this window open. Dialed will check the device and saved setting automatically.",
     "ALREADY_CONFIGURED" => "That rate setting is already saved. Nothing was changed, so no reconnect or Windows restart is requested. The saved setting does not prove delivered rate.",
     "BOOT_IDENTITY_RECORDED" => "Windows session identity recorded. Device settings, recorded originals and shared driver ownership are unchanged. No restart is requested. You can now create a new preview.",
-    "INVENTORY_REFRESHED" => "USB inventory refreshed. Recorded original settings and shared driver ownership are unchanged. No device settings were changed and no restart is requested. Create a new preview before applying a change.",
+    "INVENTORY_REFRESHED" => "Saved settings are up to date with your current USB connections. Nothing on your devices changed, and recorded originals and shared driver ownership are unchanged. Choose a rate to continue; no restart is requested.",
     "CONFIGURATION_VERIFIED" when action == "ADOPT" => "Current settings recorded. You can now preview a polling-rate change. Recording settings did not change the driver or device configuration and requires no restart.",
     "CONFIGURATION_VERIFIED" => "Configuration verified. No restart is requested by this result. Use Windows delivery measurement separately to check delivered rate.",
     "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check saved operation. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
+    "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again.",
     "NOT_APPLIED" => "The saved operation was not applied. Review a new preview before requesting another change.",
     _ => "Operation status requires review: " + status
   };

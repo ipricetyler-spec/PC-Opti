@@ -38,7 +38,7 @@ sealed class SetupWindow : SetupView {
   readonly string selectionHint;
   string retainedDeviceId;
   bool selectionUnavailable;
-  bool busy, historyNeedsReview, inventoryChanged, reconnectPending, refreshing;
+  bool busy, historyNeedsReview, inventoryChanged, reconnectPending, refreshing, driftReviewAvailable;
   readonly System.Windows.Forms.Timer reconnectTimer = new System.Windows.Forms.Timer { Interval = 1500 };
   public SetupWindow(ReleasePolicy policy, string helper, string selectionHint = null) : base(policy.Data.Purpose == "VALIDATION_ONLY") {
     this.policy = policy; this.helper = helper; this.selectionHint = selectionHint;
@@ -51,6 +51,7 @@ sealed class SetupWindow : SetupView {
     preview.Click += async (_, _) => await Change();
     devices.SelectedIndexChanged += (_, _) => { if (refreshing) return; patching.Checked = false; UpdateSelection(); };
     reconcile.Click += async (_, _) => await Reconcile();
+    reviewDrift.Click += async (_, _) => await ReviewDrift();
     reconnectTimer.Tick += async (_, _) => {
       if (busy) return;
       if (client?.IsUsable == true) await Reconcile();
@@ -66,22 +67,26 @@ sealed class SetupWindow : SetupView {
     if (IsDisposed) return;
     bool enabled = SetupPresentation.CanRequest(client?.IsUsable == true, busy, historyNeedsReview);
     var action = actions.SelectedItem as SetupAction;
-    bool needsAck = action?.Code == "INSTALL" || action?.Code == "ADOPT" || action?.Code == "APPLY";
     PresentAction(action, enabled, inventoryChanged, SetupPresentation.CanPreview(enabled, inventoryChanged, action) &&
       (action?.UsesDevice != true || devices.SelectedItem is DeviceChoice) &&
-      (action?.UsesRate != true || rates.SelectedItem is int) && (!needsAck || patching.Checked), reconnectPending);
+      (action?.UsesRate != true || rates.SelectedItem is int), reconnectPending, setup?.Pending != null);
+    reviewDrift.Visible = driftReviewAvailable;
+    reviewDrift.Enabled = client?.IsUsable == true && !busy;
+    FitContent();
   }
   void UpdateDetails() {
     var selected = (devices.SelectedItem as DeviceChoice)?.Device;
     details.Text = "Platform identity (automatic compatibility check; no input needed):\r\n" + observation?.PlatformDigest +
       (selected == null ? "" : "\r\n\r\nExact USB device: " + selected.Name + "\r\nDevice identity: " + selected.Id +
-        "\r\nDevice scope: " + selected.InterfaceDigest + "\r\nPolicy: " + (selected.Authorized ? "Authorized for this device" : "Not authorized for this device")) +
+        "\r\nDevice scope: " + selected.InterfaceDigest + "\r\nPolicy: " + (selected.Authorized ? "Authorized for this device" : "Not authorized for this device") +
+        "\r\nOriginal settings recorded: " + (SelectedSetup?.OriginalsRecorded == true ? "yes" : "no")) +
       (diagnostic.Length == 0 ? "" : "\r\n\r\nLast operation details:\r\n" + diagnostic);
   }
   async Task ShowFailure(Exception error) {
     reconnectTimer.Stop();
     progress.Text = "Request needs review · Follow the setup status below";
     if (SetupPresentation.IsHistoryRefusal(error.Message)) historyNeedsReview = true;
+    if (SetupPresentation.IsDriftRefusal(error.Message) && setup?.Pending == null) driftReviewAvailable = true;
     inventoryChanged = SetupPresentation.IsInventoryRefusal(error.Message);
     string message = SetupPresentation.FailureText(error.Message);
     if (client?.IsUsable != true) {
@@ -116,6 +121,13 @@ sealed class SetupWindow : SetupView {
       peer = NativePeerIdentity.Verify(pipe.SafePipeHandle, new PeerPolicy(policy.Data.HelperSha256, policy.Data.PublisherThumbprint, sid), true);
       client = new NativeSessionClient(pipe, nonce, peer.AssertAliveAndConnected, lifetime.Token);
       await RefreshInventory(); UpdateActions();
+      // A restart or a plugged-in device leaves the saved record behind the PC. Bringing it up to
+      // date changes no device setting, so setup does it on opening instead of asking the reader to
+      // find the right button. A saved change or a record under review still waits for the reader.
+      if (setup.Pending == null && !historyNeedsReview && inventoryChanged) {
+        SetStatus("Checking saved settings against the current USB connections…");
+        await Reconcile();
+      }
       if (setup.Pending != null) {
         reconnectPending = true; // Lock new requests, but do not resume/append automatically.
         progress.Text = "Saved operation pending · Check saved operation to resume";
@@ -131,6 +143,7 @@ sealed class SetupWindow : SetupView {
     observation = setup.Observation;
     historyNeedsReview = setup.HistoryStatus == "NEEDS_REVIEW";
     inventoryChanged = setup.HistoryStatus == "CHECK_REQUIRED";
+    driftReviewAvailable = setup.HistoryStatus == "NEEDS_REVIEW" && setup.Pending == null || driftReviewAvailable && inventoryChanged;
     refreshing = true;
     devices.Items.Clear();
     var eligible = observation.Devices.Where(x => x.Eligible).ToArray();
@@ -167,9 +180,8 @@ sealed class SetupWindow : SetupView {
     if (preferred.HasValue && rates.Items.Contains(preferred.Value)) rates.SelectedItem = preferred.Value;
     else if (rates.Items.Contains(1000)) rates.SelectedItem = 1000;
     else if (rates.Items.Count > 0) rates.SelectedIndex = 0;
-    savedRate.Text = "Saved rate: " + (selected?.SavedHz is int hz ? hz + " Hz" : "Default / not established") +
-      (selected?.OriginalsRecorded == true ? " · Originals recorded" : " · Originals not recorded") +
-      (setup?.Pending != null ? " · Saved operation pending" : "");
+    savedRate.Text = "Saved rate: " + (selected?.SavedHz is int hz ? hz + " Hz" : "Windows default") +
+      (setup?.Pending != null ? " · a saved change is waiting to finish" : "");
     installation.Text = selected?.Message ?? SelectionMessage;
     rateHelp.Text = SetupPresentation.RateHelp(selected);
     if (!maintenance.Checked) SelectSuggestedAction();
@@ -186,18 +198,36 @@ sealed class SetupWindow : SetupView {
       bool deviceAction = choice.UsesDevice;
       var selected = (devices.SelectedItem as DeviceChoice)?.Device;
       if (deviceAction && selected == null) throw new InvalidOperationException("Select an eligible USB scope first.");
+      // The helper plans a patching mode only with this flag. It is sent with the preview, which
+      // changes nothing; the review below does not enable Confirm for a patching plan until the
+      // reader acknowledges it, so nothing is applied without that acknowledgement.
       var intent = new LifecycleIntent(action, deviceAction ? selected.Id : null, deviceAction ? selected.InterfaceDigest : null,
-        action == "INSTALL" || action == "APPLY" ? (int)rates.SelectedItem : null, patching.Checked);
+        action == "INSTALL" || action == "APPLY" ? (int)rates.SelectedItem : null, true);
       var plan = await Call<BrokerPreview>("PREVIEW", intent);
       string review = SetupPresentation.Review(choice, selected == null ? null : SetupPresentation.DeviceLabel(selected.Name), intent.RequestedHz, plan.Variant, plan.RestartRequired, plan.ReconnectRequired);
       string exact = "Exact USB device: " + (deviceAction ? selected.Name : "shared driver") + "\r\nDevice identity: " + intent.DeviceId +
         "\r\nDevice scope: " + intent.InterfaceDigest + "\r\nDriver variant: " + plan.Variant + "\r\nPlan: " + plan.PlanDigest + "\r\nPreview expires: " + plan.ExpiresAt.ToString("O");
-      if (!ConfirmReview(review, exact, action == "ADOPT")) { SetStatus("Preview canceled. No change was applied."); return; }
+      if (!ConfirmReview(review, exact, action == "ADOPT", plan.Variant != "NOPATCH")) { SetStatus("Preview canceled. No change was applied."); return; }
       progress.Text = "Review complete  →  Saving setting…";
       var result = await Call<LifecycleResult>("APPLY", new { Token = plan.Token }, plan.PlanDigest);
       result = result with { DeviceName = result.DeviceName ?? selected?.Name, DeviceId = result.DeviceId ?? selected?.Id, Action = result.Action ?? action, RequestedHz = result.RequestedHz ?? intent.RequestedHz };
       if (!SetupPresentation.IsReconnectPending(result.Status)) await RefreshInventory();
       PresentResult(result, action);
+    } catch (Exception error) { await ShowFailure(error); }
+    finally { busy = false; UpdateActions(); }
+  }
+  async Task ReviewDrift() {
+    busy = true; UpdateActions();
+    try {
+      var review = await Call<DriftReview>("REVIEW_DRIFT", new { });
+      if (!ConfirmReview(SetupPresentation.DriftReviewText(review.Differences), "State fingerprint shown in this review: " + review.StateDigest, false, false, "Keep current settings")) {
+        SetStatus("Nothing was saved. The record still needs review; setup stays paused until it is resolved.");
+        return;
+      }
+      var result = await Call<LifecycleResult>("ACCEPT_CURRENT", new { StateDigest = review.StateDigest });
+      driftReviewAvailable = false; diagnostic = "";
+      await RefreshInventory();
+      PresentResult(result);
     } catch (Exception error) { await ShowFailure(error); }
     finally { busy = false; UpdateActions(); }
   }

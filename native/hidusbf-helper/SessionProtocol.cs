@@ -37,6 +37,10 @@ namespace Dialed.HidusbfHelper {
         case "OBSERVE": Fields(payload); return machine.Observe();
         case "SETUP_STATUS": Fields(payload); return session.ReadSetupStatus();
         case "RECONCILE": Fields(payload); return session.Reconcile();
+        case "REVIEW_DRIFT": Fields(payload); return session.ReviewDrift();
+        case "ACCEPT_CURRENT":
+          Fields(payload, "StateDigest");
+          return session.AcceptCurrent(payload.GetProperty("StateDigest").GetString());
         case "PREVIEW":
           var preview = session.Preview(ReadIntent(payload));
           return new { preview.Token, preview.PlanDigest, preview.ExpiresAt, preview.Plan.Variant, preview.Plan.RestartRequired, preview.Plan.ReconnectRequired };

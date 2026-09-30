@@ -41,6 +41,21 @@ namespace Dialed.HidusbfHelper {
         string.Equals(other.Coordinate.KeyPath, device.Coordinate.KeyPath, StringComparison.OrdinalIgnoreCase) &&
         string.Equals(other.Coordinate.ValueName, device.Coordinate.ValueName, StringComparison.OrdinalIgnoreCase));
 
+    // Every device with recorded originals is still present at exactly the registry location
+    // its originals belong to, so restoring them later writes the same value to the same place.
+    public static bool OwnedDevicesIntact(LifecycleOwnership ownership, LifecycleObservation current) {
+      if (ownership?.Devices == null || !Index(current?.Devices, out var after)) return false;
+      foreach (var entry in ownership.Devices) {
+        var saved = entry.Value;
+        if (saved?.Coordinate == null || !after.TryGetValue(entry.Key, out var device) ||
+            device.Coordinate != saved.Coordinate || device.IntervalLocation != saved.IntervalLocation) return false;
+        try { IntervalBinding.Validate(device); }
+        catch (InvalidOperationException) { return false; }
+        if (!UniqueCoordinate(device, after.Values)) return false;
+      }
+      return true;
+    }
+
     public static bool CanRefresh(LifecycleRecord record, LifecycleObservation current) {
       var expected = record?.Expected;
       if (record == null || record.SchemaVersion != 2 && record.SchemaVersion != 3 || record.NeedsReview || record.Pending != null ||

@@ -22,6 +22,7 @@ namespace Dialed.HidusbfHelper {
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool ReadbackVerified = false);
   public sealed record LifecycleRecord(LifecycleObservation Expected, LifecycleOwnership Ownership, PendingOperation Pending, bool NeedsReview, int SchemaVersion = 0);
   public sealed record NativePreview(string Token, string PlanDigest, DateTimeOffset ExpiresAt, NativePlan Plan);
+  public sealed record DriftReview(string StateDigest, string[] Differences);
   public sealed record LifecycleResult(string Status, bool ConfigurationOnly = true,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string DeviceName = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string DeviceId = null,
@@ -335,6 +336,75 @@ namespace Dialed.HidusbfHelper {
       assertPeer(); Save(new LifecycleRecord(state, pending.Plan.Ownership, null, false));
       CloseReconnectWatch(); previews.Clear();
       return ReconnectResult(pending, "CONFIGURATION_VERIFIED") with { ActivationEvidence = laterBoot ? "WINDOWS_RESTART" : "DEVICE_RECONNECT" };
+    }
+    // When something outside setup changed state it records, the saved record is latched for
+    // review and setup would otherwise refuse everything for good. The reader can see exactly what
+    // differs and keep the current settings as the new baseline. Recorded originals are kept, so a
+    // restore stays possible, and nothing on any device changes.
+    void RequireDriftReviewable(LifecycleRecord record, LifecycleObservation state) {
+      Require(record.Pending == null, "PENDING_OPERATION: finish the saved change first; it has its own check.");
+      Require(record.Expected != null && (record.NeedsReview || Digest(record.Expected) != Digest(state)), "NOTHING_TO_REVIEW: the saved record matches this PC.");
+      Require(state.SecurityAccepted, "SECURITY_UNKNOWN: Windows security state could not be confirmed, so no new baseline is saved.");
+      Require(state.Service?.File == null || state.Service.File.Variant != null, "UNRECOGNIZED_DRIVER: the installed HIDUSBF file is not one Dialed recognizes, so it is not accepted as a baseline.");
+      Require(InventoryReconciliation.OwnedDevicesIntact(record.Ownership, state), "OWNED_DEVICE_MOVED: a device with recorded originals is no longer at the location those originals belong to. Keep the history file; restoring it needs review.");
+    }
+    public DriftReview ReviewDrift() {
+      lock (gate) {
+        assertPeer(); var record = ReadRecord();
+        var state = machine.Observe();
+        BootSessionIdentity.RequireValid(state.BootId);
+        RequireDriftReviewable(record, state);
+        return new DriftReview(Digest(state), DescribeDrift(record.Expected, state, record.Ownership));
+      }
+    }
+    public LifecycleResult AcceptCurrent(string stateDigest) {
+      lock (gate) {
+        assertPeer(); var record = ReadRecord();
+        var state = machine.Observe();
+        BootSessionIdentity.RequireValid(state.BootId);
+        // The reader accepts exactly what the review showed, not whatever is there now.
+        Require(IsDigest(stateDigest) && Digest(state) == stateDigest, "REVIEW_STALE: the PC changed since the review. Nothing was saved; review what changed again.");
+        RequireDriftReviewable(record, state);
+        assertPeer(); var confirmed = Copy(machine.Observe());
+        Require(Digest(confirmed) == stateDigest, "REVIEW_STALE: the PC changed during the check. Nothing was saved; review what changed again.");
+        previews.Clear(); assertPeer();
+        Save(record with { Expected = confirmed, NeedsReview = false });
+        return new LifecycleResult("BASELINE_ACCEPTED");
+      }
+    }
+    static string[] DescribeDrift(LifecycleObservation before, LifecycleObservation after, LifecycleOwnership ownership) {
+      var lines = new List<string>();
+      string Label(DeviceSetting device) {
+        string name = device.Name ?? "USB device"; int cut = name.IndexOf(" · USB\\", StringComparison.OrdinalIgnoreCase);
+        return (cut > 0 ? name.Substring(0, cut) : name) + (ownership.Devices.ContainsKey(device.Id) ? " (originals recorded)" : "");
+      }
+      string Interval(DwordValue value) => value?.Present == true ? "interval " + value.Value : "no interval set";
+      if (before.MemoryIntegrity != after.MemoryIntegrity) lines.Add("Memory Integrity is now " + (after.MemoryIntegrity ? "on." : "off."));
+      if (before.PlatformDigest != after.PlatformDigest) lines.Add("Windows, Secure Boot or the USB controller driver changed (platform identity differs).");
+      if (Digest(before.Service?.File) != Digest(after.Service?.File))
+        lines.Add("The HIDUSBF driver file changed" + (after.Service?.File?.Variant is string variant ? " (now " + variant + ")." : "."));
+      if (Digest(before.Service?.Service) != Digest(after.Service?.Service) || before.Service?.ServiceKeyPresent != after.Service?.ServiceKeyPresent)
+        lines.Add("The HIDUSBF service configuration or state changed.");
+      if (Digest(before.Service?.ServiceParameters) != Digest(after.Service?.ServiceParameters) || Digest(before.Service?.ControlParameters) != Digest(after.Service?.ControlParameters))
+        lines.Add("The HIDUSBF controller patch setting changed.");
+      var previous = before.Devices.Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
+      var current = after.Devices.Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
+      foreach (var device in previous.Values.Where(x => !current.ContainsKey(x.Id))) lines.Add(Label(device) + ": no longer listed by Windows.");
+      foreach (var device in current.Values.Where(x => !previous.ContainsKey(x.Id))) lines.Add(Label(device) + ": newly listed by Windows.");
+      foreach (var device in current.Values.Where(x => previous.ContainsKey(x.Id))) {
+        var old = previous[device.Id];
+        if (Digest(old) == Digest(device)) continue;
+        if (Digest(old.Interval) != Digest(device.Interval)) lines.Add(Label(device) + ": rate setting changed from " + Interval(old.Interval) + " to " + Interval(device.Interval) + ".");
+        if (Digest(old.Filters) != Digest(device.Filters)) lines.Add(Label(device) + ": filter drivers changed.");
+        if (old.Present != device.Present) lines.Add(Label(device) + (device.Present ? ": connected." : ": disconnected."));
+        if (old.Coordinate != device.Coordinate || old.IntervalLocation != device.IntervalLocation) lines.Add(Label(device) + ": its setting now lives in a different registry location.");
+        if (old.Authorized != device.Authorized || old.Eligible != device.Eligible) lines.Add(Label(device) + ": eligibility under the current release policy changed.");
+        if (old.InterfaceDigest != device.InterfaceDigest || old.Speed != device.Speed || old.Name != device.Name || old.IntervalIsolated != device.IntervalIsolated)
+          lines.Add(Label(device) + ": USB connection details changed.");
+      }
+      if (before.BootId != after.BootId) lines.Add("Windows has restarted since the record was saved.");
+      if (lines.Count == 0) lines.Add("The saved record is flagged for review, but no difference from this PC was found.");
+      return lines.Distinct().Take(60).Concat(lines.Count > 60 ? new[] { "…and " + (lines.Count - 60) + " more." } : Array.Empty<string>()).ToArray();
     }
     public LifecycleResult Reconcile() {
       lock (gate) {

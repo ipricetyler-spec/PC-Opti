@@ -72,7 +72,8 @@ namespace Dialed.HidusbfHelper {
         }
         if (seen.Count != 5 || root.GetProperty("version").GetInt32() != 1) throw new InvalidOperationException("Incomplete or unsupported protocol.");
         string operation = root.GetProperty("operation").GetString();
-        if (operation != "OBSERVE" && operation != "SETUP_STATUS" && operation != "PREVIEW" && operation != "APPLY" && operation != "RECONCILE") throw new InvalidOperationException("Unsupported helper operation.");
+        if (operation != "OBSERVE" && operation != "SETUP_STATUS" && operation != "PREVIEW" && operation != "APPLY" && operation != "RECONCILE" &&
+            operation != "REVIEW_DRIFT" && operation != "ACCEPT_CURRENT") throw new InvalidOperationException("Unsupported helper operation.");
         foreach (string key in new string[] { "nonce", "planDigest" }) {
           string value = root.GetProperty(key).GetString();
           if (value == null || value.Length != 64) throw new InvalidOperationException("Fixed digest/nonce required.");

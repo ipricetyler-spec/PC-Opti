@@ -64,15 +64,15 @@ sealed class SetupAppearanceFixture : SetupView {
     devices.Items.AddRange(new object[] { "DualSense Edge Wireless Controller", "USB Keyboard", "Two identical controllers · fixture 1", "Two identical controllers · fixture 2" }); devices.SelectedIndex = 0;
     bool recording = scenario == "initial" || scenario == "record";
     installation.Text = recording ? "First use in Dialed: record this device's originals once, then choose a rate. Recording does not change the device." : "Original settings recorded. Choose a rate to review.";
-    savedRate.Text = "Saved rate: 8000 Hz · " + (recording ? "Originals not recorded" : "Originals recorded");
+    savedRate.Text = "Saved rate: 8000 Hz";
     rates.Items.AddRange(new object[] {1000,2000,4000,8000}); rates.SelectedItem = 1000;
-    rateHelp.Text = "Available to review: 1000 Hz, 2000 Hz, 4000 Hz, 8000 Hz.\r\nHigh-Speed setup offers 1000, 2000, 4000 and 8000 Hz.";
+    rateHelp.Text = "High-Speed setup offers 1000, 2000, 4000 and 8000 Hz.";
     bool inventory = scenario == "inventory", history = scenario == "history";
     actions.SelectedItem = SetupPresentation.Actions.Single(x => x.Code == (recording ? "ADOPT" : "APPLY"));
     patching.Checked = scenario != "initial";
     details.Text = "Appearance fixture only. No real device access.\r\nPlatform identity (automatic compatibility check; no input needed):\r\n" + new string('a', 64) +
       "\r\nExact USB device: USB\\VID_054C&PID_0DF2\\FIXTURE\r\nDevice scope: " + new string('b', 64);
-    void Update() { var action = actions.SelectedItem as SetupAction; PresentAction(action, !history, inventory, SetupPresentation.CanPreview(!history, inventory, action) && patching.Checked, scenario == "reconnect"); }
+    void Update() { var action = actions.SelectedItem as SetupAction; PresentAction(action, !history, inventory, SetupPresentation.CanPreview(!history, inventory, action), scenario == "reconnect"); }
     actions.SelectedIndexChanged += (_, _) => { patching.Checked = false; Update(); };
     patching.CheckedChanged += (_, _) => Update();
     Update();
@@ -81,13 +81,13 @@ sealed class SetupAppearanceFixture : SetupView {
       : "Appearance preview only. Choose any action to inspect the layout. No device settings or recovery history can be changed here.");
     if (scenario == "reconnect" || scenario == "complete") {
       var result = new LifecycleResult(scenario == "complete" ? "CONFIGURATION_VERIFIED" : "RECONNECT_REQUIRED", DeviceName:"DualSense Edge Wireless Controller", Action:"APPLY", RequestedHz:1000, ActivationEvidence:scenario == "complete" ? "DEVICE_RECONNECT" : null);
-      savedRate.Text = "Saved rate: 1000 Hz · Originals recorded";
+      savedRate.Text = "Saved rate: 1000 Hz";
       progress.Text = SetupPresentation.Progress(result); SetStatus(SetupPresentation.ResultText(result));
       if (scenario == "complete") { RememberResult(SetupPresentation.ResultText(result)); patching.Checked = false; }
     }
     if (scenario == "policy-blocked") {
       devices.SelectedIndex = 1;
-      savedRate.Text = "Saved rate: 1000 Hz · Originals not recorded";
+      savedRate.Text = "Saved rate: 1000 Hz";
       installation.Text = "Rate changes for this device are not enabled in this build. This is a driver-policy restriction, not a finding that the device cannot be tuned.";
       rates.Items.Clear(); actions.SelectedIndex = 0;
       rateHelp.Text = "No rate is available to review yet.\r\n" + installation.Text;
@@ -97,7 +97,7 @@ sealed class SetupAppearanceFixture : SetupView {
     preview.Click += (_, _) => {
       var action = (SetupAction)actions.SelectedItem;
       string review = SetupPresentation.Review(action, devices.SelectedItem.ToString(), action.UsesRate ? (int)rates.SelectedItem : null, "PATCH_1K", action.Code == "APPLY" || action.Code == "INSTALL");
-      bool confirmed = ConfirmReview(review, details.Text, action.Code == "ADOPT");
+      bool confirmed = ConfirmReview(review, details.Text, action.Code == "ADOPT", true);
       SetStatus(confirmed ? "Appearance preview: confirmation demonstrated. No request was sent; no device or history was changed." : "Preview canceled. No request was sent; no device or history was changed.");
     };
     reconcile.Click += (_, _) => SetStatus("Appearance preview only. No saved operation or USB inventory was read or changed.");

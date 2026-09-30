@@ -141,6 +141,7 @@ static class InventoryReconciliationChecks {
     Check(!InventoryReconciliation.CanRefresh(record, next with { Devices = Enumerable.Repeat(keyboard, 4097).ToArray() }), "bounded inventory");
 
     ExerciseSession(record, next, apply);
+    DriftRecovery(record, target, apply);
     // Refresh must not interfere with pending completion or clear a prior review.
     // Preserve this existing schema-2 restart-pending regression. New reconnect
     // records have separate schema-3 interruption/drift coverage.
@@ -218,6 +219,77 @@ static class InventoryReconciliationChecks {
     }
   }
 
+  // The only way out of a latched review: show exactly what differs, then keep the current state
+  // as the baseline only if it is still exactly what was shown. Originals and devices never change.
+  static void DriftRecovery(LifecycleRecord record, DeviceSetting target, LifecycleIntent apply) {
+    var drifted = record.Expected with { Devices = record.Expected.Devices.Select(d => d.Id == target.Id ? d with { Interval = new DwordValue(true, 4) } : d).ToArray() };
+    var latched = record with { NeedsReview = true };
+    using (var bytes = new MemoryStream()) using (var log = new JournalLog(bytes)) {
+      Seed(log, latched); var machine = new MemoryMachine { State = drifted }; var session = new LifecycleSession(log, machine, () => { });
+      Refuse(() => session.Preview(apply), "NEEDS_REVIEW");
+      var review = session.ReviewDrift();
+      Check(review.StateDigest == LifecycleSession.Digest(drifted), "review fingerprints what it saw");
+      Check(review.Differences.Any(x => x.Contains("rate setting changed from interval 1 to interval 4") && x.Contains("originals recorded")), "review names the owned device's changed rate");
+      byte[] original = bytes.ToArray();
+      Refuse(() => session.AcceptCurrent(new string('e', 64)), "REVIEW_STALE");
+      Refuse(() => session.AcceptCurrent("not a digest"), "REVIEW_STALE");
+      Check(bytes.ToArray().SequenceEqual(original), "a stale or malformed acceptance writes nothing");
+      long revision = log.Revision;
+      Check(session.AcceptCurrent(review.StateDigest).Status == "BASELINE_ACCEPTED", "acceptance succeeds for the reviewed state");
+      Check(log.Revision == revision + 1 && machine.Executions == 0, "one append and no device call");
+      var saved = Read(log);
+      Check(!saved.NeedsReview && saved.Pending == null && LifecycleSession.Digest(saved.Expected) == LifecycleSession.Digest(drifted), "review cleared and baseline is the reviewed state");
+      Check(LifecycleSession.Digest(saved.Ownership) == LifecycleSession.Digest(latched.Ownership), "recorded originals are kept");
+      Check(session.Preview(apply).Plan.BeforeDigest == LifecycleSession.Digest(drifted), "setup works again after acceptance");
+      Refuse(() => session.ReviewDrift(), "NOTHING_TO_REVIEW");
+    }
+    foreach (var (name, state, code) in new[] {
+      ("owned device moved", drifted with { Devices = drifted.Devices.Select(d => d.Id == target.Id ? d with { Coordinate = IntervalBinding.Create(d.Coordinate.InstanceId, "Driver", @"{36fc9e60-c465-11cf-8056-444553540000}\0031") } : d).ToArray() }, "OWNED_DEVICE_MOVED"),
+      ("security unknown", drifted with { SecurityAccepted = false }, "SECURITY_UNKNOWN"),
+      ("unrecognized driver", drifted with { Service = drifted.Service with { File = drifted.Service.File with { Sha256 = new string('e', 64), Variant = null } } }, "UNRECOGNIZED_DRIVER"),
+    }) {
+      using var bytes = new MemoryStream(); using var log = new JournalLog(bytes); Seed(log, latched); byte[] original = bytes.ToArray();
+      var session = new LifecycleSession(log, new MemoryMachine { State = state }, () => { });
+      Refuse(() => session.ReviewDrift(), code);
+      Refuse(() => session.AcceptCurrent(LifecycleSession.Digest(state)), code);
+      Check(bytes.ToArray().SequenceEqual(original), "refused acceptance writes nothing: " + name);
+    }
+    var plan = LifecycleSession.Plan(record.Expected, apply, record.Ownership) with { RestartRequired = true, ReconnectRequired = false };
+    using (var log = new JournalLog(new MemoryStream())) {
+      Seed(log, latched with { Pending = new PendingOperation(new string('d', 64), record.Expected, plan) });
+      Refuse(() => new LifecycleSession(log, new MemoryMachine { State = drifted }, () => { }).ReviewDrift(), "PENDING_OPERATION");
+    }
+    using (var log = new JournalLog(new MemoryStream())) {
+      Seed(log, record);
+      Refuse(() => new LifecycleSession(log, new MemoryMachine { State = record.Expected }, () => { }).ReviewDrift(), "NOTHING_TO_REVIEW");
+    }
+    using (var bytes = new MemoryStream()) using (var log = new JournalLog(bytes)) {
+      // The PC changes between the two observations of the acceptance itself.
+      Seed(log, latched); byte[] original = bytes.ToArray();
+      var moved = drifted with { Devices = drifted.Devices.Select(d => d.Id == target.Id ? d with { Interval = new DwordValue(true, 2) } : d).ToArray() };
+      var machine = new MemoryMachine { OnObserve = n => n <= 1 ? drifted : moved };
+      Refuse(() => new LifecycleSession(log, machine, () => { }).AcceptCurrent(LifecycleSession.Digest(drifted)), "REVIEW_STALE");
+      Check(bytes.ToArray().SequenceEqual(original), "a change during acceptance writes nothing");
+    }
+    using (var log = new JournalLog(new MemoryStream())) {
+      Seed(log, latched); var machine = new MemoryMachine { State = drifted }; var session = new LifecycleSession(log, machine, () => { }); string nonce = new string('a', 64);
+      byte[] Request(string operation, object payload) => JsonSerializer.SerializeToUtf8Bytes(new { version = 1, operation, nonce, planDigest = new string('0', 64), payload });
+      using var extra = JsonDocument.Parse(SessionProtocol.Reply(Request("REVIEW_DRIFT", new { Accept = true }), nonce, session, machine));
+      Check(!extra.RootElement.GetProperty("ok").GetBoolean(), "review takes no payload");
+      using var missing = JsonDocument.Parse(SessionProtocol.Reply(Request("ACCEPT_CURRENT", new { }), nonce, session, machine));
+      Check(!missing.RootElement.GetProperty("ok").GetBoolean(), "acceptance requires the reviewed fingerprint");
+      using var accepted = JsonDocument.Parse(SessionProtocol.Reply(Request("ACCEPT_CURRENT", new { StateDigest = LifecycleSession.Digest(drifted) }), nonce, session, machine));
+      Check(accepted.RootElement.GetProperty("ok").GetBoolean() && accepted.RootElement.GetProperty("value").GetProperty("Status").GetString() == "BASELINE_ACCEPTED", "protocol acceptance");
+    }
+    Check(SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: external drift.") && SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: external state changed."), "external drift offers review");
+    Check(!SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: partial operation or external drift.") && !SetupPresentation.IsDriftRefusal("JOURNAL_SCHEMA_REVIEW_REQUIRED: x"), "pending or history problems do not offer acceptance");
+    Check(SetupPresentation.FailureSummary("NEEDS_REVIEW: external drift.").Contains("Review what changed"), "drift summary names the button");
+    Check(SetupPresentation.FailureSummary("OWNED_DEVICE_MOVED: a device moved.") == "A device moved.", "refusal reasons read as sentences");
+    string text = SetupPresentation.DriftReviewText(new[] { "Mouse: filter drivers changed." });
+    Check(text.Contains("•  Mouse: filter drivers changed.") && text.Contains("Nothing on your devices changes") && text.Contains("If you are unsure, cancel"), "review text lists changes and limits");
+    Check(SetupPresentation.ResultText("BASELINE_ACCEPTED").Contains("originals are kept"), "acceptance result states what is kept");
+  }
+
   static void CheckPresentation() {
     foreach (string code in new[] { "INVENTORY_RECONCILE_REQUIRED: change", "INVENTORY_REFRESH_UNSTABLE: changed again" }) {
       Check(SetupPresentation.IsInventoryRefusal(code) && !SetupPresentation.IsHistoryRefusal(code), "inventory refusal keeps explicit refresh available");
@@ -229,7 +301,7 @@ static class InventoryReconciliationChecks {
     foreach (bool enabled in new[] { false, true }) foreach (bool changed in new[] { false, true }) foreach (bool selected in new[] { false, true })
       Check(SetupPresentation.CanPreview(enabled, changed, selected ? SetupPresentation.Actions[0] : null) == (enabled && !changed && selected), "preview pauses until inventory refresh");
     string result = SetupPresentation.ResultText("INVENTORY_REFRESHED");
-    Check(result.Contains("ownership are unchanged") && result.Contains("no restart") && result.Contains("new preview"), "refresh result limits and next action");
+    Check(result.Contains("ownership are unchanged") && result.Contains("no restart") && result.Contains("Choose a rate"), "refresh result limits and next action");
   }
 
   // The input contains derived captured observations, never a live protected

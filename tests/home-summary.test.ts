@@ -14,6 +14,19 @@ test('an unfinished change comes first and is marked urgent', () => {
   assert.equal(items[0].target.evidenceId, 'e-NEEDS_REVIEW');
 });
 
+test('a failed action says it failed, names itself, and is not called unfinished', () => {
+  const retrim = (drive: string) => ({ id: `r-${drive}`, status: 'FAILED', title: `ReTRIM ${drive}:`, rollback: { available: false } }) as never;
+  const items = homeItems({ snapshot, history: [retrim('C'), retrim('D'), retrim('E')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
+  assert.deepEqual(items.map((item) => item.key), ['failed']);
+  assert.equal(items[0].title, '3 actions failed');
+  assert.match(items[0].detail, /^Windows reported an error for ReTRIM C:, ReTRIM D: and ReTRIM E:, so they did not complete as planned\./);
+  assert.doesNotMatch(`${items[0].title} ${items[0].detail}`, /did not finish/);
+  assert.notEqual(items[0].urgent, true);
+  assert.equal(items[0].target.evidenceId, 'r-C');
+  const both = homeItems({ snapshot, history: [retrim('C'), entry('PENDING')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
+  assert.deepEqual(both.map((item) => [item.key, item.title]), [['unfinished', 'A change did not finish'], ['failed', 'An action failed']]);
+});
+
 test('suggestions that need a decision come before optional fixes and tips; no-action items are left out', () => {
   const items = homeItems({ snapshot, history: [], historyRecovery: null, recommendations: [rec('tip', 'GUIDANCE_ONLY'), rec('none', 'NO_ACTION'), rec('fix', 'OPTIONAL_ACTION'), rec('decide', 'REVIEW')], benchmarkEvidence: empty });
   assert.deepEqual(items.map((item) => item.key), ['decide', 'fix', 'tip']);

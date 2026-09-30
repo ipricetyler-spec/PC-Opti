@@ -176,7 +176,7 @@ export function ReadinessCenter({
   const nextActions = useMemo(() => {
     const actions: { label: string; target: LocalRecommendation['targetPanel'] }[] = [];
     const add = (label: string, id: LocalRecommendation['targetPanel']['id'], destination: string, evidenceId?: string) => actions.push({ label, target: { id, label: destination, sectionId: null, evidenceId } });
-    if (historyRecovery || historyCounts.failed || historyCounts.needsReview || historyCounts.unresolved) add('Check a change that did not finish.', 'history', 'Open Recovery & history', history.find((entry) => ['FAILED','NEEDS_REVIEW','PENDING','PENDING_REBOOT','UNVERIFIED'].includes(entry.status))?.id);
+    if (historyRecovery || historyCounts.failed || historyCounts.needsReview || historyCounts.unresolved) add(historyCounts.failed && !historyRecovery && !historyCounts.needsReview && !historyCounts.unresolved ? 'Check a change that failed.' : 'Check a change that failed or did not finish.', 'history', 'Open Recovery & history', history.find((entry) => ['FAILED','NEEDS_REVIEW','PENDING','PENDING_REBOOT','UNVERIFIED'].includes(entry.status))?.id);
     if (!snapshot) add('Scan this PC.', 'overview', 'Open scan details');
     if (benchmarkEvidence.comparisons.some((item) => item.classification === 'REGRESSION' || item.classification === 'INCOMPLETE')) add('A performance test needs a look.', 'benchmarks', 'Open Measure', benchmarkEvidence.comparisons.find((item) => item.classification === 'REGRESSION' || item.classification === 'INCOMPLETE')?.experimentId);
     if (driftError || !driftReport?.baseline) add(driftError ? 'Your saved snapshot could not be read.' : 'Save a snapshot of this PC so Dialed can spot changes later.', 'drift', 'Open Changes');

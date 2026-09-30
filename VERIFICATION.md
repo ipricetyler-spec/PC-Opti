@@ -423,3 +423,14 @@ present; Measure "Copy view" works; Ultimate plan shows as in the plan list.
 - **Not verified:** a mouse rate change; the "Review what changed" recovery on a real latched
   record (the owner's record is clean; covered only by the fixture); a Windows 10 PC; a clean
   install on another PC.
+
+## 2026-09-29 — Home no longer calls failed actions "did not finish"
+
+- Reproduced on the installed build: Home showed "3 changes did not finish". The change log holds
+  47 SUCCESS and 3 FAILED entries, all ReTRIM of C:, D: and E: on 2026-09-06, each refused by
+  Windows with "Access denied". Nothing was pending or unconfirmed.
+- Home now keeps "did not finish" for changes Dialed could not confirm, and shows failed actions
+  separately and without the urgent marker: "3 actions failed · Windows reported an error for
+  ReTRIM C:, ReTRIM D: and ReTRIM E:…". Readiness words its next step the same way.
+- `npm test` 845/845, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed.
+  Not packaged: the installed build still shows the old wording.

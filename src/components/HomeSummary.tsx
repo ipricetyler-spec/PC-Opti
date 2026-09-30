@@ -19,7 +19,10 @@ function gigabytes(bytes: number): string {
   return bytes >= 1024 ** 4 ? `${(bytes / 1024 ** 4).toFixed(1)} TB` : `${Math.round(bytes / 1024 ** 3)} GB`;
 }
 
-const UNFINISHED = new Set(['FAILED', 'NEEDS_REVIEW', 'PENDING', 'PENDING_REBOOT', 'UNVERIFIED']);
+// Unconfirmed: Dialed cannot tell whether the change took effect. Failed is different: Windows
+// reported an error. Calling a failed action "did not finish" read like something was left
+// half-done (three ReTRIMs refused with Access denied showed that way for weeks).
+const UNCONFIRMED = new Set(['NEEDS_REVIEW', 'PENDING', 'PENDING_REBOOT', 'UNVERIFIED']);
 // Suggestions that ask for a decision or offer a fix come before information-only ones.
 const PRIORITY: Record<LocalRecommendation['actionStatus'], number> = { REVIEW: 0, OPTIONAL_ACTION: 1, GUIDANCE_ONLY: 2, NO_ACTION: 3 };
 
@@ -35,7 +38,8 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
   benchmarkEvidence: BenchmarkEvidenceState;
 }): HomeItem[] {
   const items: HomeItem[] = [];
-  const unfinished = history.filter((entry) => UNFINISHED.has(entry.status));
+  const unfinished = history.filter((entry) => UNCONFIRMED.has(entry.status));
+  const failed = history.filter((entry) => entry.status === 'FAILED');
   if (historyRecovery || unfinished.length) {
     items.push({
       key: 'unfinished',
@@ -52,6 +56,18 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
   const worse = benchmarkEvidence.comparisons.find((item) => item.classification === 'REGRESSION');
   if (worse) {
     items.push({ key: 'regression', title: 'A change made things worse', detail: 'One of your tests measured lower performance after a change. Consider undoing it.', action: 'See the result', target: { id: 'benchmarks', label: 'See the result', sectionId: null, evidenceId: worse.experimentId }, urgent: true });
+  }
+  if (failed.length) {
+    const titles = failed.map((entry) => entry.title);
+    const named = failed.length <= 3 && titles.every(Boolean)
+      ? ` for ${titles.length > 1 ? `${titles.slice(0, -1).join(', ')} and ${titles.at(-1)}` : titles[0]}` : '';
+    items.push({
+      key: 'failed',
+      title: failed.length > 1 ? `${failed.length} actions failed` : 'An action failed',
+      detail: `Windows reported an error${named}, so ${failed.length > 1 ? 'they' : 'it'} did not complete as planned. Restore shows the error and whether anything needs undoing.`,
+      action: 'See why',
+      target: { id: 'history', label: 'See why', sectionId: null, evidenceId: failed[0].id },
+    });
   }
   const suggestions = recommendations
     .filter((item) => item.actionStatus !== 'NO_ACTION')

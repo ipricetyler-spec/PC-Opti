@@ -86,7 +86,7 @@ sealed class SetupWindow : SetupView {
     reconnectTimer.Stop();
     progress.Text = "Request needs review · Follow the setup status below";
     if (SetupPresentation.IsHistoryRefusal(error.Message)) historyNeedsReview = true;
-    if (SetupPresentation.IsDriftRefusal(error.Message) && setup?.Pending == null) driftReviewAvailable = true;
+    if (SetupPresentation.IsDriftRefusal(error.Message)) driftReviewAvailable = true;
     inventoryChanged = SetupPresentation.IsInventoryRefusal(error.Message);
     string message = SetupPresentation.FailureText(error.Message);
     if (client?.IsUsable != true) {
@@ -143,7 +143,7 @@ sealed class SetupWindow : SetupView {
     observation = setup.Observation;
     historyNeedsReview = setup.HistoryStatus == "NEEDS_REVIEW";
     inventoryChanged = setup.HistoryStatus == "CHECK_REQUIRED";
-    driftReviewAvailable = setup.HistoryStatus == "NEEDS_REVIEW" && setup.Pending == null || driftReviewAvailable && inventoryChanged;
+    driftReviewAvailable = setup.HistoryStatus == "NEEDS_REVIEW" || driftReviewAvailable && inventoryChanged;
     refreshing = true;
     devices.Items.Clear();
     var eligible = observation.Devices.Where(x => x.Eligible).ToArray();

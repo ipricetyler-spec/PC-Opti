@@ -68,9 +68,8 @@ static class SetupPresentation {
     message?.StartsWith("BOOT_HISTORY_REVIEW_REQUIRED:", StringComparison.Ordinal) == true;
   public static bool IsInventoryRefusal(string message) => message?.StartsWith("INVENTORY_RECONCILE_REQUIRED:", StringComparison.Ordinal) == true ||
     message?.StartsWith("INVENTORY_REFRESH_UNSTABLE:", StringComparison.Ordinal) == true;
-  // Drift that setup can show and let the reader accept; a pending operation's own drift is not.
-  public static bool IsDriftRefusal(string message) => message?.StartsWith("NEEDS_REVIEW:", StringComparison.Ordinal) == true &&
-    !message.Contains("partial operation") && !message.Contains("reconnected device");
+  // Drift setup can show and let the reader resolve, including a saved change whose own check gave up.
+  public static bool IsDriftRefusal(string message) => message?.StartsWith("NEEDS_REVIEW:", StringComparison.Ordinal) == true;
   static readonly string[] DriftRefusalCodes = { "PENDING_OPERATION:", "NOTHING_TO_REVIEW:", "SECURITY_UNKNOWN:", "UNRECOGNIZED_DRIVER:", "OWNED_DEVICE_MOVED:", "REVIEW_STALE:" };
   public static string DriftReviewText(string[] differences) =>
     "Something outside setup changed what setup keeps track of, so it stopped before changing anything.\n\n" +

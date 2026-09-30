@@ -341,20 +341,64 @@ namespace Dialed.HidusbfHelper {
     // review and setup would otherwise refuse everything for good. The reader can see exactly what
     // differs and keep the current settings as the new baseline. Recorded originals are kept, so a
     // restore stays possible, and nothing on any device changes.
-    void RequireDriftReviewable(LifecycleRecord record, LifecycleObservation state) {
-      Require(record.Pending == null, "PENDING_OPERATION: finish the saved change first; it has its own check.");
-      Require(record.Expected != null && (record.NeedsReview || Digest(record.Expected) != Digest(state)), "NOTHING_TO_REVIEW: the saved record matches this PC.");
+    // What the accepted record compares against, which originals it keeps, and, for a saved change
+    // that drifted, whether that change took effect.
+    sealed record DriftResolution(LifecycleObservation Reference, LifecycleOwnership Ownership, string Outcome, string TargetId);
+    DriftResolution ResolveDrift(LifecycleRecord record, LifecycleObservation state) {
+      if (record.Pending == null) {
+        Require(record.Expected != null && (record.NeedsReview || Digest(record.Expected) != Digest(state)), "NOTHING_TO_REVIEW: the saved record matches this PC.");
+        return new DriftResolution(record.Expected, record.Ownership, null, null);
+      }
+      // A saved change is resolved by its own check; it comes here only once that check gave up.
+      Require(record.NeedsReview, "PENDING_OPERATION: a saved change is waiting. Choose Check saved operation to finish it.");
+      var pending = record.Pending;
+      string outcome = PendingOutcome(pending, state);
+      var ownership = outcome == "APPLIED" ? pending.Plan.Ownership : outcome == "NOT_APPLIED" ? record.Ownership : KeepAllOriginals(record.Ownership, pending.Plan.Ownership);
+      return new DriftResolution(outcome == "NOT_APPLIED" ? pending.Before : pending.Plan.After, ownership, outcome, pending.Plan.Intent?.DeviceId);
+    }
+    // Only the settings a change writes decide whether it took effect. The service's running state
+    // is left out: it follows device attachment and restarts, not the change itself.
+    static string PendingOutcome(PendingOperation pending, LifecycleObservation state) {
+      static Dictionary<string, DeviceSetting> Index(DeviceSetting[] devices) => (devices ?? Array.Empty<DeviceSetting>()).Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
+      static string Settings(DeviceSetting device) => device == null ? "absent" : Digest(new { device.Filters, device.Interval });
+      static string ServiceShape(ServiceObservation service) => Digest(service == null ? null : service with { Service = service.Service == null ? null : service.Service with { State = 0 } });
+      var before = Index(pending.Before.Devices); var after = Index(pending.Plan.After.Devices); var now = Index(state.Devices);
+      var touched = before.Keys.Union(after.Keys).Where(id => Settings(before.GetValueOrDefault(id)) != Settings(after.GetValueOrDefault(id))).ToArray();
+      bool serviceTouched = ServiceShape(pending.Before.Service) != ServiceShape(pending.Plan.After.Service);
+      bool Matches(Dictionary<string, DeviceSetting> reference, ServiceObservation service) =>
+        touched.All(id => Settings(now.GetValueOrDefault(id)) == Settings(reference.GetValueOrDefault(id))) && (!serviceTouched || ServiceShape(state.Service) == ServiceShape(service));
+      return Matches(after, pending.Plan.After.Service) ? "APPLIED" : Matches(before, pending.Before.Service) ? "NOT_APPLIED" : "UNCLEAR";
+    }
+    // When it is unclear whether a change took effect, keep every original recorded before or by
+    // it, older first, and do not assume Dialed owns a driver it may not have installed.
+    static LifecycleOwnership KeepAllOriginals(LifecycleOwnership recorded, LifecycleOwnership planned) {
+      var devices = new Dictionary<string, SavedDevice>(planned?.Devices ?? new Dictionary<string, SavedDevice>());
+      foreach (var entry in recorded.Devices) devices[entry.Key] = entry.Value;
+      return new LifecycleOwnership(recorded.ServiceOwned, devices);
+    }
+    void RequireAcceptable(DriftResolution resolution, LifecycleObservation state) {
       Require(state.SecurityAccepted, "SECURITY_UNKNOWN: Windows security state could not be confirmed, so no new baseline is saved.");
       Require(state.Service?.File == null || state.Service.File.Variant != null, "UNRECOGNIZED_DRIVER: the installed HIDUSBF file is not one Dialed recognizes, so it is not accepted as a baseline.");
-      Require(InventoryReconciliation.OwnedDevicesIntact(record.Ownership, state), "OWNED_DEVICE_MOVED: a device with recorded originals is no longer at the location those originals belong to. Keep the history file; restoring it needs review.");
+      Require(InventoryReconciliation.OwnedDevicesIntact(resolution.Ownership, state), "OWNED_DEVICE_MOVED: a device with recorded originals is no longer at the location those originals belong to. Keep the history file; restoring it needs review.");
     }
     public DriftReview ReviewDrift() {
       lock (gate) {
         assertPeer(); var record = ReadRecord();
         var state = machine.Observe();
         BootSessionIdentity.RequireValid(state.BootId);
-        RequireDriftReviewable(record, state);
-        return new DriftReview(Digest(state), DescribeDrift(record.Expected, state, record.Ownership));
+        var resolution = ResolveDrift(record, state);
+        RequireAcceptable(resolution, state);
+        var lines = DescribeDrift(resolution.Reference, state, resolution.Ownership);
+        if (resolution.Outcome != null) {
+          string device = state.Devices.FirstOrDefault(x => x?.Id == resolution.TargetId)?.Name ?? "the device";
+          int cut = device.IndexOf(" · USB\\", StringComparison.OrdinalIgnoreCase); if (cut > 0) device = device.Substring(0, cut);
+          lines = new[] { resolution.Outcome switch {
+            "APPLIED" => "The saved change to " + device + " took effect: its setting matches the change. The list below is what else differs.",
+            "NOT_APPLIED" => "The saved change to " + device + " did not take effect: the previous setting is still in place. The list below is what else differs.",
+            _ => "It is unclear whether the saved change to " + device + " took effect: its setting matches neither the old nor the new value. Every original recorded before or by it is kept."
+          } }.Concat(lines.Where(x => !x.StartsWith("The saved record is flagged", StringComparison.Ordinal))).ToArray();
+        }
+        return new DriftReview(Digest(state), lines);
       }
     }
     public LifecycleResult AcceptCurrent(string stateDigest) {
@@ -364,11 +408,13 @@ namespace Dialed.HidusbfHelper {
         BootSessionIdentity.RequireValid(state.BootId);
         // The reader accepts exactly what the review showed, not whatever is there now.
         Require(IsDigest(stateDigest) && Digest(state) == stateDigest, "REVIEW_STALE: the PC changed since the review. Nothing was saved; review what changed again.");
-        RequireDriftReviewable(record, state);
+        var resolution = ResolveDrift(record, state);
+        RequireAcceptable(resolution, state);
         assertPeer(); var confirmed = Copy(machine.Observe());
         Require(Digest(confirmed) == stateDigest, "REVIEW_STALE: the PC changed during the check. Nothing was saved; review what changed again.");
         previews.Clear(); assertPeer();
-        Save(record with { Expected = confirmed, NeedsReview = false });
+        Save(record with { Expected = confirmed, Ownership = resolution.Ownership, Pending = null, NeedsReview = false });
+        CloseReconnectWatch();
         return new LifecycleResult("BASELINE_ACCEPTED");
       }
     }

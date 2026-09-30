@@ -256,8 +256,36 @@ static class InventoryReconciliationChecks {
     }
     var plan = LifecycleSession.Plan(record.Expected, apply, record.Ownership) with { RestartRequired = true, ReconnectRequired = false };
     using (var log = new JournalLog(new MemoryStream())) {
-      Seed(log, latched with { Pending = new PendingOperation(new string('d', 64), record.Expected, plan) });
+      // A saved change is finished by its own check; review is offered only once that check gave up.
+      Seed(log, record with { Pending = new PendingOperation(new string('d', 64), record.Expected, plan) });
       Refuse(() => new LifecycleSession(log, new MemoryMachine { State = drifted }, () => { }).ReviewDrift(), "PENDING_OPERATION");
+    }
+    // A latched saved change: say whether it took effect and keep the matching originals.
+    var unrelated = record.Expected.Devices.First(d => d.Id != target.Id);
+    DeviceSetting[] WithTarget(DeviceSetting[] devices, DwordValue interval) => devices.Select(d => d.Id == target.Id ? d with { Interval = interval } : d.Id == unrelated.Id ? d with { Name = "Renamed elsewhere" } : d).ToArray();
+    var plannedInterval = plan.After.Devices.Single(d => d.Id == target.Id).Interval;
+    // The plan also records an original for a second, real device, as an install would.
+    var withNewPlan = plan with { Ownership = new LifecycleOwnership(false, new Dictionary<string, SavedDevice>(plan.Ownership.Devices) {
+      [unrelated.Id] = new SavedDevice(unrelated.InterfaceDigest, unrelated.Filters, unrelated.Interval, unrelated.IntervalLocation, unrelated.Coordinate) }) };
+    foreach (var (outcome, interval, expectedOwnership, message) in new[] {
+      ("APPLIED", plannedInterval, withNewPlan.Ownership, "took effect"),
+      ("NOT_APPLIED", target.Interval, record.Ownership, "did not take effect"),
+      ("UNCLEAR", new DwordValue(true, 2), withNewPlan.Ownership, "is unclear") }) {
+      var reference = outcome == "NOT_APPLIED" ? record.Expected : withNewPlan.After;
+      var state = reference with { Devices = WithTarget(reference.Devices, interval) };
+      using var bytes = new MemoryStream(); using var log = new JournalLog(bytes);
+      Seed(log, latched with { Pending = new PendingOperation(new string('d', 64), record.Expected, withNewPlan) });
+      var session = new LifecycleSession(log, new MemoryMachine { State = state }, () => { });
+      var review = session.ReviewDrift();
+      Check(review.Differences[0].Contains(message), "pending outcome stated first: " + outcome);
+      Check(review.Differences.Any(x => x.StartsWith("Renamed elsewhere")), "other differences still listed: " + outcome);
+      Check(session.AcceptCurrent(review.StateDigest).Status == "BASELINE_ACCEPTED", "pending resolution accepted: " + outcome);
+      var saved = Read(log);
+      Check(saved.Pending == null && !saved.NeedsReview && LifecycleSession.Digest(saved.Expected) == LifecycleSession.Digest(state), "pending cleared with the reviewed baseline: " + outcome);
+      // Unclear keeps every original, older first; the extra planned original is kept too.
+      var kept = outcome == "UNCLEAR" ? new LifecycleOwnership(record.Ownership.ServiceOwned, new Dictionary<string, SavedDevice>(withNewPlan.Ownership.Devices) { [target.Id] = record.Ownership.Devices[target.Id] }) : expectedOwnership;
+      Check(LifecycleSession.Digest(saved.Ownership.Devices.OrderBy(x => x.Key, StringComparer.Ordinal).ToArray()) == LifecycleSession.Digest(kept.Devices.OrderBy(x => x.Key, StringComparer.Ordinal).ToArray()) &&
+        saved.Ownership.ServiceOwned == kept.ServiceOwned, "originals follow the outcome: " + outcome);
     }
     using (var log = new JournalLog(new MemoryStream())) {
       Seed(log, record);
@@ -282,7 +310,8 @@ static class InventoryReconciliationChecks {
       Check(accepted.RootElement.GetProperty("ok").GetBoolean() && accepted.RootElement.GetProperty("value").GetProperty("Status").GetString() == "BASELINE_ACCEPTED", "protocol acceptance");
     }
     Check(SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: external drift.") && SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: external state changed."), "external drift offers review");
-    Check(!SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: partial operation or external drift.") && !SetupPresentation.IsDriftRefusal("JOURNAL_SCHEMA_REVIEW_REQUIRED: x"), "pending or history problems do not offer acceptance");
+    Check(SetupPresentation.IsDriftRefusal("NEEDS_REVIEW: partial operation or external drift."), "a saved change whose check gave up offers review");
+    Check(!SetupPresentation.IsDriftRefusal("JOURNAL_SCHEMA_REVIEW_REQUIRED: x") && !SetupPresentation.IsDriftRefusal("RECONNECT_UNSTABLE: x"), "history-format and transient problems do not offer acceptance");
     Check(SetupPresentation.FailureSummary("NEEDS_REVIEW: external drift.").Contains("Review what changed"), "drift summary names the button");
     Check(SetupPresentation.FailureSummary("OWNED_DEVICE_MOVED: a device moved.") == "A device moved.", "refusal reasons read as sentences");
     string text = SetupPresentation.DriftReviewText(new[] { "Mouse: filter drivers changed." });

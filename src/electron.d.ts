@@ -40,7 +40,7 @@ declare global {
       enableConsumerFeaturesPolicy: () => Promise<PolicyMutationResult>;
       confirmConsumerFeaturesPolicy: (throttleToken: string) => Promise<PolicyMutationResult>;
       openExternalLink: (url: string) => Promise<{ opened: boolean }>;
-      listTimingExperiments: () => Promise<{ items: TimingExperiment[]; errors: Array<{ component: string; message: string }> }>;
+      listTimingExperiments: () => Promise<{ items: TimingExperiment[]; errors: Array<{ component: string; message: string }>; bootNotice?: string | null }>;
       executeTimingExperiment: (actionId: NonNullable<TimingExperiment['actionId']> | 'timing:restore-default-dynamic-tick') => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
       listGameSettingsGuides: () => Promise<GameSettingsGuide[]>;
       readDisplayInventory: () => Promise<ReportedDisplayInventory>;

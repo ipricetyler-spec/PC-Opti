@@ -379,6 +379,8 @@ export interface GameOptimizationProfile {
 
 export interface GameOptimizationPreview {
   token: string;
+  /** Plain notice when a Windows protection may block this write; null when none applies. */
+  protectionNotice?: string | null;
   profileId: string;
   gameId: string;
   sourcePath: string;
@@ -414,6 +416,7 @@ export interface GameConfigBackup {
 
 export interface GameProfileUndoPreview {
   token: string;
+  protectionNotice?: string | null;
   backupId: string;
   profileId: string;
   game: string;
@@ -423,6 +426,7 @@ export interface GameProfileUndoPreview {
 
 export interface GameConfigRestorePreview {
   token: string;
+  protectionNotice?: string | null;
   backupId: string;
   gameId: string;
   createdAt: string;
@@ -882,6 +886,8 @@ export interface PowerPlan {
 export interface PowerPlanInventory {
   items: PowerPlan[];
   activeGuid: string | null;
+  /** Set on Modern Standby PCs, which Microsoft documents allow only Balanced-based plans. */
+  planNotice?: string | null;
 }
 
 export interface FullscreenOptimizationItem {

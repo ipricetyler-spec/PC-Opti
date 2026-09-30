@@ -185,6 +185,8 @@ export default function App() {
   const [presentMonImport, setPresentMonImport] = useState<{ token: string; sources: PresentMonImportSourceSummary[] } | null>(null);
   const [timingExperiments, setTimingExperiments] = useState<TimingExperiment[]>([]);
   const [timingErrors, setTimingErrors] = useState<Array<{ component: string; message: string }>>([]);
+  // BitLocker recovery-key notice for boot setting changes, when BitLocker is on or unknown.
+  const [timingBootNotice, setTimingBootNotice] = useState<string | null>(null);
   const [isTimingLoading, setIsTimingLoading] = useState(false);
   const [activeTimingActionId, setActiveTimingActionId] = useState<TimingExperiment['actionId']>(null);
   const [timingStatus, setTimingStatus] = useState<string | null>(null);
@@ -404,6 +406,7 @@ export default function App() {
       const result = await window.pcOptiNative.listTimingExperiments();
       setTimingExperiments(result.items);
       setTimingErrors(result.errors);
+      setTimingBootNotice(result.bootNotice ?? null);
     } catch (error) {
       setTimingExperiments([]);
       setTimingErrors([{ component: 'Windows timing', message: error instanceof Error ? error.message : 'Could not read the current Windows boot timing state.' }]);
@@ -514,7 +517,7 @@ export default function App() {
         title: `Undo the ${preview.game} profile settings?`,
         description: `${preview.changes.length} setting${preview.changes.length === 1 ? '' : 's'} go back to what ${preview.changes.length === 1 ? 'it was' : 'they were'} before the profile. Everything else in the file stays as it is now, including changes made in the game.`,
         details: preview.changes.map((change) => `• ${change.key}: ${change.before} → ${change.after}`).join('\n'),
-        notice: 'Close the game and its launcher first. Dialed rechecks the file before writing and verifies it afterwards.',
+        notice: `${preview.protectionNotice ? `${preview.protectionNotice}\n\n` : ''}Close the game and its launcher first. Dialed rechecks the file before writing and verifies it afterwards.`,
         confirmLabel: 'Undo settings',
       });
       if (!confirmed) {
@@ -545,7 +548,7 @@ export default function App() {
         title: `Restore ${preview.files.length} game settings file${preview.files.length === 1 ? '' : 's'}?`,
         description: `${changedCount} current ${changedCount === 1 ? 'file differs' : 'files differ'} from the backup. ${missingCount} will be recreated.`,
         details: targets,
-        notice: 'Close the game and its launcher first. Dialed rechecks every file before writing, verifies the restored copies, and keeps the overwritten content.',
+        notice: `${preview.protectionNotice ? `${preview.protectionNotice}\n\n` : ''}Close the game and its launcher first. Dialed rechecks every file before writing, verifies the restored copies, and keeps the overwritten content.`,
         confirmLabel: 'Restore files',
       });
       if (!confirmed) {
@@ -915,7 +918,7 @@ export default function App() {
       title: `${item.title}?`,
       description: item.framing,
       details: `Now: ${item.currentState}\n\nDialed must be running as administrator. It backs up the boot settings first, changes only this one value, then checks it.`,
-      notice: 'Nothing changes until you restart. Measure before and after to see whether it helps. The previous value is kept so you can undo it exactly.',
+      notice: `${timingBootNotice ? `${timingBootNotice}\n\n` : ''}Nothing changes until you restart. Measure before and after to see whether it helps. The previous value is kept so you can undo it exactly.`,
       confirmLabel: 'Apply',
     });
     if (!confirmed) return;

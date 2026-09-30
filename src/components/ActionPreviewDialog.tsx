@@ -94,7 +94,7 @@ export function ActionPreviewDialog({ request, onCancel, onConfirm }: ActionPrev
           <p className="border-b border-slate-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{request.detailsLabel}</p>
           <pre tabIndex={0} aria-label={request.detailsLabel} className="max-h-[min(45vh,24rem)] min-h-24 overflow-auto whitespace-pre-wrap p-4 font-mono text-[11px] leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{request.details}</pre>
         </div>
-        <p id="action-preview-notice" className={`mt-3 text-xs leading-relaxed ${danger ? 'text-rose-200' : 'text-amber-100'}`}>{request.notice}</p>
+        <p id="action-preview-notice" className={`mt-3 whitespace-pre-line text-xs leading-relaxed ${danger ? 'text-rose-200' : 'text-amber-100'}`}>{request.notice}</p>
       </div>
 
       <div className="flex flex-col-reverse gap-2 border-t border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-end">

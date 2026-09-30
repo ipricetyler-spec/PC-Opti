@@ -207,3 +207,21 @@ findings are listed in the review queue.
   settings" saves exactly the reviewed state as the new baseline. It is refused while a change is
   pending, when security is unknown, for an unrecognized driver file, or when a device with recorded
   originals has moved. Originals are kept. A pending change that drifted still has no way out.
+
+## 2026-09-30 — Protection notices before boot, game-file and power plan changes
+
+From the Windows systems review's remaining suggestions. Each is a read-only check and a plain
+notice; none blocks the change or touches a security setting.
+
+- **BitLocker:** before a boot-setting change, the confirmation says Windows *may* ask for the
+  recovery key at the next start when BitLocker is on or its state is unknown. Microsoft lists
+  "changes to the boot manager" among recovery causes without naming the values it checks, so the
+  wording stays "may".
+- **Controlled folder access:** game profile, profile undo and config restore previews say Windows
+  may block the write when the setting is on, the file is in a protected folder (the Windows
+  defaults plus any added in Windows Security) and Dialed is not allowed. It is on, with Dialed not
+  allowed, on the owner's PC.
+- **Modern Standby:** the power plan list quotes Microsoft's rule that such PCs only allow the
+  Balanced plan or plans based on it. Read from the power capabilities, not translated powercfg text.
+- **A saved rate change whose check gave up** can now be resolved through "Review what changed",
+  which first says whether the change took effect and keeps the matching originals.

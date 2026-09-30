@@ -434,3 +434,16 @@ present; Measure "Copy view" works; Ultimate plan shows as in the plan list.
   ReTRIM C:, ReTRIM D: and ReTRIM E:…". Readiness words its next step the same way.
 - `npm test` 845/845, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed.
   Not packaged: the installed build still shows the old wording.
+
+## 2026-09-30 — pending-change recovery and protection notices (`df2c8f2` and the next commit)
+
+- Native fixture: 333 reconciliation checks (was 317), covering a latched pending change that took
+  effect, did not, or is unclear; a non-latched pending change is still refused.
+- Read-only on the owner's PC, cross-checked with Windows' own tools: BitLocker off (ProtectionStatus
+  0), Controlled folder access on (mode 1, Dialed not in the allowed list), classic S3 sleep, not
+  Modern Standby (`powercfg /a` agrees).
+- The browser fixture shows the Controlled folder access notice for Rocket League (Documents) and
+  none for Fortnite (AppData).
+- `npm test` 850/850, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed, run
+  one at a time; `npm run release:native` re-signed the helpers.
+- Not verified: the BitLocker and Modern Standby notices on a PC where they apply; no package built.

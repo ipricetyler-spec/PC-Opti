@@ -7,6 +7,7 @@ const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright')
 const profiles = require('../src/main/game-profiles/index.cjs');
 const configs = require('../src/main/game-config/index.cjs');
 const { createPreviewStore } = require('../src/main/shared/preview-store.cjs');
+const { controlledFolderNotice } = require('../src/main/system-protection/index.cjs');
 const { listCapabilities } = require('../src/main/capabilities/index.cjs');
 const { listGameSettingsGuides } = require('../src/main/game-settings/index.cjs');
 const { appThemes, openFixture, openSection, sectionButton, sectionButtons } = require('./ui-fixture-page.cjs');
@@ -54,7 +55,9 @@ async function main() {
       if (method === 'preview') {
         if (mode === 'running') throw new Error('Close the game before preview, apply or restore. No file was changed.');
         const pending = store.issue(await profiles.previewGameProfile(id, roots, closed));
-        return { ...pending.preview, token: pending.token };
+        // As on the owner's PC: Controlled folder access on, Documents protected, Dialed not allowed.
+        const protectionNotice = controlledFolderNotice({ mode: 1, folders: [], allowed: [] }, [pending.preview.sourcePath], { defaultFolders: [roots.documents], writer: 'C:/Program Files/Dialed/Dialed.exe' });
+        return { ...pending.preview, token: pending.token, protectionNotice };
       }
       if (method === 'apply') {
         const pending = store.take(id);
@@ -144,6 +147,7 @@ async function main() {
     }
     await page.setViewportSize({ width: 960, height: 700 });
     await section.screenshot({ path: path.join(out, 'game-profiles-carbon-gold-960.png') });
+    assert.equal(await section.getByRole('note').filter({ hasText: /Controlled folder access/ }).count(), 0, 'A file outside protected folders gets no notice.');
     await section.getByRole('button', { name: 'Back up & apply 3 changes', exact: true }).click();
     await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     assert.equal(calls.filter((name) => name === 'apply').length, 1);
@@ -159,6 +163,8 @@ async function main() {
     assert.equal(fs.readFileSync(source, 'utf8'), original.replace('sg.TextureQuality=3', 'sg.TextureQuality=1'), 'profile keys undone; the game\'s own change kept');
     fs.writeFileSync(source, original);
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();
+    // Rocket League lives in Documents, which Controlled folder access protects.
+    await section.getByRole('note').filter({ hasText: /Controlled folder access is on in Windows Security/ }).waitFor();
     await section.getByRole('button', { name: 'Back up & apply 2 changes', exact: true }).click();
     await section.getByRole('heading', { name: 'Applied and checked' }).waitFor();
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();

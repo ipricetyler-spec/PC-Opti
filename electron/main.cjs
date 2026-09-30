@@ -56,6 +56,7 @@ const {
   readBenchmarks,
 } = require('../src/main/benchmarks/index.cjs');
 const { listPowerPlans } = require('../src/main/power-plans/index.cjs');
+const { readBitLockerStatus, bitLockerBootNotice, readControlledFolderAccess, controlledFolderNotice, readModernStandby, modernStandbyPlanNotice } = require('../src/main/system-protection/index.cjs');
 const { USER_SETTINGS, blockingPolicyReason, buildSupport, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsBuild, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
 
 // Microsoft documents the consumer-experience policy for Enterprise and Education only.
@@ -780,7 +781,8 @@ ipcMain.handle('pc-opti:open-external-link', async (_event, url) => {
 
 ipcMain.handle('pc-opti:list-timing-experiments', async () => {
   assertCapabilityAvailable('timing:view-performance-lab');
-  return listTimingExperiments();
+  const [timing, bitLocker] = await Promise.all([listTimingExperiments(), readBitLockerStatus()]);
+  return { ...timing, bootNotice: bitLockerBootNotice(bitLocker) };
 });
 
 ipcMain.handle('pc-opti:execute-timing-experiment', async (_event, actionId) => {
@@ -840,7 +842,7 @@ ipcMain.handle('pc-opti:preview-game-profile', async (_event, profileId) => {
   const preview = await previewGameProfile(profileId, gameProfileRoots());
   if (generation !== gameProfilePreviewGeneration) throw new Error('A newer preview request replaced this one.');
   const pending = gameProfilePreviews.issue(preview);
-  return { ...preview, token: pending.token };
+  return { ...preview, token: pending.token, protectionNotice: await gameWriteNotice([preview.sourcePath]) };
 });
 
 ipcMain.handle('pc-opti:apply-game-profile', async (_event, token) => {
@@ -870,7 +872,7 @@ ipcMain.handle('pc-opti:preview-game-profile-undo', async (_event, backupId) => 
   gameProfileUndoPreviews.clear();
   const preview = await previewGameProfileUndo(app.getPath('userData'), backupId, gameProfileRoots());
   const pending = gameProfileUndoPreviews.issue(preview);
-  return { ...preview, token: pending.token };
+  return { ...preview, token: pending.token, protectionNotice: await gameWriteNotice([preview.sourcePath]) };
 });
 
 ipcMain.handle('pc-opti:apply-game-profile-undo', async (_event, token) => {
@@ -904,7 +906,7 @@ ipcMain.handle('pc-opti:preview-game-config-restore', async (_event, backupId) =
   const preview = createGameConfigRestorePreview(app.getPath('userData'), backupId);
   await assertGameClosed(preview.gameId);
   const pending = gameConfigRestorePreviews.issue(preview);
-  return publicRestorePreview(preview, pending.token);
+  return { ...publicRestorePreview(preview, pending.token), protectionNotice: await gameWriteNotice(preview.files.map((file) => file.sourcePath)) };
 });
 
 ipcMain.handle('pc-opti:apply-game-config-restore', async (_event, token) => {
@@ -1000,8 +1002,23 @@ ipcMain.handle('pc-opti:inspect-maintenance-caches', async () => {
 
 ipcMain.handle('pc-opti:list-power-plans', async () => {
   assertCapabilityAvailable('power:switch-plan');
-  return listPowerPlans();
+  const [plans, standby] = await Promise.all([listPowerPlans(), readModernStandby()]);
+  return { ...plans, planNotice: modernStandbyPlanNotice(standby) };
 });
+
+// Windows protects these folders by default under Controlled folder access; custom ones come from
+// Windows Security itself. Dialed.exe is the process that writes game config files.
+function controlledFolderDefaults() {
+  const publicRoot = process.env.PUBLIC || '';
+  return [
+    ...['documents', 'pictures', 'videos', 'music', 'desktop'].map((name) => { try { return app.getPath(name); } catch { return ''; } }),
+    path.join(app.getPath('home'), 'Favorites'),
+    ...(publicRoot ? ['Documents', 'Pictures', 'Videos', 'Music', 'Desktop'].map((name) => path.join(publicRoot, name)) : []),
+  ].filter(Boolean);
+}
+async function gameWriteNotice(filePaths) {
+  return controlledFolderNotice(await readControlledFolderAccess(), filePaths, { defaultFolders: controlledFolderDefaults(), writer: process.execPath });
+}
 
 ipcMain.handle('pc-opti:activate-power-plan', async (_event, guid) => {
   assertCapabilityAvailable('power:switch-plan');

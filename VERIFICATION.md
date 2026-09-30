@@ -384,3 +384,42 @@ present; Measure "Copy view" works; Ultimate plan shows as in the plan list.
 - **Restore tabs:** the fixture checks History is selected first and opens both other tabs.
 - `npm test` 842/842, `npm run test:ts` 128/128, lint clean, `npm run test:ui:fixtures` passed,
   run one at a time. Not packaged: the installed build still lacks these three fixes.
+
+## 2026-09-28/29 — polling-rate changes restored in the installed build (`40874fd` … `b874733`)
+
+- **Key custody.** `native-policy-key.ps1 -Action Inspect` refused: an allow entry for
+  `PRICEPC\CodexSandboxUsers` (read) had been added to `C:\Users\itach\.dialed-signing` since
+  2026-09-06. The private key stayed DPAPI-encrypted to the owner. The entry was removed; Inspect
+  then passed with fingerprint `9b4276c9…a2cef9`.
+- **Release step.** `npm run release:native` built both helpers, signed them (Tyler Price,
+  timestamped), prepared and signed a schema-2 `ACCEPTED_RELEASE` policy with the DPAPI key, and
+  both the JavaScript and the C# policy contracts accepted it (`GENERAL_RELEASE_POLICY_CONTRACT_VERIFIED`).
+  electron-builder kept the helpers' existing signatures ("Verified existing signature"), so the
+  packaged bytes are the pinned ones. `candidate:verify` reported `SIGNED_INSTALLER_CANDIDATE` with
+  the policy recorded, for every package below; each install was byte-identical to its candidate.
+- **Found and fixed by using the installed build:**
+  - Change rate… opened on no device. The app sent `SHA256(instance ID)`; setup compared it with
+    `SHA256(its own id)`, and its own id is already a hash of the JSON-encoded instance ID. Setup's
+    fixture passed only because it used raw instance IDs as ids. The app's formula now reproduces
+    the helper's id exactly (`7a31bcb3…` for the owner's DualSense, as the helper reported it).
+  - Setup refused its 2026-09-13 record ("external drift"). A read-only observer built from the
+    helper's own code showed the only differences: a later Windows session, three absent stale USB
+    entries removed, an unplugged keyboard and wireless device, a hub topology change, and the
+    Apex/Razer becoming authorized under the release policy. Driver file, service, patch setting
+    and every interval matched. The refresh rules were widened for exactly those cases, and the
+    real record then passed `CanRefresh` with the real policy.
+- **Real rate change.** From the installed app: inventory refreshed, DualSense Edge 8000 → 4000 Hz
+  saved, the owner reconnected it and verified, then set it back to 8000 Hz (owner confirmed all
+  three).
+- **Rate check.** A real rate check from the checkout on the DualSense at 8000 Hz: about
+  8,007 HID reports/s, `CONSISTENT_WITH_REQUEST`. The edited capture code compiled under Windows
+  PowerShell 5.1.
+- **Installed setup, no-change run (`b874733`):** opened on the DualSense with rate buttons; review
+  for 4000 Hz showed the patching explanation with Confirm disabled until acknowledged; Cancel
+  applied nothing. Setup ran its own saved-record check on opening.
+- Checks, one at a time: `npm test` 845/845, `npm run test:ts` 128/128, lint clean,
+  `npm run test:ui:fixtures` passed (the BIOS check failed once and passed on the rerun), the
+  native fixture passed including the new recovery checks.
+- **Not verified:** a mouse rate change; the "Review what changed" recovery on a real latched
+  record (the owner's record is clean; covered only by the fixture); a Windows 10 PC; a clean
+  install on another PC.

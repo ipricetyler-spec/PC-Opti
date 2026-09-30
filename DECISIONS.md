@@ -187,3 +187,23 @@ findings are listed in the review queue.
   when neither the setup nor the legacy route is available.
 - The policy key stays DPAPI-encrypted in `C:\Users\itach\.dialed-signing`. No portable backup
   exists; losing it means a new key and a release, not a broken install.
+
+## 2026-09-29 — Input checks, setup flow and the review latch
+
+- **Two input checks.** "Check polling rate" leads with the measured reports per second against the
+  saved rate: a controller is left untouched (it reports every interval), a mouse is moved in
+  steady circles (it reports only while moving), and keyboards get no rate check. "Check controls"
+  keeps the button, stick and key counts. The rate is what Windows received, never latency.
+- **Setup updates its own saved record on opening** after a restart or USB change, because doing so
+  changes no device setting. A saved change still waiting, or a record under review, still waits
+  for the reader.
+- **The patching acknowledgement is asked in the review, for a plan that patches.** The preview is
+  requested with the flag set, which changes nothing; Confirm stays disabled until it is ticked.
+- **Setup's record may follow a later Windows session together with unrelated USB changes**, absent
+  stale entries may disappear, and eligibility or policy authorization of devices setup does not own
+  is not drift. Owned devices, the service, driver bytes, patch parameters, security and platform
+  are still compared exactly.
+- **A latched review has a way out.** "Review what changed" lists every difference; "Keep current
+  settings" saves exactly the reviewed state as the new baseline. It is refused while a change is
+  pending, when security is unknown, for an unrecognized driver file, or when a device with recorded
+  originals has moved. Originals are kept. A pending change that drifted still has no way out.

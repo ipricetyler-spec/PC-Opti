@@ -131,7 +131,7 @@ static class SetupPresentation {
     "BOOT_IDENTITY_RECORDED" => "Windows session identity recorded. Device settings, recorded originals and shared driver ownership are unchanged. No restart is requested. You can now create a new preview.",
     "INVENTORY_REFRESHED" => "Saved settings are up to date with your current USB connections. Nothing on your devices changed, and recorded originals and shared driver ownership are unchanged. Choose a rate to continue; no restart is requested.",
     "CONFIGURATION_VERIFIED" when action == "ADOPT" => "Current settings recorded. You can now preview a polling-rate change. Recording settings did not change the driver or device configuration and requires no restart.",
-    "CONFIGURATION_VERIFIED" => "Configuration verified. No restart is requested by this result. Use Windows delivery measurement separately to check delivered rate.",
+    "CONFIGURATION_VERIFIED" => "Saved settings checked: they match this PC. Nothing was changed, and no restart is needed.",
     "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check saved operation. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
     "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again.",
     "NOT_APPLIED" => "The saved operation was not applied. Review a new preview before requesting another change.",

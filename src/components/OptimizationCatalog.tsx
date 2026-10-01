@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { summarizeOptimizationRun } from '../lib/optimizationRun.js';
 import { plainLabel } from '../lib/plainLabels';
 import { useConfirm } from './ConfirmContext';
+import { ErrorText } from './ErrorText';
 
 export type BatchOptimizationKind = 'startup' | 'process' | 'maintenance' | 'policy' | 'timing';
 
@@ -41,6 +42,8 @@ interface OptimizationCatalogProps {
   loading: boolean;
   onRefresh: () => void;
   onRunSelected: (items: BatchOptimizationItem[], emit: (entry: BatchRunLogEntry) => void) => Promise<void>;
+  /** BitLocker recovery-key notice, read fresh; asked only when a boot-timing fix is selected. */
+  readBootNotice?: () => Promise<string | null>;
 }
 
 function StatusIcon({ status }: { status: BatchRunStatus }) {
@@ -58,7 +61,7 @@ function riskClass(risk: BatchOptimizationItem['riskLevel']) {
   return 'bg-slate-800 text-slate-300';
 }
 
-export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected }: OptimizationCatalogProps) {
+export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected, readBootNotice }: OptimizationCatalogProps) {
   const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<'all' | BatchOptimizationKind>('all');
@@ -91,11 +94,12 @@ export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected }
     const adminCount = selectedItems.filter((item) => item.requiresAdmin).length;
     const rebootCount = selectedItems.filter((item) => item.requiresReboot).length;
     const irreversibleCount = selectedItems.filter((item) => item.irreversible).length;
+    const bootNotice = selectedItems.some((item) => item.kind === 'timing') ? await readBootNotice?.() ?? null : null;
     const confirmed = await confirm({
       title: `Run ${selectedItems.length} selected fix${selectedItems.length === 1 ? '' : 'es'}?`,
       description: 'Dialed runs them one at a time, rechecks each target first, verifies each result, and keeps going if one fails or is skipped.',
       details: selectedItems.map((item) => `• ${item.title}${item.requiresReboot ? ' (reboot needed)' : ''}${item.irreversible ? ' (cannot be undone)' : ''}`).join('\n'),
-      notice: `${adminCount} need administrator rights, ${rebootCount} need a reboot, and ${irreversibleCount} cannot be undone. Every attempt is recorded in Restore › Recovery & history.`,
+      notice: `${bootNotice ? `${bootNotice}\n\n` : ''}${adminCount} need administrator rights, ${rebootCount} need a reboot, and ${irreversibleCount} cannot be undone. Every attempt is recorded in Restore › History.`,
       confirmLabel: `Run ${selectedItems.length}`,
       tone: irreversibleCount > 0 ? 'danger' : 'default',
     });
@@ -174,8 +178,8 @@ export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected }
     {!loading && items.length === 0 ? <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-950/15 p-4 text-xs text-amber-100/80"><AlertTriangle className="mr-2 inline h-4 w-4 text-amber-300" />Nothing to fix right now. Settings already in place are not shown.</div> : null}
 
     {log.length > 0 ? <div role="log" aria-live="polite" aria-labelledby="optimization-run-log-heading" className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-[#080a0d]">
-      <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3"><div><h4 id="optimization-run-log-heading" className="text-xs font-semibold text-slate-200">Results</h4><p className="mt-0.5 text-[11px] text-slate-500">Each fix's result. Everything is also recorded in Restore › Recovery & history.</p></div><span className={`shrink-0 text-right text-[11px] font-semibold ${summaryToneClass}`}>{runSummary.label}</span></div>
-      <div className="max-h-72 overflow-y-auto p-3 text-[11px]">{log.map((entry) => <div key={entry.itemId} className="flex gap-2 border-b border-slate-900 py-2 last:border-0"><span className="mt-0.5"><StatusIcon status={entry.status} /></span><span data-technical-detail className="shrink-0 font-mono text-slate-600">{new Date(entry.timestamp).toLocaleTimeString()}</span><span className="min-w-0"><span className="font-semibold text-slate-200">{entry.title}</span><span className="ml-2 text-slate-500">{plainLabel(entry.status === 'QUEUED' ? 'WAITING' : entry.status === 'RUNNING' ? 'RUNNING' : entry.status)}</span><span className="mt-0.5 block break-words text-slate-400">{entry.message}</span></span></div>)}</div>
+      <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3"><div><h4 id="optimization-run-log-heading" className="text-xs font-semibold text-slate-200">Results</h4><p className="mt-0.5 text-[11px] text-slate-500">Each fix's result. Everything is also recorded in Restore › History.</p></div><span className={`shrink-0 text-right text-[11px] font-semibold ${summaryToneClass}`}>{runSummary.label}</span></div>
+      <div className="max-h-72 overflow-y-auto p-3 text-[11px]">{log.map((entry) => <div key={entry.itemId} className="flex gap-2 border-b border-slate-900 py-2 last:border-0"><span className="mt-0.5"><StatusIcon status={entry.status} /></span><span data-technical-detail className="shrink-0 font-mono text-slate-600">{new Date(entry.timestamp).toLocaleTimeString()}</span><span className="min-w-0"><span className="font-semibold text-slate-200">{entry.title}</span><span className="ml-2 text-slate-500">{plainLabel(entry.status === 'QUEUED' ? 'WAITING' : entry.status === 'RUNNING' ? 'RUNNING' : entry.status)}</span><span className="mt-0.5 block break-words text-slate-400"><ErrorText text={entry.message} /></span></span></div>)}</div>
     </div> : null}
   </section>;
 }

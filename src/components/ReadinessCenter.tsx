@@ -176,12 +176,12 @@ export function ReadinessCenter({
   const nextActions = useMemo(() => {
     const actions: { label: string; target: LocalRecommendation['targetPanel'] }[] = [];
     const add = (label: string, id: LocalRecommendation['targetPanel']['id'], destination: string, evidenceId?: string) => actions.push({ label, target: { id, label: destination, sectionId: null, evidenceId } });
-    if (historyRecovery || historyCounts.failed || historyCounts.needsReview || historyCounts.unresolved) add(historyCounts.failed && !historyRecovery && !historyCounts.needsReview && !historyCounts.unresolved ? 'Check a change that failed.' : 'Check a change that failed or did not finish.', 'history', 'Open Recovery & history', history.find((entry) => ['FAILED','NEEDS_REVIEW','PENDING','PENDING_REBOOT','UNVERIFIED'].includes(entry.status))?.id);
+    if (historyRecovery || historyCounts.failed || historyCounts.needsReview || historyCounts.unresolved) add(historyCounts.failed && !historyRecovery && !historyCounts.needsReview && !historyCounts.unresolved ? 'Check a change that failed.' : 'Check a change that failed or did not finish.', 'history', 'Open Restore › History', history.find((entry) => ['FAILED','NEEDS_REVIEW','PENDING','PENDING_REBOOT','UNVERIFIED'].includes(entry.status))?.id);
     if (!snapshot) add('Scan this PC.', 'overview', 'Open scan details');
     if (benchmarkEvidence.comparisons.some((item) => item.classification === 'REGRESSION' || item.classification === 'INCOMPLETE')) add('A performance test needs a look.', 'benchmarks', 'Open Measure', benchmarkEvidence.comparisons.find((item) => item.classification === 'REGRESSION' || item.classification === 'INCOMPLETE')?.experimentId);
-    if (driftError || !driftReport?.baseline) add(driftError ? 'Your saved snapshot could not be read.' : 'Save a snapshot of this PC so Dialed can spot changes later.', 'drift', 'Open Changes');
+    if (driftError || !driftReport?.baseline) add(driftError ? 'Your saved snapshot could not be read.' : 'Save a snapshot of this PC so Dialed can spot changes later.', 'drift', 'Open Outside changes');
     if (recommendations[0]) actions.push({ label: recommendations[0].title, target: recommendations[0].targetPanel });
-    if (!actions.length) add('See what Dialed has changed.', 'history', 'Open Recovery & history');
+    if (!actions.length) add('See what Dialed has changed.', 'history', 'Open Restore › History');
     return actions;
   }, [history, benchmarkEvidence.comparisons, driftError, driftReport?.baseline, historyCounts.failed, historyCounts.needsReview, historyCounts.unresolved, historyRecovery, recommendations, snapshot]);
 
@@ -192,7 +192,7 @@ export function ReadinessCenter({
     history: `${historyCounts.total} change${historyCounts.total === 1 ? '' : 's'} recorded on this PC`,
   };
 
-  const readinessRows: Array<{ label: string; status: OutcomeStatus; detail: string; recommendation: string }> = [
+  const readinessRows: Array<{ label: string; status: OutcomeStatus; detail: string; recommendation: string; emptyLabel?: string }> = [
     {
       label: 'Scan',
       status: snapshot ? 'PASS' : 'BLOCKED',
@@ -202,6 +202,7 @@ export function ReadinessCenter({
     {
       label: 'Suggestions',
       status: recommendationCounts.review > 0 ? 'WARN' : recommendationCounts.total > 0 ? 'PASS' : 'UNKNOWN',
+      emptyLabel: snapshot ? 'Nothing yet' : undefined,
       detail: readinessSignals.recommendations,
       recommendation: recommendationCounts.review > 0
         ? 'Decide on the suggestions that need you before changing startup, policies or timing.'
@@ -212,6 +213,7 @@ export function ReadinessCenter({
     {
       label: 'Change history',
       status: historyCounts.failed > 0 || historyCounts.needsReview > 0 || historyCounts.unresolved > 0 || historyRecovery ? 'WARN' : historyCounts.total > 0 ? 'PASS' : 'UNKNOWN',
+      emptyLabel: 'Nothing yet',
       detail: `${historyCounts.success} success · ${historyCounts.failed} failed · ${historyCounts.needsReview} needs review · ${historyCounts.unresolved} unresolved`,
       recommendation: historyRecovery || historyCounts.failed > 0 || historyCounts.needsReview > 0
         ? 'Check the changes that failed or did not finish first.'
@@ -415,7 +417,7 @@ export function ReadinessCenter({
         <ReadinessMetric title="Changes" value={`${driftReport.changes.length}`} detail="Settings that differ from your snapshot" tone={driftReport.changes.length === 0 ? 'ok' : 'warn'} />
         <ReadinessMetric title="Snapshot" value={`Saved ${new Date(driftReport.baseline.createdAt).toLocaleDateString()}`} detail={`From scan ${new Date(driftReport.baseline.snapshotTimestamp).toLocaleDateString()}`} tone="ok" />
       </div>}
-      {!driftReport?.baseline && !driftError && <p className="mt-3 rounded-lg border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-400">No snapshot saved yet. Save one in Restore › Changes.</p>}
+      {!driftReport?.baseline && !driftError && <p className="mt-3 rounded-lg border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-400">No snapshot saved yet. Save one in Restore › Outside changes.</p>}
     </section>
 
     <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
@@ -460,12 +462,12 @@ function ReadinessBadge({ tone, label }: { tone: OutcomeStatus; label: string })
   return <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${styles}`}>{label}</span>;
 }
 
-function ReadinessRow({ row }: { row: { label: string; status: OutcomeStatus; detail: string; recommendation: string } }) {
+function ReadinessRow({ row }: { row: { label: string; status: OutcomeStatus; detail: string; recommendation: string; emptyLabel?: string } }) {
   return <article className={`rounded-xl border p-3 ${outcomeClass(row.status)}`}>
     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{row.label}</p>
     <p className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-100">
       {row.status === 'PASS' ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : row.status === 'WARN' ? <AlertTriangle className="h-4 w-4 text-amber-300" /> : row.status === 'BLOCKED' ? <ShieldX className="h-4 w-4 text-rose-300" /> : <ShieldAlert className="h-4 w-4 text-slate-400" />}
-      {toOutcomeBadge(row.status)}
+      {row.status === 'UNKNOWN' && row.emptyLabel ? row.emptyLabel : toOutcomeBadge(row.status)}
     </p>
     <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{row.detail}</p>
     <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{row.recommendation}</p>

@@ -225,3 +225,13 @@ notice; none blocks the change or touches a security setting.
   Balanced plan or plans based on it. Read from the power capabilities, not translated powercfg text.
 - **A saved rate change whose check gave up** can now be resolved through "Review what changed",
   which first says whether the change took effect and keeps the matching originals.
+
+## 2026-09-30 — From the product experience review
+
+- **One verb, Undo,** for reversing a recorded change everywhere, including Restore's per-entry
+  button. "Restore" stays the section name.
+- **Place names match the screen:** Restore › History and Restore › Outside changes.
+- **Home shows a failed action for 7 days**, and only until the same action succeeds. Restore keeps
+  the full list.
+- **The vertical sidebar starts at 960px**, the window's minimum width, with a narrower rail below
+  1024px.

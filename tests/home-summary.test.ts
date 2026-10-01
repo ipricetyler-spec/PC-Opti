@@ -15,16 +15,24 @@ test('an unfinished change comes first and is marked urgent', () => {
 });
 
 test('a failed action says it failed, names itself, and is not called unfinished', () => {
-  const retrim = (drive: string) => ({ id: `r-${drive}`, status: 'FAILED', title: `ReTRIM ${drive}:`, rollback: { available: false } }) as never;
-  const items = homeItems({ snapshot, history: [retrim('C'), retrim('D'), retrim('E')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
+  const now = Date.parse('2026-09-30T12:00:00Z');
+  const retrim = (drive: string, when = '2026-09-29T12:00:00Z') => ({ id: `r-${drive}`, actionId: `retrim-drive:${drive}`, timestamp: when, status: 'FAILED', title: `ReTRIM ${drive}:`, rollback: { available: false } }) as never;
+  const items = homeItems({ now, snapshot, history: [retrim('C'), retrim('D'), retrim('E')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
   assert.deepEqual(items.map((item) => item.key), ['failed']);
   assert.equal(items[0].title, '3 actions failed');
   assert.match(items[0].detail, /^Windows reported an error for ReTRIM C:, ReTRIM D: and ReTRIM E:, so they did not complete as planned\./);
   assert.doesNotMatch(`${items[0].title} ${items[0].detail}`, /did not finish/);
   assert.notEqual(items[0].urgent, true);
   assert.equal(items[0].target.evidenceId, 'r-C');
-  const both = homeItems({ snapshot, history: [retrim('C'), entry('PENDING')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
+  const both = homeItems({ now, snapshot, history: [retrim('C'), entry('PENDING')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty });
   assert.deepEqual(both.map((item) => [item.key, item.title]), [['unfinished', 'A change did not finish'], ['failed', 'An action failed']]);
+  // Older than a week, or followed by a success of the same action: left to Restore › History.
+  assert.deepEqual(homeItems({ now, snapshot, history: [retrim('C', '2026-09-06T17:25:25Z')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty }), []);
+  const retried = { id: 'ok', actionId: 'retrim-drive:C', timestamp: '2026-09-29T13:00:00Z', status: 'SUCCESS', title: 'ReTRIM C:', rollback: { available: false } } as never;
+  assert.deepEqual(homeItems({ now, snapshot, history: [retrim('C'), retried], historyRecovery: null, recommendations: [], benchmarkEvidence: empty }), []);
+  // A failed row is not a suggestion, so it cannot hide the "See all" link.
+  const withTips = homeItems({ now, snapshot, history: [retrim('C')], historyRecovery: null, recommendations: ['a', 'b', 'c'].map((id) => rec(id, 'OPTIONAL_ACTION')), benchmarkEvidence: empty });
+  assert.deepEqual(withTips.map((item) => item.key), ['failed', 'a', 'b']);
 });
 
 test('suggestions that need a decision come before optional fixes and tips; no-action items are left out', () => {

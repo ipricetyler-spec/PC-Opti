@@ -53,5 +53,13 @@ test('owner-only DPAPI custody reopens, signs without plaintext export, and refu
     assert.throws(() => run([...args, '-Release']), /operation refused/);
     assert.equal(fs.existsSync(signaturePath), false);
     assert.deepEqual(fs.readFileSync(path.join(directory, 'release-policy-private.dpapi')), encryptedBefore);
+    // An extra account on the key folder (the Codex sandbox has added one twice) is refused by name.
+    execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+      `$acl = Get-Acl -LiteralPath '${directory}'; $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]'S-1-5-32-545', 'ReadAndExecute', 'Allow')); Set-Acl -LiteralPath '${directory}' -AclObject $acl`],
+      { windowsHide: true, timeout: 30000, stdio: 'ignore' });
+    let refusal = '';
+    try { run(['-Action', 'Inspect', '-PublicFingerprint', created.publicKeySpkiSha256]); } catch (error) { refusal = String(error.stderr); }
+    assert.match(refusal, /CUSTODY_PERMISSIONS: the key folder also allows .*Users/);
+    assert.doesNotMatch(refusal, /PRIVATE KEY|BEGIN/);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });

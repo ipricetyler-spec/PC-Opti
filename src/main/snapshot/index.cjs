@@ -29,7 +29,8 @@ function availableEvidence(value, source) {
 }
 
 function legacyDiagnostics() {
-  const reason = 'This field was not collected by SystemScanSnapshot schema 1.0.0. Run a new scan.';
+  // Saved by an older version of Dialed that did not read this yet.
+  const reason = 'Not checked in your last scan. Scan again to check.';
   return {
     graphics: unavailableEvidence('UNKNOWN', reason, 'Schema migration'),
     motherboard: unavailableEvidence('UNKNOWN', reason, 'Schema migration'),
@@ -46,7 +47,8 @@ function legacyDiagnostics() {
 }
 
 function legacyAntiCheat(schemaVersion) {
-  const reason = `This field was not collected by SystemScanSnapshot schema ${schemaVersion}. Run a new scan.`;
+  // Saved by an older version of Dialed (scan schema ${schemaVersion}) that did not read this yet.
+  const reason = 'Not checked in your last scan. Scan again to check.';
   return unavailableEvidence('UNKNOWN', reason, 'Schema migration');
 }
 

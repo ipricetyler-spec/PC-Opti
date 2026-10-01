@@ -35,14 +35,14 @@ static class SetupPresentationChecks {
     string rateReview = SetupPresentation.Review(rate, "Fixture controller", 2000, "PATCH_1K", true);
     Check(rateReview.Contains("2000 Hz") && rateReview.Contains("requires a manual Windows restart"), "rate/restart match preview");
     Check(rateReview.Contains("will not restart Windows automatically"), "no automatic reboot promise");
-    Check(rateReview.Contains("USB child functions") && rateReview.Contains("does not prove USB delivery"), "complete target and evidence scope retained");
+    Check(rateReview.Contains("every part of the device") && rateReview.Contains("does not prove USB delivery"), "complete target and evidence scope retained");
     string recorded = SetupPresentation.ResultText("CONFIGURATION_VERIFIED", "ADOPT");
     Check(recorded.Contains("Current settings recorded") && recorded.Contains("requires no restart"), "adopt success has accurate instructions");
     Check(!recorded.Contains("Check saved operation"), "no reconciliation demanded after adoption");
     Check(SetupPresentation.ResultText("RESTART_REQUIRED").Contains("Check saved operation"), "pending restart directs to correctly named control");
     Check(!SetupPresentation.ResultText("CONFIGURATION_VERIFIED").Contains("restart Windows"), "verified generic result does not demand restart");
     Check(SetupPresentation.ResultText("NOT_APPLIED").Contains("was not applied"), "not-applied status preserved");
-    Check(SetupPresentation.ResultText("UNKNOWN").Contains("requires review"), "unknown result not reported as success");
+    Check(SetupPresentation.ResultText("UNKNOWN").Contains("could not tell how this ended (status UNKNOWN)"), "unknown result not reported as success");
     string error = "JOURNAL_SCHEMA_REVIEW_REQUIRED: preserve old record";
     string failure = SetupPresentation.FailureText(error);
     Check(failure.Contains("do not delete or reset") && failure.Contains(error), "history refusal preserves evidence and diagnostic");

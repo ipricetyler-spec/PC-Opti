@@ -33,6 +33,8 @@ class SetupView : SetupFrame {
   protected readonly Label actionDescription = Paragraph("");
   protected readonly Label installation = Paragraph("");
   protected readonly Label savedRate = Paragraph("Saved rate: checking…");
+  // The rate already saved for the selected device, marked on its button; reviewing it changes nothing.
+  protected int? SavedRateHz;
   protected readonly Label rateHelp = Paragraph("");
   protected readonly Label progress = Paragraph("Review  →  Save setting  →  Reconnect device if requested  →  Verify");
   protected readonly Label lastResult = Paragraph("");
@@ -167,12 +169,12 @@ class SetupView : SetupFrame {
     FitContent();
   }
   void SyncRateButtons() {
-    string signature = string.Join(",", rates.Items.Cast<object>());
+    string signature = string.Join(",", rates.Items.Cast<object>()) + "|" + SavedRateHz;
     if (signature != rateSignature) {
       rateSignature = signature;
       rateRow.Controls.Clear();
       foreach (var item in rates.Items.Cast<object>().ToArray()) {
-        var button = MakeButton(item + " Hz"); button.Tag = item; button.Margin = new Padding(0, 0, 8, 8);
+        var button = MakeButton(item + " Hz" + (Equals(item, SavedRateHz) ? " (saved)" : "")); button.Tag = item; button.Margin = new Padding(0, 0, 8, 8);
         button.Click += (_, _) => rates.SelectedItem = button.Tag;
         rateRow.Controls.Add(button);
       }
@@ -183,7 +185,7 @@ class SetupView : SetupFrame {
       button.BackColor = chosen && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#e2e8f0") : Surface;
       button.ForeColor = chosen && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#0f172a") : Ink;
       button.FlatAppearance.BorderSize = chosen ? 2 : 1;
-      button.AccessibleName = button.Tag + " Hz" + (chosen ? ", selected" : "");
+      button.AccessibleName = button.Tag + " Hz" + (Equals(button.Tag, SavedRateHz) ? ", saved" : "") + (chosen ? ", selected" : "");
     }
   }
   protected void SetStatus(string message) {
@@ -193,14 +195,14 @@ class SetupView : SetupFrame {
     lastCompletion = message; lastResult.Text = "Last completed change\r\n" + message.Split('\r')[0];
     lastResult.Visible = status.Text != message; FitContent();
   }
-  protected bool ConfirmReview(string review, string technical, bool recording, bool patchingAcknowledgement = false, string confirmText = null) {
-    using var dialog = new SetupReviewDialog(review, technical, recording, patchingAcknowledgement, confirmText);
+  protected bool ConfirmReview(string review, string technical, bool recording, bool patchingAcknowledgement = false, string confirmText = null, string detailsName = null) {
+    using var dialog = new SetupReviewDialog(review, technical, recording, patchingAcknowledgement, confirmText, detailsName);
     return dialog.ShowDialog(this) == DialogResult.Yes;
   }
 }
 
 sealed class SetupReviewDialog : SetupFrame {
-  public SetupReviewDialog(string review, string technical, bool recording, bool patchingAcknowledgement = false, string confirmText = null) {
+  public SetupReviewDialog(string review, string technical, bool recording, bool patchingAcknowledgement = false, string confirmText = null, string detailsName = "exact device and plan details") {
     Text = "Dialed · Review before confirming"; Font = new Font("Segoe UI", 10);
     BackColor = SetupView.Background; ForeColor = SetupView.Ink;
     AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
@@ -209,9 +211,10 @@ sealed class SetupReviewDialog : SetupFrame {
     var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
     var layout = SetupView.Stack(); layout.Padding = new Padding(24);
     var message = SetupView.Paragraph(review); message.MaximumSize = new Size(552, 0); layout.Controls.Add(message);
-    var disclosure = SetupView.MakeButton("Show exact device and plan details"); layout.Controls.Add(disclosure);
+    detailsName ??= "exact device and plan details";
+    var disclosure = SetupView.MakeButton("Show " + detailsName); layout.Controls.Add(disclosure);
     var details = new TextBox { Text = technical, ReadOnly = true, Multiline = true, Height = 140, Dock = DockStyle.Top, ScrollBars = ScrollBars.Vertical, Visible = false, AccessibleName = "Exact preview details" }; layout.Controls.Add(details);
-    disclosure.Click += (_, _) => { details.Visible = !details.Visible; disclosure.Text = details.Visible ? "Hide exact device and plan details" : "Show exact device and plan details"; };
+    disclosure.Click += (_, _) => { details.Visible = !details.Visible; disclosure.Text = (details.Visible ? "Hide " : "Show ") + detailsName; };
     var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 16, 0, 0) };
     var cancel = SetupView.MakeButton("Cancel"); cancel.DialogResult = DialogResult.No; cancel.Margin = new Padding(0, 0, 12, 0);
     var confirm = SetupView.MakeButton(confirmText ?? (recording ? "Record settings" : "Confirm this action"), true); confirm.DialogResult = DialogResult.Yes;

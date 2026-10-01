@@ -28,7 +28,7 @@ export function GameSessionMode({ processes, session, onStart, onEnd }: GameSess
       title: `Start a game session for ${game.name}?`,
       description: 'While this game runs, Windows will run the chosen background apps in efficiency mode.',
       details: apps.map((item) => `• ${item.name} (PID ${item.pid})`).join('\n'),
-      notice: 'Nothing is closed or paused. When the game closes, or you end the session, Dialed turns efficiency mode off again and checks it. If Dialed closes first, undo it from Restore › Recovery & history.',
+      notice: 'Nothing is closed or paused. When the game closes, or you end the session, Dialed turns efficiency mode off again and checks it. If Dialed closes first, undo it from Restore › History.',
       confirmLabel: `Start session (${apps.length} app${apps.length === 1 ? '' : 's'})`,
     });
     if (confirmed) onStart(game, apps);

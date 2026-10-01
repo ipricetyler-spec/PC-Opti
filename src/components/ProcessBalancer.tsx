@@ -77,7 +77,7 @@ export function ProcessBalancer({ items, errors, loading, activeProcessId, actio
       <section className="grid gap-4 lg:grid-cols-3">
         <InfoCard icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />} title="Always protected" detail="Windows itself, input, audio and anti-cheat programs are never offered. Security software may not all be on that list, so check each name before slowing it down." />
         <InfoCard icon={<Cpu className="h-4 w-4 text-cyan-400" />} title="What the numbers mean" detail="Recent CPU use and memory for each app, read when you refresh." />
-        <InfoCard icon={<RotateCcw className="h-4 w-4 text-violet-400" />} title="How to undo it" detail="Open Restore › Recovery & history. Each change is recorded and can be undone while that program is still running." />
+        <InfoCard icon={<RotateCcw className="h-4 w-4 text-violet-400" />} title="How to undo it" detail="Open Restore › History. Each change is recorded and can be undone while that program is still running." />
       </section>
       </ShowDetails>
 

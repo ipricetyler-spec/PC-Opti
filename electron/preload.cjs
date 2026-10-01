@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   confirmConsumerFeaturesPolicy: (throttleToken) => ipcRenderer.invoke('pc-opti:confirm-consumer-features-policy', throttleToken),
   openExternalLink: (url) => ipcRenderer.invoke('pc-opti:open-external-link', url),
   listTimingExperiments: () => ipcRenderer.invoke('pc-opti:list-timing-experiments'),
+  readBootNotice: () => ipcRenderer.invoke('pc-opti:read-boot-notice'),
   executeTimingExperiment: (actionId) => ipcRenderer.invoke('pc-opti:execute-timing-experiment', actionId),
   listGameSettingsGuides: () => ipcRenderer.invoke('pc-opti:list-game-settings-guides'),
   readDisplayInventory: () => ipcRenderer.invoke('pc-opti:read-display-inventory'),

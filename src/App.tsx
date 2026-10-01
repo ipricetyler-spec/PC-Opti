@@ -111,6 +111,11 @@ const PerformanceLab = lazy(() => import('./components/PerformanceLab').then((mo
 const DashboardOverview = lazy(() => loadScanDetails().then((module) => ({ default: module.DashboardOverview })));
 const SystemInsightCenters = lazy(() => loadScanDetails().then((module) => ({ default: module.SystemInsightCenters })));
 const OptimizationCatalog = lazy(() => loadTweaks().then((module) => ({ default: module.OptimizationCatalog })));
+// Boot-timing changes are recorded under a timing: action id, and undoing one writes boot settings too.
+const isBootEntry = (entry: AuditJournalEntry) => entry.actionId.startsWith('timing:');
+async function readBootNotice(): Promise<string | null> {
+  try { return (await window.pcOptiNative?.readBootNotice?.()) ?? null; } catch { return null; }
+}
 const StartupCenter = lazy(() => loadTweaks().then((module) => ({ default: module.StartupCenter })));
 const ProcessBalancer = lazy(() => loadTweaks().then((module) => ({ default: module.ProcessBalancer })));
 const GameSessionMode = lazy(() => loadTweaks().then((module) => ({ default: module.GameSessionMode })));
@@ -185,8 +190,9 @@ export default function App() {
   const [presentMonImport, setPresentMonImport] = useState<{ token: string; sources: PresentMonImportSourceSummary[] } | null>(null);
   const [timingExperiments, setTimingExperiments] = useState<TimingExperiment[]>([]);
   const [timingErrors, setTimingErrors] = useState<Array<{ component: string; message: string }>>([]);
-  // BitLocker recovery-key notice for boot setting changes, when BitLocker is on or unknown.
-  const [timingBootNotice, setTimingBootNotice] = useState<string | null>(null);
+  const [scanSuggestionsOpen, setScanSuggestionsOpen] = useState(false);
+  // Only the Home link opens the suggestion list; any other arrival shows it collapsed as before.
+  useEffect(() => { if (activeTab !== 'overview') setScanSuggestionsOpen(false); }, [activeTab]);
   const [isTimingLoading, setIsTimingLoading] = useState(false);
   const [activeTimingActionId, setActiveTimingActionId] = useState<TimingExperiment['actionId']>(null);
   const [timingStatus, setTimingStatus] = useState<string | null>(null);
@@ -406,7 +412,6 @@ export default function App() {
       const result = await window.pcOptiNative.listTimingExperiments();
       setTimingExperiments(result.items);
       setTimingErrors(result.errors);
-      setTimingBootNotice(result.bootNotice ?? null);
     } catch (error) {
       setTimingExperiments([]);
       setTimingErrors([{ component: 'Windows timing', message: error instanceof Error ? error.message : 'Could not read the current Windows boot timing state.' }]);
@@ -768,11 +773,13 @@ export default function App() {
   const toggleUserSetting = async (card: TweakCardState, enable: boolean) => {
     const settingId = card.definition.userSettingId;
     if (!settingId || !window.pcOptiNative || busySettingId) return;
+    // Modern Standby PCs only allow Balanced-based plans, so say so before adding Ultimate Performance.
+    const planNotice = settingId === 'ultimate-plan' ? (await window.pcOptiNative.listPowerPlans().catch(() => null))?.planNotice ?? null : null;
     const confirmed = await confirmAction({
       title: card.definition.oneWay ? `${card.definition.actionLabel}: ${card.definition.title}?` : `Turn ${enable ? 'on' : 'off'} ${card.definition.title}?`,
       description: card.definition.whatChanges,
       details: card.definition.oneWay ? `${card.definition.title}: ${userSettings[settingId]?.detail ?? 'current state'} → ${card.definition.actionLabel.toLowerCase()}\nUndo: ${card.definition.undo}` : `${card.definition.title}: ${userSettings[settingId]?.enabled === null ? 'Windows default' : enable ? 'off' : 'on'} → ${enable ? 'on' : 'off'}\nUndo: ${card.definition.undo}`,
-      notice: `Dialed records the previous value first, checks the new value after writing it, and keeps the change in Restore so you can undo it. ${card.definition.requiresRestart ? 'Restart Windows for it to take effect.' : 'Restart a running game for it to take effect.'}${card.definition.requiresAdmin ? ' This machine-wide setting needs Dialed running as administrator.' : ''}`,
+      notice: `${planNotice ? `${planNotice}\n\n` : ''}Dialed records the previous value first, checks the new value after writing it, and keeps the change in Restore so you can undo it. ${card.definition.requiresRestart ? 'Restart Windows for it to take effect.' : 'Restart a running game for it to take effect.'}${card.definition.requiresAdmin ? ' This machine-wide setting needs Dialed running as administrator.' : ''}`,
       confirmLabel: card.definition.oneWay ? card.definition.actionLabel : `Turn ${enable ? 'on' : 'off'}`,
     });
     if (!confirmed) return;
@@ -840,7 +847,7 @@ export default function App() {
     });
 
     for (const item of items) {
-      publish(item, 'RUNNING', 'Native preflight, target revalidation, and verified execution started.');
+      publish(item, 'RUNNING', 'Checking, then applying…');
       try {
         let result: { success?: boolean; error?: string; entry?: AuditJournalEntry } | null = null;
         if (item.kind === 'startup') result = await window.pcOptiNative.disableStartupItem(item.targetId);
@@ -869,14 +876,14 @@ export default function App() {
         if (!result) {
           publish(item, 'FAILED', 'No supported executor was resolved for this item.');
         } else if (result.success) {
-          publish(item, 'SUCCESS', result.entry?.status === 'SUCCESS' ? 'Applied and native readback verification succeeded.' : 'The native action completed successfully.');
+          publish(item, 'SUCCESS', result.entry?.status === 'SUCCESS' ? 'Done and checked.' : 'Done.');
         } else if (result.entry?.status === 'NEEDS_REVIEW') {
-          publish(item, 'NEEDS_REVIEW', result.error || 'Windows changed state but authoritative verification did not complete. Review Local Audit History before retrying.');
+          publish(item, 'NEEDS_REVIEW', result.error || 'Windows made the change but Dialed could not confirm it. Check it in Restore › History before trying again.');
         } else {
-          publish(item, 'FAILED', result.error || 'The native action did not reach its verified intended state.');
+          publish(item, 'FAILED', result.error || 'The change did not take effect.');
         }
       } catch (error) {
-        publish(item, 'FAILED', error instanceof Error ? error.message : 'The native action could not be started.');
+        publish(item, 'FAILED', error instanceof Error ? error.message : 'The change could not be started.');
       }
     }
 
@@ -886,10 +893,10 @@ export default function App() {
   const runMaintenance = async (action: MaintenanceAction) => {
     if (!window.pcOptiNative || activeActionId) return;
     const irreversibleNotice = action.kind === 'clear-temp-files'
-      ? 'Deleted temporary files cannot be restored. Local Audit History records the outcome but cannot offer rollback.'
+      ? 'Deleted temporary files cannot be restored. Restore › History records the outcome but cannot offer rollback.'
       : action.kind === 'retrim-drive'
         ? 'ReTRIM is a maintenance request, not a reversible setting change.'
-        : 'Deleted cache files cannot be restored by Dialed; apps rebuild them when needed. Recovery & history records the outcome but cannot offer rollback.';
+        : 'Deleted cache files cannot be restored by Dialed; apps rebuild them when needed. Restore › History records the outcome but cannot offer rollback.';
     const confirmed = await confirmAction({ title: `${action.title}?`, description: action.description, details: `Evidence: ${action.evidence}`, notice: irreversibleNotice, confirmLabel: 'Run now', tone: action.kind === 'retrim-drive' ? 'default' : 'danger' });
     if (!confirmed) return;
 
@@ -899,7 +906,7 @@ export default function App() {
       const result = await window.pcOptiNative.executeMaintenance(action.id);
       await loadHistory();
       if (!result.success) {
-        setMaintenanceError(result.error || 'Windows reported that the maintenance action did not complete. See Local Audit History for details.');
+        setMaintenanceError(result.error || 'Windows reported that the maintenance action did not complete. See Restore › History for details.');
         return;
       }
       await Promise.all([runScan(), loadCacheInventory()]);
@@ -914,6 +921,7 @@ export default function App() {
 
   const executeTimingExperiment = async (item: TimingExperiment) => {
     if (!window.pcOptiNative || !item.actionId || activeTimingActionId) return;
+    const timingBootNotice = await readBootNotice();
     const confirmed = await confirmAction({
       title: `${item.title}?`,
       description: item.framing,
@@ -930,7 +938,7 @@ export default function App() {
       const result = await window.pcOptiNative.executeTimingExperiment(item.actionId);
       await Promise.all([loadTimingExperiments(), loadHistory()]);
       if (!result.success) {
-        setTimingActionError(result.error || 'Windows did not confirm the change. Check Restore › Recovery & history before trying again.');
+        setTimingActionError(result.error || 'Windows did not confirm the change. Check Restore › History before trying again.');
         return;
       }
       setTimingStatus('Done. Restart Windows for it to take effect, then measure to see whether it helped.');
@@ -966,6 +974,7 @@ export default function App() {
   const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set());
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null);
+  const [batchResultsVerb, setBatchResultsVerb] = useState<'applied' | 'undone'>('applied');
   const [batchEntryIds, setBatchEntryIds] = useState<string[]>([]);
   const batchActions = useMemo(() => {
     const actions: Record<string, NonNullable<ReturnType<typeof batchActionFor>>> = {};
@@ -1007,7 +1016,7 @@ export default function App() {
     }
     setBusySettingId(null);
     setBatchSelected(new Set());
-    setBatchResults(results);
+    setBatchResults(results); setBatchResultsVerb('applied');
     setBatchEntryIds(entryIds);
     setBatchRunning(false);
     await loadHistory();
@@ -1019,12 +1028,13 @@ export default function App() {
     const entries = (await native.getAuditHistory()).entries;
     const undoable = [...batchEntryIds].reverse().map((id) => entries.find((entry) => entry.id === id)).filter((entry): entry is AuditJournalEntry => Boolean(entry?.rollback.available));
     if (!undoable.length) { setTweakError('Nothing from that run can be undone from here any more. Check Restore.'); return; }
+    const runBootNotice = undoable.some(isBootEntry) ? await readBootNotice() : null;
     const confirmed = await confirmAction({
       title: `Undo ${undoable.length} change${undoable.length === 1 ? '' : 's'} from this run?`,
       description: 'Each setting goes back to exactly what it was before the run, newest first.',
       details: undoable.map((entry) => entry.title).join('\n'),
       detailsLabel: 'Changes to undo',
-      notice: 'Dialed checks that each setting still has the value it wrote, and skips any that something else has changed since.',
+      notice: `${runBootNotice ? `${runBootNotice}\n\n` : ''}Dialed checks that each setting still has the value it wrote, and skips any that something else has changed since.`,
       confirmLabel: 'Undo run',
     });
     if (!confirmed) return;
@@ -1038,7 +1048,7 @@ export default function App() {
         results.push({ title: entry.title, ok: false, message: error instanceof Error ? error.message : 'The undo could not be made.' });
       }
     }
-    setBatchResults(results);
+    setBatchResults(results); setBatchResultsVerb('undone');
     setBatchEntryIds([]);
     setBatchRunning(false);
     await loadHistory();
@@ -1083,7 +1093,7 @@ export default function App() {
   const undoEntryForTest = async (entryId: string): Promise<AuditJournalEntry | null> => {
     if (!window.pcOptiNative) return null;
     const entry = (await window.pcOptiNative.getAuditHistory()).entries.find((item) => item.id === entryId);
-    if (!entry || !entry.rollback.available) { setHistoryActionError('That change can no longer be undone from here. Check Restore › Recovery & history.'); return null; }
+    if (!entry || !entry.rollback.available) { setHistoryActionError('That change can no longer be undone from here. Check Restore › History.'); return null; }
     await rollbackAuditEntry(entry, { stay: true });
     const after = (await window.pcOptiNative.getAuditHistory()).entries;
     const original = after.find((item) => item.id === entryId);
@@ -1112,7 +1122,7 @@ export default function App() {
       title: `Stop ${item.name} from starting at sign-in?`,
       description: `Dialed removes only this ${machineWide ? 'machine-wide' : 'current-user'} startup entry and keeps its exact previous value so you can restore it.`,
       details: `Windows command: ${item.path || 'not returned'}\n\nSecurity impact: ${securityImplications}`,
-      notice: machineWide ? 'Machine-wide entry: Dialed must be running as administrator. Restore it anytime from Startup apps or Recovery & history.' : 'Restore it anytime from Startup apps or Recovery & history.',
+      notice: machineWide ? 'Machine-wide entry: Dialed must be running as administrator. Restore it anytime from Startup apps or Restore › History.' : 'Restore it anytime from Startup apps or Restore › History.',
       confirmLabel: 'Disable at sign-in',
     });
     if (!confirmed) return;
@@ -1140,7 +1150,7 @@ export default function App() {
       title: `Use EcoQoS for ${process.name}?`,
       description: 'Windows gives this one app a lower-power lane. It is not closed, suspended or pinned to specific cores.',
       details: `${process.name} · PID ${process.pid} · ${process.cpuPercent === null ? 'unknown' : `${process.cpuPercent}%`} recent CPU`,
-      notice: 'Use this only for background work. If this is a game or launcher, cancel — slowing a game is usually backwards. Undo it from Recovery & history while the app is still running.',
+      notice: 'Use this only for background work. If this is a game or launcher, cancel — slowing a game is usually backwards. Undo it from Restore › History while the app is still running.',
       confirmLabel: 'Use EcoQoS',
     });
     if (!confirmed) return;
@@ -1203,12 +1213,13 @@ export default function App() {
 
   const rollbackAuditEntry = async (entry: AuditJournalEntry, options: { stay?: boolean } = {}) => {
     if (!window.pcOptiNative || rollingBackId) return;
+    const bootNotice = isBootEntry(entry) ? await readBootNotice() : null;
     const confirmed = await confirmAction({
-      title: `Restore: ${entry.title}?`,
+      title: `Undo: ${entry.title}?`,
       description: entry.rollback.reason,
       details: [`Recorded ${new Date(entry.timestamp).toLocaleString()}`, rollbackDisclosureText(entry)].filter(Boolean).join('\n'),
-      notice: 'Dialed first checks that the current state still matches what it changed, and refuses if something else changed it since. Check the details above match a change you made with Dialed.',
-      confirmLabel: 'Restore',
+      notice: `${bootNotice ? `${bootNotice}\n\n` : ''}Dialed first checks that the current state still matches what it changed, and refuses if something else changed it since. Check the details above match a change you made with Dialed.`,
+      confirmLabel: 'Undo',
     });
     if (!confirmed) return;
 
@@ -1219,7 +1230,7 @@ export default function App() {
       await loadHistory();
       if (!result.success) {
         setHistoryActionError(result.error || 'Windows reported that the rollback did not complete.');
-        // Restore failures are always shown in Recovery & history, even when started elsewhere.
+        // Restore failures are always shown in Restore › History, even when started elsewhere.
         if (options.stay) {
           setVerifyView('history');
           setActiveTab('drift');
@@ -1248,6 +1259,7 @@ export default function App() {
       setHistoryPrivacyStatus('No recorded change currently has an available restore.');
       return;
     }
+    const undoAllBootNotice = restorable.some(isBootEntry) ? await readBootNotice() : null;
     const confirmed = await confirmAction({
       title: `Undo ${restorable.length} Dialed change${restorable.length === 1 ? '' : 's'}?`,
       description: 'Dialed restores each change newest first and checks that nothing else changed it before writing.',
@@ -1255,7 +1267,7 @@ export default function App() {
         const disclosure = describeRollbackTarget(entry).map((line) => `    ${line}`).join('\n');
         return `• ${entry.title} (${new Date(entry.timestamp).toLocaleString()})${disclosure ? `\n${disclosure}` : ''}`;
       }).join('\n'),
-      notice: 'A change that something else has modified is reported, not forced. Boot timing restores still need a reboot. Deleted files and removed apps cannot be restored and are not listed. Check each entry above matches a change you made with Dialed.',
+      notice: `${undoAllBootNotice ? `${undoAllBootNotice}\n\n` : ''}A change that something else has modified is reported, not forced. Boot timing restores still need a reboot. Deleted files and removed apps cannot be restored and are not listed. Check each entry above matches a change you made with Dialed.`,
       confirmLabel: `Undo ${restorable.length} change${restorable.length === 1 ? '' : 's'}`,
       tone: 'danger',
     });
@@ -1280,7 +1292,8 @@ export default function App() {
     } finally {
       setIsUndoAllBusy(false);
     }
-    setHistoryPrivacyStatus(`Restored ${restored} of ${restorable.length} change${restorable.length === 1 ? '' : 's'}.${failures.length ? ` Not restored — ${failures.join(' · ')}` : ''}`);
+    setHistoryPrivacyStatus(`Restored ${restored} of ${restorable.length} change${restorable.length === 1 ? '' : 's'}.${failures.length ? ` ${failures.length} could not be restored; see below.` : ''}`);
+    if (failures.length) setHistoryActionError(failures.join('\n'));
   };
 
   const exportAuditHistory = async () => {
@@ -1290,7 +1303,7 @@ export default function App() {
     try {
       const preview = await window.pcOptiNative.getAuditExportPreview();
       const confirmed = await requestPreviewConfirmation({
-        title: 'Export redacted Local Audit History?',
+        title: 'Export redacted Restore › History?',
         description: 'Review the exact redacted payload before choosing where to save it.',
         detailsLabel: 'Redacted export payload',
         details: formatPreviewDetails(preview.payload),
@@ -1306,7 +1319,7 @@ export default function App() {
         ? 'Redacted export canceled; no file was written.'
         : `Exported ${result.entryCount ?? 0} redacted entries to ${result.fileName ?? 'the selected JSON file'}.`);
     } catch (error) {
-      setHistoryPrivacyStatus(error instanceof Error ? error.message : 'The redacted history export could not be completed.');
+      setHistoryActionError(error instanceof Error ? error.message : 'The redacted history export could not be completed.');
     } finally {
       setIsHistoryPrivacyBusy(false);
     }
@@ -1324,7 +1337,7 @@ export default function App() {
       }
       const confirmed = await requestPreviewConfirmation({
         title: `Permanently delete ${preview.deleteCount} completed history entr${preview.deleteCount === 1 ? 'y' : 'ies'}?`,
-        description: 'Review the exact completed Local Audit History entries selected by this retention choice.',
+        description: 'Review the exact completed Restore › History entries selected by this retention choice.',
         detailsLabel: 'History entries selected for deletion',
         details: formatPreviewDetails(preview.previewEntries),
         notice: `Retained after deletion: ${preview.retainCount}. Protected automatically: ${preview.protectedCounts.unresolved} unresolved, ${preview.protectedCounts.rollbackAvailable} with rollback available, ${preview.protectedCounts.invalidOrUnclassified} invalid or unclassified. This is permanent local history deletion, not rollback. It does not undo any Windows action.`,
@@ -1339,7 +1352,7 @@ export default function App() {
       setHistory(result.entries);
       setHistoryPrivacyStatus(`Deleted ${result.deletedCount} completed entr${result.deletedCount === 1 ? 'y' : 'ies'}; retained ${result.retainedCount}. No Windows action was changed.`);
     } catch (error) {
-      setHistoryPrivacyStatus(error instanceof Error ? error.message : 'Local Audit History deletion could not be completed.');
+      setHistoryPrivacyStatus(error instanceof Error ? error.message : 'Restore › History deletion could not be completed.');
     } finally {
       setIsHistoryPrivacyBusy(false);
     }
@@ -1452,18 +1465,18 @@ export default function App() {
     }));
   const testableIds = new Set(testableTweaks.map((item) => item.id));
 
-  return <ConfirmContext.Provider value={confirmAction}><div className="app-shell min-h-screen text-slate-200"><a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 focus:not-sr-only">Skip to main content</a>{actionPreview ? <ActionPreviewDialog request={actionPreview} onCancel={cancelPreviewConfirmation} onConfirm={confirmPreviewAction} /> : null}<div className="flex min-h-screen flex-col lg:flex-row"><Sidebar activeTab={activeTab} availableTabs={availableTabs} onChange={setActiveTab} profile={runtimeProfile.profile} onOpenTweak={availableTabs.includes('startup') ? openTweak : undefined} tweakIds={new Set(tweakCards.map((card) => card.definition.id))} /><main id="main-content" tabIndex={-1} className="min-w-0 flex-1 panel-shell"><header className="app-header flex flex-col justify-between gap-3 border-b border-slate-800 px-6 py-4 backdrop-blur sm:flex-row sm:items-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Dialed · Windows performance optimizer</p><p className="mt-0.5 text-xs text-slate-500">Your PC, dialed in. Every change is explained, checked and can be undone.</p></div><div className="flex flex-col items-end gap-2 text-xs text-slate-400"><div className="flex flex-wrap items-center justify-end gap-2"></div><span role="status" className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${isScanning ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200' : scanError ? 'border-rose-500/30 bg-rose-950/20 text-rose-200' : snapshot ? snapshot.metadata.errors.length ? 'border-amber-500/30 bg-amber-950/20 text-amber-200' : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200' : 'border-slate-700 bg-slate-900/50 text-slate-400'}`}>{isScanning ? <RefreshCw className="h-3 w-3 animate-spin" /> : scanError ? <AlertCircle className="h-3 w-3" /> : snapshot ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{isScanning ? 'Verified scan running' : scanError ? 'Latest scan failed · previous evidence retained' : snapshot ? `Scan completed ${new Date(snapshot.timestamp).toLocaleTimeString()}${snapshot.metadata.errors.length ? ` · ${snapshot.metadata.errors.length} gap${snapshot.metadata.errors.length === 1 ? '' : 's'}` : ''}` : 'No completed scan'}</span></div></header>{runtimeProfile.accountMismatch ? <p role="alert" className="mx-auto mt-5 w-[calc(100%-2.5rem)] max-w-7xl rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-sm text-amber-100 sm:w-[calc(100%-3.5rem)]">{runtimeProfile.accountMismatch}</p> : null}<div className="mx-auto w-full max-w-7xl p-5 sm:p-7"><WorkspaceErrorBoundary key={activeTab} onRecover={() => { setVerifyView('history'); setActiveTab('drift'); }}><Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}>
+  return <ConfirmContext.Provider value={confirmAction}><div className="app-shell min-h-screen text-slate-200"><a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 focus:not-sr-only">Skip to main content</a>{actionPreview ? <ActionPreviewDialog request={actionPreview} onCancel={cancelPreviewConfirmation} onConfirm={confirmPreviewAction} /> : null}<div className="flex min-h-screen flex-col min-[960px]:flex-row"><Sidebar activeTab={activeTab} availableTabs={availableTabs} onChange={setActiveTab} profile={runtimeProfile.profile} onOpenTweak={availableTabs.includes('startup') ? openTweak : undefined} tweakIds={new Set(tweakCards.map((card) => card.definition.id))} /><main id="main-content" tabIndex={-1} className="min-w-0 flex-1 panel-shell"><header className="app-header flex flex-col justify-between gap-3 border-b border-slate-800 px-6 py-4 backdrop-blur sm:flex-row sm:items-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Dialed · Windows performance optimizer</p><p className="mt-0.5 text-xs text-slate-500">Your PC, dialed in. Every change is explained, checked and can be undone.</p></div><div className="flex flex-col items-end gap-2 text-xs text-slate-400"><div className="flex flex-wrap items-center justify-end gap-2"></div><span role="status" className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${isScanning ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200' : scanError ? 'border-rose-500/30 bg-rose-950/20 text-rose-200' : snapshot ? snapshot.metadata.errors.length ? 'border-amber-500/30 bg-amber-950/20 text-amber-200' : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200' : 'border-slate-700 bg-slate-900/50 text-slate-400'}`}>{isScanning ? <RefreshCw className="h-3 w-3 animate-spin" /> : scanError ? <AlertCircle className="h-3 w-3" /> : snapshot ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{isScanning ? 'Verified scan running' : scanError ? 'Latest scan failed · previous evidence retained' : snapshot ? `Scan completed ${new Date(snapshot.timestamp).toLocaleTimeString()}${snapshot.metadata.errors.length ? ` · ${snapshot.metadata.errors.length} gap${snapshot.metadata.errors.length === 1 ? '' : 's'}` : ''}` : 'No completed scan'}</span></div></header>{runtimeProfile.accountMismatch ? <p role="alert" className="mx-auto mt-5 w-[calc(100%-2.5rem)] max-w-7xl rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 text-sm text-amber-100 sm:w-[calc(100%-3.5rem)]">{runtimeProfile.accountMismatch}</p> : null}<div className="mx-auto w-full max-w-7xl p-5 sm:p-7"><WorkspaceErrorBoundary key={activeTab} onRecover={() => { setVerifyView('history'); setActiveTab('drift'); }}><Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}>
     {(activeTab === 'readiness' || activeTab === 'overview') && <TabRow<'readiness' | 'overview'> ariaLabel="Home views" items={[{ id: 'readiness', label: 'Summary' }, { id: 'overview', label: 'Scan details' }]} value={activeTab} onChange={setActiveTab} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
-    {activeTab === 'readiness' && <TabPanel ariaLabel="Home views" value={activeTab}><HomeSummary snapshot={snapshot} isScanning={isScanning} scanError={scanError} history={history} historyRecovery={historyRecovery} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} onScan={() => void runScan()} onOpenScanDetails={() => setActiveTab('overview')} onNavigate={navigateToRecommendationPanel} onOpenRestore={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} onOpenSuggestions={() => { setOptimizeView('recommended'); setActiveTab('startup'); }} onOpenTest={() => openTest()} /></TabPanel>}
+    {activeTab === 'readiness' && <TabPanel ariaLabel="Home views" value={activeTab}><HomeSummary snapshot={snapshot} isScanning={isScanning} scanError={scanError} history={history} historyRecovery={historyRecovery} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} onScan={() => void runScan()} onOpenScanDetails={() => setActiveTab('overview')} onNavigate={navigateToRecommendationPanel} onOpenRestore={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} onOpenSuggestions={() => { setScanSuggestionsOpen(true); setActiveTab('overview'); }} onOpenTest={() => openTest()} /></TabPanel>}
     {activeTab === 'workload-profiles' && <><section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Settings</p><h2 className="mt-2 text-2xl font-bold text-white">Appearance, data and release status</h2><p className="mt-1 text-sm text-slate-400">Choose a look, manage what Dialed stores on this PC, and review the installed version. Nothing here changes Windows.</p></section><ThemePicker activeTheme={appTheme} onChange={setAppTheme} /><TechnicalDetailsSetting enabled={technicalDetails} onChange={setTechnicalDetails} />{capabilityIds.has('telemetry:windows-counters') && <HardwareReadingsSetting />}<BackgroundActivity /><LocalDataCenter auditEntries={history} comparisons={benchmarkEvidence.comparisons} appVersion={releaseStatus?.version} technicalDetails={technicalDetails} auditCount={history.length} comparisonCount={benchmarkEvidence.comparisons.length} theme={appTheme} onNavigate={(tab) => { if (tab === 'drift') { setVerifyView('history'); setFocusedAuditId(null); } if (tab === 'game-settings') setGameView('backups'); setActiveTab(tab); }} /><ReleaseStatusCard status={releaseStatus} loading={isReleaseStatusLoading} error={releaseStatusError} onRefresh={loadReleaseStatus} /></>}
-    {activeTab === 'overview' && <TabPanel ariaLabel="Home views" value={activeTab}><DashboardOverview snapshot={snapshot} isScanning={isScanning} scanError={scanError} recommendations={orderedRecommendations} recommendationError={recommendationError} onScan={runScan} onNavigateRecommendation={navigateToRecommendationPanel} driftReport={driftReport} onOpenChanges={() => { setVerifyView('drift'); setActiveTab('drift'); }} onOpenStartup={() => openTweakDestination({ tab: 'startup', view: 'startup' })} onOpenTempFiles={() => openTweakDestination({ tab: 'startup', view: 'maintenance' })} />
+    {activeTab === 'overview' && <TabPanel ariaLabel="Home views" value={activeTab}><DashboardOverview suggestionsOpen={scanSuggestionsOpen} snapshot={snapshot} isScanning={isScanning} scanError={scanError} recommendations={orderedRecommendations} recommendationError={recommendationError} onScan={runScan} onNavigateRecommendation={navigateToRecommendationPanel} driftReport={driftReport} onOpenChanges={() => { setVerifyView('drift'); setActiveTab('drift'); }} onOpenStartup={() => openTweakDestination({ tab: 'startup', view: 'startup' })} onOpenTempFiles={() => openTweakDestination({ tab: 'startup', view: 'maintenance' })} />
     <SystemInsightCenters snapshot={snapshot} inventory={installedApplications} appsLoading={isInstalledAppsLoading} appsError={installedAppsError} onRefreshApps={loadInstalledApplications} /></TabPanel>}
     {activeTab === 'startup' && <TabRow<typeof optimizeView> ariaLabel="Optimize categories" items={([['all', 'All tweaks'], ['recommended', 'Recommended'], ['startup', 'Startup'], ['background', 'Background Apps'], ['windows', 'Windows'], ['timing', 'Boot timing'], ['maintenance', 'Maintenance'], ['bios', 'BIOS']] as const).map(([id, label]) => ({ id, label }))} value={optimizeView} onChange={setOptimizeView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
     {activeTab === 'startup' && <TabPanel ariaLabel="Optimize categories" value={optimizeView}>
     {activeTab === 'startup' && optimizeView === 'timing' && <Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense>}
     {activeTab === 'startup' && optimizeView === 'bios' && (capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative) && <Suspense fallback={<p className="text-sm text-slate-400">Loading BIOS guide…</p>}><BiosGuidanceCenter /></Suspense>}
-    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
-    {activeTab === 'startup' && optimizeView === 'recommended' && <div className="space-y-6"><section className="rounded-2xl border border-cyan-400/20 bg-cyan-950/10 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Recommended</p><h2 className="mt-2 text-2xl font-bold text-white">Choose a small, reviewable set of changes</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Pick the fixes you want. Each one is checked again before it runs, verified afterwards, and recorded so you can undo it. The tabs above explain each area in more detail.</p></section><OptimizationCatalog items={batchOptimizationItems} loading={isScanning || isStartupLoading || isProcessLoading || isPolicyLoading || isTimingLoading} onRefresh={refreshBatchOptimizationTargets} onRunSelected={runOptimizationBatch} /></div>}
+    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
+    {activeTab === 'startup' && optimizeView === 'recommended' && <div className="space-y-6"><section className="rounded-2xl border border-cyan-400/20 bg-cyan-950/10 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Recommended</p><h2 className="mt-2 text-2xl font-bold text-white">Choose a small, reviewable set of changes</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Pick the fixes you want. Each one is checked again before it runs, verified afterwards, and recorded so you can undo it. The tabs above explain each area in more detail.</p></section><OptimizationCatalog items={batchOptimizationItems} loading={isScanning || isStartupLoading || isProcessLoading || isPolicyLoading || isTimingLoading} onRefresh={refreshBatchOptimizationTargets} onRunSelected={runOptimizationBatch} readBootNotice={readBootNotice} /></div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
     {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}
     {activeTab === 'startup' && optimizeView === 'windows' && <div className="space-y-6">{capabilityIds.has('power:switch-plan') && <PowerPlanCard onChanged={() => void loadHistory()} />}<SafePolicies policies={policies} errors={policyErrors} loading={isPolicyLoading} activePolicyId={activePolicyId} actionError={policyActionError} onRefresh={loadPolicies} onEnable={enableConsumerFeaturesPolicy} /><section className="rounded-2xl border border-violet-500/20 bg-violet-950/10 p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><div className="flex items-center gap-2 text-violet-200"><TimerReset className="h-4 w-4" /><h2 className="text-sm font-semibold">Boot timing controls</h2></div><p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-400">Review the two guarded, reboot-required BCD controls with exact backup, configured-state readback, and rollback. Results vary by hardware and workload; neither control promises lower latency or higher FPS.</p></div><button type="button" onClick={() => setOptimizeView('timing')} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-400/20"><TimerReset className="h-3.5 w-3.5" />Open boot timing</button></div></section></div>}

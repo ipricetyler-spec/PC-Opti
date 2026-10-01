@@ -18,7 +18,7 @@ function legacyRestoreAuthority(programData = process.env.ProgramData, io = fs) 
       catch (error) { if (error.code === 'ENOENT' && current.startsWith(root + path.sep)) return { allowed: true, message: '' }; throw error; }
       if (stat.isSymbolicLink() || !stat.isDirectory()) return { allowed: false, message: 'Native recovery path is linked or unexpected. Legacy restore is blocked.' };
     }
-    return { allowed: false, message: 'Native setup has reserved machine history. Legacy restore is blocked to avoid conflicting recovery records. The saved values remain below; migration through native recovery is not implemented. Do not delete native history to enable restore.' };
+    return { allowed: false, message: 'Setup now keeps the history for these devices, so this older restore is switched off to avoid two conflicting records. The saved values are listed below. Do not delete setup\'s history to get around this.' };
   } catch { return { allowed: false, message: 'Native recovery location could not be checked. Legacy restore is blocked.' }; }
 }
 module.exports = { legacyRestoreAuthority };

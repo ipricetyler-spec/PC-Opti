@@ -65,12 +65,24 @@ test('every protection check only reads, and never changes a security setting', 
 test('the notices reach the boot, game-file and power plan confirmations', () => {
   const fs = require('node:fs');
   const main = fs.readFileSync(path.join(__dirname, '../electron/main.cjs'), 'utf8');
-  assert.match(main, /bootNotice: bitLockerBootNotice\(bitLocker\)/);
+  assert.match(main, /ipcMain\.handle\('pc-opti:read-boot-notice', async \(\) => bitLockerBootNotice\(await readBitLockerStatus\(\)\)\)/);
   assert.equal([...main.matchAll(/protectionNotice: await gameWriteNotice\(/g)].length, 3, 'profile, profile undo and config restore previews');
   assert.match(main, /planNotice: modernStandbyPlanNotice\(standby\)/);
   const app = fs.readFileSync(path.join(__dirname, '../src/App.tsx'), 'utf8');
-  assert.match(app, /timingBootNotice \? `\$\{timingBootNotice\}/);
+  // Every path that writes boot settings reads BitLocker fresh first: a single change, a Restore of a
+  // boot entry, Undo all and Undo this run (the Recommended batch is checked below).
+  assert.match(app, /const timingBootNotice = await readBootNotice\(\);/);
+  assert.match(app, /const bootNotice = isBootEntry\(entry\) \? await readBootNotice\(\) : null;/);
+  assert.match(app, /const undoAllBootNotice = restorable\.some\(isBootEntry\) \? await readBootNotice\(\) : null;/);
+  assert.match(app, /const runBootNotice = undoable\.some\(isBootEntry\) \? await readBootNotice\(\) : null;/);
+  assert.equal([...app.matchAll(/(timingBootNotice|bootNotice|undoAllBootNotice|runBootNotice) \? `\$\{\1\}\\n\\n`/g)].length, 4);
+  assert.match(app, /const isBootEntry = \(entry: AuditJournalEntry\) => entry\.actionId\.startsWith\('timing:'\);/);
+  const catalog = fs.readFileSync(path.join(__dirname, '../src/components/OptimizationCatalog.tsx'), 'utf8');
+  assert.match(catalog, /selectedItems\.some\(\(item\) => item\.kind === 'timing'\) \? await readBootNotice\?\.\(\) \?\? null : null/);
+  assert.match(catalog, /notice: `\$\{bootNotice \? `\$\{bootNotice\}\\n\\n` : ''\}/);
+  assert.match(app, /readBootNotice=\{readBootNotice\}/);
   assert.equal([...app.matchAll(/preview\.protectionNotice \? `\$\{preview\.protectionNotice\}/g)].length, 2);
+  assert.match(app, /const planNotice = settingId === 'ultimate-plan' \?/);
   assert.match(fs.readFileSync(path.join(__dirname, '../src/components/GameOptimizationCenter.tsx'), 'utf8'), /preview\.protectionNotice \?/);
   assert.match(fs.readFileSync(path.join(__dirname, '../src/components/PowerPlanCard.tsx'), 'utf8'), /inventory\?\.planNotice \?/);
 });

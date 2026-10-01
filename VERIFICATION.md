@@ -447,3 +447,31 @@ present; Measure "Copy view" works; Ultimate plan shows as in the plan list.
 - `npm test` 850/850, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed, run
   one at a time; `npm run release:native` re-signed the helpers.
 - Not verified: the BitLocker and Modern Standby notices on a PC where they apply; no package built.
+
+## 2026-09-30 — product experience review, whole app: findings reproduced and fixed
+
+The owner confirmed a whole-app run of the product experience reviewer. Every finding was checked
+against the code before fixing; all 23 reproduced as described, and none were wrong.
+
+- MUST 1–2: the BitLocker notice now appears on every path that writes boot settings: a single
+  change, the Recommended batch, Restore of a boot entry, Undo all and Undo this run (the last was
+  not in the report). BitLocker is read fresh right before each confirmation.
+- MUST 3: the profile preview describes Undo correctly; "Backup:" no longer labels two values.
+- MUST 4–5: the Recommended run log and Undo all failures pass through ErrorText; run-log
+  wording is plain.
+- SHOULD 6–16: Home's "See all" opens the list it counts and ignores failed rows; Home shows a
+  failure only for 7 days and only until the same action succeeds; the sidebar is vertical from
+  960px (the window minimum); the rate-check busy line follows the check; Input devices shows
+  plain status words and rates; an expired policy says to update Dialed; stale place names fixed
+  (Restore › History, Outside changes, Check polling rate, Undo); the Modern Standby notice reaches
+  the Ultimate Performance tweak; undo runs say "undone"; Readiness says "Nothing yet" and drops
+  scan-schema jargon.
+- COULD 17–23: setup marks the saved rate, plain review wording, a plain launch failure, a correctly
+  named drift details button, the reconnect box only while setup is open, Input devices results
+  under the header, and every cyan class follows the theme accent.
+- The Codex sandbox had re-added its read entry to the key folder; removed again, and the key tool
+  now names that cause (`CUSTODY_PERMISSIONS`).
+- Seen in fixture screenshots at 960px: the vertical sidebar with all eight sections, and the
+  Instrument selected device card in amber. The native setup capture shows "8000 Hz (saved)".
+- `npm test` 850/850, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed, the
+  native fixture passed; `npm run release:native` re-signed the helpers. Not packaged.

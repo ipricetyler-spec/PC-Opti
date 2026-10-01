@@ -65,7 +65,7 @@ sealed class SetupAppearanceFixture : SetupView {
     bool recording = scenario == "initial" || scenario == "record";
     installation.Text = recording ? "First use in Dialed: record this device's originals once, then choose a rate. Recording does not change the device." : "Original settings recorded. Choose a rate to review.";
     savedRate.Text = "Saved rate: 8000 Hz";
-    rates.Items.AddRange(new object[] {1000,2000,4000,8000}); rates.SelectedItem = 1000;
+    SavedRateHz = 8000; rates.Items.AddRange(new object[] {1000,2000,4000,8000}); rates.SelectedItem = 1000;
     rateHelp.Text = "High-Speed setup offers 1000, 2000, 4000 and 8000 Hz.";
     bool inventory = scenario == "inventory", history = scenario == "history";
     actions.SelectedItem = SetupPresentation.Actions.Single(x => x.Code == (recording ? "ADOPT" : "APPLY"));

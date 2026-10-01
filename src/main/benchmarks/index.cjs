@@ -509,8 +509,8 @@ function compareExperiment(records, experimentId, auditEntries = []) {
     : null;
   const rollbackGuidance = classification === 'REGRESSION'
     ? linkedAudit?.status === 'SUCCESS' && linkedAudit?.rollback?.available
-      ? { available: true, auditEntryId: linkedAudit.id, capabilityId: linkedAudit.capabilityId || null, reason: 'A linked successful audit entry still reports deterministic rollback available. Review it in Local Audit History; rollback is never automatic.' }
-      : { available: false, auditEntryId: null, capabilityId: null, reason: candidate.linkedAuditEntryId ? 'The linked audit entry is missing, unresolved, or no longer has rollback available.' : 'No Local Audit History entry was linked to this candidate record.' }
+      ? { available: true, auditEntryId: linkedAudit.id, capabilityId: linkedAudit.capabilityId || null, reason: 'A linked successful audit entry still reports deterministic rollback available. Review it in Restore › History; rollback is never automatic.' }
+      : { available: false, auditEntryId: null, capabilityId: null, reason: candidate.linkedAuditEntryId ? 'The linked audit entry is missing, unresolved, or no longer has rollback available.' : 'No Restore › History entry was linked to this candidate record.' }
     : null;
   return {
     experimentId,

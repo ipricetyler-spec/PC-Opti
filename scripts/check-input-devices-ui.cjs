@@ -626,7 +626,10 @@ async function main() {
     await section.getByLabel('Legacy recovery needs review').waitFor();
     if (await maintenance.evaluate(el=>el.parentElement.open)) await maintenance.click();
     assert.equal(await section.getByLabel('Legacy recovery needs review').isVisible(),true);
-    await section.getByLabel('Legacy recovery needs review').getByText(/Original interval/).waitFor();
+    // Plain rates and status words in view; interval numbers are a technical detail.
+    await section.getByLabel('Legacy recovery needs review').getByText(/was \d+ Hz, saved as \d+ Hz · Needs review\./).waitFor();
+    await section.getByLabel('Legacy recovery needs review').getByText(/Original interval/).waitFor({ state: 'attached' });
+    assert.doesNotMatch(await section.getByLabel('Legacy recovery needs review').innerText(), /NEEDS_REVIEW/);
     await section.getByRole('button',{name:'Show saved recovery'}).click();
     assert.equal(await section.getByRole('button',{name:'Review exact restore'}).isDisabled(),true);
     const polishLayouts = [];
@@ -658,7 +661,7 @@ async function main() {
         await section.getByRole('button', { name: 'Scan input devices' }).click();
         await section.getByRole('tab', { name: 'Polling rate' }).click();
         await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
-        await section.getByText(/No rate-change path is available/).waitFor();
+        await section.getByText(/Rate changes need a newer version of Dialed/).first().waitFor();
         assert.equal(await section.getByRole('button',{name:'Change rate…'}).isDisabled(),true);
         assert.ok(Number(await section.getByRole('button',{name:'Change rate…'}).evaluate(el=>getComputedStyle(el).opacity)) < 0.6);
         assert.equal(await section.getByRole('button',{name:'Check controls'}).isEnabled(),true);

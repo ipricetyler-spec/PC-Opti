@@ -84,8 +84,8 @@ export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) 
         return;
       }
       const result = await window.pcOptiNative.applyOptionalAppRemoval(preview.token);
-      if (!result.success) throw new Error(result.error || 'Windows did not confirm the removal. Check Restore › Recovery & history before trying again.');
-      setStatus(`${preview.title} is no longer registered for the current Windows account. No performance improvement is claimed. The result and recovery limit were recorded in Local Audit History.`);
+      if (!result.success) throw new Error(result.error || 'Windows did not confirm the removal. Check Restore › History before trying again.');
+      setStatus(`${preview.title} is no longer registered for the current Windows account. No performance improvement is claimed. The result and recovery limit were recorded in Restore › History.`);
       await refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The app could not be removed safely.');

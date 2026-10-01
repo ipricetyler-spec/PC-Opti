@@ -114,6 +114,8 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
     onClear: () => void;
     running: boolean;
     results: BatchResult[] | null;
+    /** Whether the results come from applying or from undoing a run. */
+    resultsVerb?: 'applied' | 'undone';
     onUndoRun?: () => void;
   };
 }) {
@@ -133,7 +135,7 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
         {batch.selected.size > 0 && !batch.running && <button type="button" onClick={batch.onClear} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Clear</button>}
       </div>}
       {batch?.results && <div role="log" aria-label="Apply selected results" className="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs">
-        <p className="font-semibold text-slate-200">{batch.results.filter((item) => item.ok).length} of {batch.results.length} applied</p>
+        <p className="font-semibold text-slate-200">{batch.results.filter((item) => item.ok).length} of {batch.results.length} {batch.resultsVerb ?? 'applied'}</p>
         <ul className="mt-2 space-y-1">{batch.results.map((item) => <li key={item.title} className={item.ok ? 'text-emerald-200' : 'text-amber-200'}>{item.ok ? '✓' : '✗'} {item.title}: <ErrorText text={item.message} /></li>)}</ul>
         {batch.onUndoRun && <button type="button" onClick={batch.onUndoRun} className="tweak-undo mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />Undo this run</button>}
       </div>}

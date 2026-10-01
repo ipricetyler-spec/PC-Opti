@@ -9,6 +9,8 @@ import { RecommendationsPanel } from './RecommendationsPanel';
 import { ShowDetails } from './ShowDetails';
 
 interface DashboardOverviewProps {
+  /** Opened from Home's "See all suggestions", so the list it counted is shown expanded. */
+  suggestionsOpen?: boolean;
   snapshot: SystemScanSnapshot | null;
   isScanning: boolean;
   scanError: string | null;
@@ -46,6 +48,7 @@ export function DashboardOverview({
   onOpenChanges,
   onOpenStartup,
   onOpenTempFiles,
+  suggestionsOpen = false,
 }: DashboardOverviewProps) {
   if (!snapshot) {
     return (
@@ -131,7 +134,7 @@ export function DashboardOverview({
 
       <div data-technical-detail id="expanded-diagnostics" className="scroll-mt-5"><ExpandedDiagnostics diagnostics={snapshot.diagnostics} /></div>
 
-      <ShowDetails label={`All suggestions (${recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length})`} defaultOpen={Boolean(recommendationError)}><RecommendationsPanel recommendations={recommendations} error={recommendationError} onNavigate={onNavigateRecommendation} /></ShowDetails>
+      <ShowDetails label={`All suggestions (${recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length})`} defaultOpen={Boolean(recommendationError) || suggestionsOpen}><RecommendationsPanel recommendations={recommendations} error={recommendationError} onNavigate={onNavigateRecommendation} /></ShowDetails>
 
       {snapshot.metadata.errors.length > 0 && <section className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5"><div className="flex gap-2 text-sm font-semibold text-amber-300"><AlertTriangle className="h-4 w-4" /> Items that could not be read</div><ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-100/80">{snapshot.metadata.errors.map((error) => <li key={`${error.component}-${error.message}`}>{partName(error.component)}: <ErrorText text={error.message} /></li>)}</ul></section>}
     </div>

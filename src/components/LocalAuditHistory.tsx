@@ -178,7 +178,7 @@ export function LocalAuditHistory({
         <div>
           <div className="flex items-center gap-2 text-cyan-300">
             <History className="h-5 w-5" />
-            <span className="text-sm font-semibold">Recovery & history</span>
+            <span className="text-sm font-semibold">History</span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-white">Everything Dialed has changed</h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
@@ -349,7 +349,7 @@ export function LocalAuditHistory({
                   className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-200 disabled:opacity-50"
                 >
                   {rollingBackId === entry.id ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                  {rollingBackId === entry.id ? 'Restoring…' : 'Restore'}
+                  {rollingBackId === entry.id ? 'Undoing…' : 'Undo'}
                 </button>
               )}
             </div>

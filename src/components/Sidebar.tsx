@@ -80,7 +80,7 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTwe
   const openTweak = (tweakId: string) => { onOpenTweak?.(tweakId); setQuery(''); };
 
   return (
-    <aside className="app-sidebar w-full border-b border-slate-800 lg:min-h-screen lg:w-60 lg:border-b-0 lg:border-r">
+    <aside className="app-sidebar w-full border-b border-slate-800 min-[960px]:min-h-screen min-[960px]:w-52 lg:w-60 min-[960px]:border-b-0 min-[960px]:border-r">
       <div className="px-5 pb-4 pt-6">
         <h1 className="wordmark" aria-label="Dialed">dialed<span aria-hidden="true">.</span></h1>
         <p className="mt-1.5 text-[11px] uppercase tracking-wider text-slate-500">
@@ -98,7 +98,7 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTwe
         {query.trim() && matches.length > 0 && onOpenTweak && <p className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sections</p>}
       </div>
       <div className="relative">
-        <nav ref={navRef} onScroll={updateOverflowEdges} aria-label="Primary navigation" className="flex gap-1 overflow-x-auto px-3 pb-3 lg:block lg:space-y-0.5">
+        <nav ref={navRef} onScroll={updateOverflowEdges} aria-label="Primary navigation" className="flex gap-1 overflow-x-auto px-3 pb-3 min-[960px]:block min-[960px]:space-y-0.5">
           {matches.map(({ item, target }) => {
             const Icon = item.icon;
             const selected = item.id === activeSection;
@@ -109,7 +109,7 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTwe
                 type="button"
                 onClick={() => go(target)}
                 aria-current={selected ? 'page' : undefined}
-                className={`nav-item group flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm lg:w-full ${selected ? 'nav-item-selected font-semibold' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`nav-item group flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm min-[960px]:w-full ${selected ? 'nav-item-selected font-semibold' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <span className="font-mono text-[11px] text-slate-500" aria-hidden="true">{number}</span>
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -118,10 +118,10 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTwe
             );
           })}
         </nav>
-        {overflowEdges.left ? <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/70 to-transparent lg:hidden" /> : null}
-        {overflowEdges.right ? <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/70 to-transparent lg:hidden" /> : null}
+        {overflowEdges.left ? <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/70 to-transparent min-[960px]:hidden" /> : null}
+        {overflowEdges.right ? <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/70 to-transparent min-[960px]:hidden" /> : null}
       </div>
-      <div className="hidden px-5 py-4 text-xs leading-relaxed text-slate-500 lg:block">
+      <div className="hidden px-5 py-4 text-xs leading-relaxed text-slate-500 min-[960px]:block">
         Every change is explained, checked before it runs, and can be undone from Restore. No driver updaters, registry cleaners, RAM boosters or made-up FPS numbers.
       </div>
     </aside>

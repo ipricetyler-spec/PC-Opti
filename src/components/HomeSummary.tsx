@@ -23,6 +23,7 @@ function gigabytes(bytes: number): string {
 // reported an error. Calling a failed action "did not finish" read like something was left
 // half-done (three ReTRIMs refused with Access denied showed that way for weeks).
 const UNCONFIRMED = new Set(['NEEDS_REVIEW', 'PENDING', 'PENDING_REBOOT', 'UNVERIFIED']);
+const FAILURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 // Suggestions that ask for a decision or offer a fix come before information-only ones.
 const PRIORITY: Record<LocalRecommendation['actionStatus'], number> = { REVIEW: 0, OPTIONAL_ACTION: 1, GUIDANCE_ONLY: 2, NO_ACTION: 3 };
 
@@ -30,7 +31,8 @@ const PRIORITY: Record<LocalRecommendation['actionStatus'], number> = { REVIEW: 
  * What Home asks you to do, most important first: a change that did not finish, a test
  * that showed things got worse, then the scan's suggestions. At most three are shown.
  */
-export function homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence }: {
+export function homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence, now = Date.now() }: {
+  now?: number;
   snapshot: SystemScanSnapshot | null;
   history: AuditJournalEntry[];
   historyRecovery: AuditHistoryRecovery | null;
@@ -39,7 +41,10 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
 }): HomeItem[] {
   const items: HomeItem[] = [];
   const unfinished = history.filter((entry) => UNCONFIRMED.has(entry.status));
-  const failed = history.filter((entry) => entry.status === 'FAILED');
+  // A failure is worth a Home slot while it is recent and the same action has not succeeded since.
+  // Older ones stay listed in Restore › History; on Home they read as a problem that never goes away.
+  const failed = history.filter((entry) => entry.status === 'FAILED' && now - Date.parse(entry.timestamp) <= FAILURE_WINDOW_MS &&
+    !history.some((later) => later.actionId === entry.actionId && later.status === 'SUCCESS' && Date.parse(later.timestamp) > Date.parse(entry.timestamp)));
   if (historyRecovery || unfinished.length) {
     items.push({
       key: 'unfinished',
@@ -97,7 +102,7 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
 }) {
   const items = homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence });
   const suggestionCount = recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length;
-  const shownSuggestions = items.filter((item) => !['unfinished', 'scan', 'regression'].includes(item.key)).length;
+  const shownSuggestions = items.filter((item) => !['unfinished', 'failed', 'scan', 'regression'].includes(item.key)).length;
   const undoable = history.filter((entry) => entry.rollback.available).length;
   const memory = snapshot?.metrics.memory.status === 'AVAILABLE' ? snapshot.metrics.memory.value : null;
   const drives = snapshot?.metrics.storage.status === 'AVAILABLE' ? snapshot.metrics.storage.value : [];

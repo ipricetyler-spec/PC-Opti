@@ -21,7 +21,10 @@ class BrokerEntryPoint {
       string helper = Path.Combine(AppContext.BaseDirectory, "Dialed.HidusbfHost.exe");
       using var helperImage = policy.PinExecutable(helper, false);
       Application.Run(new SetupWindow(policy, helper, selectionHint));
-    } catch (Exception error) { MessageBox.Show(error.Message, "Dialed driver setup unavailable", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+    } catch (Exception error) {
+      MessageBox.Show("Setup could not start because this copy of Dialed failed its own safety checks. Nothing was changed. Reinstall Dialed or update it, then try again.\r\n\r\nDetails: " + error.Message,
+        "Dialed driver setup unavailable", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
   }
 }
 
@@ -176,6 +179,7 @@ sealed class SetupWindow : SetupView {
     int? requested = rates.SelectedItem as int?;
     rates.Items.Clear();
     if (selected != null) foreach (var option in selected.Rates.Where(x => x.Available)) rates.Items.Add(option.Hz);
+    SavedRateHz = selected?.SavedHz;
     int? preferred = selected?.SavedHz ?? requested;
     if (preferred.HasValue && rates.Items.Contains(preferred.Value)) rates.SelectedItem = preferred.Value;
     else if (rates.Items.Contains(1000)) rates.SelectedItem = 1000;
@@ -220,7 +224,7 @@ sealed class SetupWindow : SetupView {
     busy = true; UpdateActions();
     try {
       var review = await Call<DriftReview>("REVIEW_DRIFT", new { });
-      if (!ConfirmReview(SetupPresentation.DriftReviewText(review.Differences), "State fingerprint shown in this review: " + review.StateDigest, false, false, "Keep current settings")) {
+      if (!ConfirmReview(SetupPresentation.DriftReviewText(review.Differences), "State fingerprint shown in this review: " + review.StateDigest, false, false, "Keep current settings", "technical details")) {
         SetStatus("Nothing was saved. The record still needs review; setup stays paused until it is resolved.");
         return;
       }

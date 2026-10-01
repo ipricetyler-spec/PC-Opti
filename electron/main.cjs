@@ -781,9 +781,12 @@ ipcMain.handle('pc-opti:open-external-link', async (_event, url) => {
 
 ipcMain.handle('pc-opti:list-timing-experiments', async () => {
   assertCapabilityAvailable('timing:view-performance-lab');
-  const [timing, bitLocker] = await Promise.all([listTimingExperiments(), readBitLockerStatus()]);
-  return { ...timing, bootNotice: bitLockerBootNotice(bitLocker) };
+  return listTimingExperiments();
 });
+
+// Read-only, and read again right before each boot-setting change or undo (single, batch, Restore
+// and Undo all), so the notice reflects BitLocker as it is at that moment.
+ipcMain.handle('pc-opti:read-boot-notice', async () => bitLockerBootNotice(await readBitLockerStatus()));
 
 ipcMain.handle('pc-opti:execute-timing-experiment', async (_event, actionId) => {
   assertShortString(actionId, 'Timing experiment action id', /^timing:(restore-automatic-clock-source|disable-dynamic-tick|restore-default-dynamic-tick)$/);

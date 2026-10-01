@@ -15,6 +15,7 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
   const setupBlocked = opening || busy || setupOpen || !bundle?.nativeBroker?.available || !verified || !supportedSpeed;
   const setupBlockReason = !verified
     ? bundle?.reasons.find((reason) => reason.code === 'BUNDLE_IDENTITY_FAILED')?.message || ''
+    : policyExpired ? 'Rate changes need a newer version of Dialed. Update Dialed to change rates again; the polling-rate and controls checks still work.'
     : !bundle?.nativeBroker?.available
       ? bundle?.nativeBroker?.message || bundle?.reasons.find((reason) => reason.code === 'AUTHENTICATED_NATIVE_HELPER_REQUIRED')?.message || ''
       : !supportedSpeed ? 'Rate changes are unavailable for this USB speed. You can still check Windows input delivery.' : '';
@@ -41,11 +42,10 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
     {device.speed === 'Low-Speed' && <p className="mt-3 text-xs text-slate-300">Low-Speed USB is not supported by this rate-change workflow. You can still check key, button or movement activity below.</p>}
     <button type="button" onClick={() => void openSetup()} disabled={setupBlocked} style={{ opacity: setupBlocked ? 0.45 : 1 }} aria-describedby={setupBlocked && setupBlockReason ? 'bundled-input-setup-blocked-reason' : undefined} className="mt-4 rounded-lg border border-cyan-300 bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-sm enabled:hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none">{opening ? 'Opening setup…' : setupOpen ? 'Setup is open…' : device.filterActive ? 'Change rate…' : 'Set up polling rate…'}</button>
     {setupBlocked && setupBlockReason && <p id="bundled-input-setup-blocked-reason" className="mt-2 text-xs text-slate-400">{setupBlockReason}</p>}
-    {policyExpired && <p role="status" className="mt-3 text-xs text-amber-100">The native rate-change policy has expired. No rate-change path is available until an authorized policy update. Scanning and input checks remain available; legacy controls are not a fallback.</p>}
     <p id="bundled-input-setup-status" role="status" aria-live="polite" aria-atomic="true" className="mt-2 text-xs text-slate-300">{statusMessage}</p>
-    <p className="mt-2 text-xs text-slate-400">Confirm this device in setup. Dialed checks whether its originals are already recorded and shows the applicable rates.</p>
+    {!setupBlocked || setupOpen || opening ? <p className="mt-2 text-xs text-slate-400">Confirm this device in setup. Dialed checks whether its originals are already recorded and shows the applicable rates.</p> : null}
     {error && <p role="alert" className="mt-2 text-xs text-amber-200"><ErrorText text={error} /></p>}
-    <div className="mt-3 rounded-lg border border-slate-800 p-3"><p className="text-xs font-semibold text-slate-200">Reconnect status</p><p className="mt-1 text-xs text-slate-400">{setupOpen ? 'Follow the current instruction in setup. Leave it open through the reconnect check.' : 'Reported in the setup window. A saved rate or a closed window alone does not verify reconnect.'}</p></div>
+    {setupOpen ? <div className="mt-3 rounded-lg border border-slate-800 p-3"><p className="text-xs font-semibold text-slate-200">Reconnect status</p><p className="mt-1 text-xs text-slate-400">{setupOpen ? 'Follow the current instruction in setup. Leave it open through the reconnect check.' : 'Reported in the setup window. A saved rate or a closed window alone does not verify reconnect.'}</p></div> : null}
     <details className="mt-4 border-t border-slate-800 pt-3"><summary className="cursor-pointer text-xs font-semibold text-slate-300">Driver setup and compatibility details</summary>
     {bundle && <>
       <p className="mt-3 text-xs text-slate-400">HIDUSBF by SweetLow / LordOfMice · {verified ? 'unchanged upstream files verified' : 'file verification failed'}. Compatibility below describes broader validation, not the result of your last rate change.</p>
@@ -54,7 +54,7 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
       {bundle.nativeBroker && <p className="mt-2 text-xs text-slate-400">{bundle.nativeBroker.message}</p>}
       <p className="mt-2 text-xs leading-relaxed text-slate-400">Higher-rate patching variants cannot run with Memory Integrity enabled. Dialed will not change that protection. Full-Speed devices cannot inherit High-Speed 8 kHz support.</p>
     </>}
-    <p className="mt-3 text-xs leading-relaxed text-slate-400">Use the delivery test below to measure Windows input events separately. Independent USB transaction evidence and physical latency remain untested.</p>
+    <p className="mt-3 text-xs leading-relaxed text-slate-400">Use Check polling rate below to see what Windows receives from the device. USB-level timing and latency are not measured.</p>
     </details>
   </section>;
 }

@@ -52,7 +52,7 @@ export function GpuPreferenceCenter({ onChanged, graphicsCards }: { onChanged: (
       title: `Set ${fileName(item.exePath)} to ${label}?`,
       description: 'This is the same per-app choice as Windows Settings › System › Display › Graphics.',
       details: item.exePath,
-      notice: 'Restart the program for the change to apply. Mostly matters on laptops; PCs with one graphics card see no difference. You can undo it in Restore › Recovery & history.',
+      notice: 'Restart the program for the change to apply. Mostly matters on laptops; PCs with one graphics card see no difference. You can undo it in Restore › History.',
       confirmLabel: `Use ${label}`,
     });
     if (!confirmed) return;

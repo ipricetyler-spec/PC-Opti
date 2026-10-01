@@ -60,7 +60,7 @@ try {
   $acl = Get-Acl -LiteralPath $directory
   if (-not $acl.AreAccessRulesProtected -or $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $ownerSid.Value) { throw 'Custody owner or inheritance refused.' }
   foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-    if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($ownerSid.Value, $systemSid.Value)) { throw 'Custody permissions are too broad.' }
+    if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($ownerSid.Value, $systemSid.Value)) { $extra = try { $rule.IdentityReference.Translate([Security.Principal.NTAccount]).Value } catch { $rule.IdentityReference.Value }; throw "CUSTODY_PERMISSIONS: the key folder also allows $extra. Remove that entry (the Codex sandbox has added one before) and try again." }
   }
   $privateFile = Join-Path $directory 'release-policy-private.dpapi'
   $publicFile = Join-Path $directory 'release-policy-public.pem'
@@ -107,7 +107,9 @@ try {
   }
   [ordered]@{ action = $Action; keyDirectory = $directory; privateFormat = 'DPAPI_CURRENT_USER_PKCS8'; rsaBits = $rsa.KeySize; publicKeyPath = $publicFile; publicKeySpkiSha256 = $fingerprint; accountRestricted = $true; reopenedAndVerified = $true; plaintextPrivateFileWritten = $false } | ConvertTo-Json -Compress
 } catch {
-  [Console]::Error.WriteLine('Protected policy key operation refused; no private material is reported.')
+  # Only the folder-permission reason is named: it holds an account name, never key material.
+  $reason = if ($_.Exception.Message -like 'CUSTODY_PERMISSIONS:*') { ' ' + $_.Exception.Message } else { '' }
+  [Console]::Error.WriteLine('Protected policy key operation refused; no private material is reported.' + $reason)
   exit 1
 } finally {
   if ($null -ne $privateBytes) { [Array]::Clear($privateBytes, 0, $privateBytes.Length) }

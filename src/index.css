@@ -169,6 +169,30 @@ select option {
 :root .border-cyan-400\/60,
 :root .border-cyan-500\/20,
 :root .border-cyan-500\/30 { border-color: rgb(var(--app-accent-rgb) / 0.42) !important; }
+/* The remaining cyan strengths in use, so no raw cyan shows through a theme (the Instrument
+   theme's selected device card kept a cyan ring). */
+:root .border-cyan-300,
+:root .border-cyan-300\/40,
+:root .border-cyan-400\/25,
+:root .border-cyan-400\/30,
+:root .border-cyan-400\/35,
+:root .border-cyan-400\/40,
+:root .border-cyan-500\/25,
+:root .border-cyan-500\/60 { border-color: rgb(var(--app-accent-rgb) / 0.42) !important; }
+:root .bg-cyan-400\/5,
+:root .bg-cyan-950\/10,
+:root .bg-cyan-950\/15,
+:root .bg-cyan-950\/20,
+:root .bg-cyan-950\/30 { background-color: rgb(var(--app-accent-rgb) / 0.06) !important; }
+:root .bg-cyan-400\/15,
+:root .bg-cyan-400\/20,
+:root .bg-cyan-500\/15 { background-color: rgb(var(--app-accent-rgb) / 0.16) !important; }
+:root .to-cyan-950\/20 { --tw-gradient-to: rgb(var(--app-accent-rgb) / 0.06) !important; }
+:root .ring-cyan-300\/70,
+:root .ring-cyan-400\/20,
+:root .ring-cyan-400\/30,
+:root .ring-cyan-400\/70 { --tw-ring-color: rgb(var(--app-accent-rgb) / 0.35) !important; }
+:root .outline-cyan-300 { outline-color: var(--app-accent) !important; }
 
 /* Violet is Dialed's secondary-information accent. Giving it a theme token
    makes palettes read as designed systems instead of simple primary recolors. */

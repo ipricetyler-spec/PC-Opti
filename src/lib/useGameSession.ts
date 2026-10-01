@@ -29,7 +29,7 @@ export function useGameSession(onChanged: () => void) {
     for (const item of current.applied) {
       try {
         const result = await native.rollbackAuditEntry(item.entryId);
-        messages.push(result.success ? `${item.name}: EcoQoS removed and verified.` : `${item.name}: ${result.error || 'restore did not verify; review Recovery & history.'}`);
+        messages.push(result.success ? `${item.name}: EcoQoS removed and verified.` : `${item.name}: ${result.error || 'restore did not verify; review Restore › History.'}`);
       } catch (error) {
         const text = error instanceof Error ? error.message : String(error);
         messages.push(/ended|reused/i.test(text) ? `${item.name}: app already closed, so EcoQoS ended with it.` : `${item.name}: ${text}`);

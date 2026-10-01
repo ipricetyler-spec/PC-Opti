@@ -367,7 +367,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
     const applied = test.source.kind === 'TWEAK' && test.change && !test.revertDeclaredAt;
     const confirmed = await confirm({
       title: 'Stop this test?',
-      description: applied ? 'The test is closed. The tweak stays as it is now; undo it from Restore › Recovery & history if you want.' : 'The test is closed. Your recordings are kept.',
+      description: applied ? 'The test is closed. The tweak stays as it is now; undo it from Restore › History if you want.' : 'The test is closed. Your recordings are kept.',
       details: `${test.source.title} in ${test.game}`,
       detailsLabel: 'Test',
       notice: 'Nothing on your PC changes.',

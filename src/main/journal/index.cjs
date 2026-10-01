@@ -720,7 +720,7 @@ function applyJournalDeletion(userDataPath, preview) {
   }
   const current = readJournal(userDataPath);
   if (journalFingerprint(current) !== preview.sourceFingerprint) {
-    throw new Error('Local Audit History changed after preview. Refresh and review deletion again.');
+    throw new Error('Restore › History changed after preview. Refresh and review deletion again.');
   }
   const selected = new Set(preview.deletableEntryIds);
   for (const entry of current) {
@@ -2637,7 +2637,7 @@ async function executeMaintenanceAction(userDataPath, actionId, adapters = {}) {
     title = CACHE_CLEANUP_KINDS[actionId].title;
     preAction = await (adapters.inspectCacheCleanup || inspectCacheCleanup)(actionId);
     if (!preAction || !Number.isInteger(preAction.pathCount) || preAction.pathCount < 1) {
-      throw new Error('No eligible cache files were found in a fresh inventory. Nothing was deleted and Local Audit History was not changed.');
+      throw new Error('No eligible cache files were found in a fresh inventory. Nothing was deleted and Restore › History was not changed.');
     }
     execute = () => (adapters.runCacheCleanup || runCacheCleanup)(actionId);
   } else {

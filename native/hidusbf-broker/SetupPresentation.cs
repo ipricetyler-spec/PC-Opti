@@ -119,9 +119,9 @@ static class SetupPresentation {
       : "This plan does not require a restart.";
     string mode = variant == "NOPATCH" ? "Standard USB filtering" : "USB driver patching";
     return $"Action: {action.Label}\nDevice: {(action.UsesDevice ? deviceName : "shared driver")}{rateLine}\nDriver mode: {mode}\n\n" +
-      action.Description + "\n\n" + (action.UsesDevice ? "The selected device includes its USB child functions.\n" : "") +
+      action.Description + "\n\n" + (action.UsesDevice ? "This includes every part of the device, such as a built-in headset jack or touchpad.\n" : "") +
       restart + "\nA setting does not prove USB delivery or latency.\n\n" +
-      (action.Code == "ADOPT" ? "Record these current settings?" : "Apply this exact preview?");
+      (action.Code == "ADOPT" ? "Record these current settings?" : "Apply this change?");
   }
   public static string ResultText(string status, string action = null, string deviceName = null) => status switch {
     "RECONNECT_REQUIRED" => "Saved. Now unplug " + DeviceLabel(deviceName) + " and plug it back into the same USB port. Keep this window open; setup checks it automatically. No Windows restart is needed. If setup was reopened, it needs to see a fresh unplug and reconnect.",
@@ -134,6 +134,6 @@ static class SetupPresentation {
     "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check saved operation. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
     "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again.",
     "NOT_APPLIED" => "The saved operation was not applied. Review a new preview before requesting another change.",
-    _ => "Operation status requires review: " + status
+    _ => "Setup could not tell how this ended (status " + status + "). Choose Check saved operation before trying again."
   };
 }

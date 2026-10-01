@@ -31,7 +31,7 @@ export function PowerPlanCard({ onChanged }: { onChanged: () => void }) {
       title: `Switch to ${target.name}?`,
       description: 'Windows switches to this plan. No plan is created, edited or deleted.',
       details: `From: ${current?.name || 'unknown'}\nTo: ${target.name}`,
-      notice: 'Higher-performance plans can raise power use, fan noise and heat, and may not change game results. Measure before keeping it. You can restore the previous plan from Restore › Recovery & history.',
+      notice: 'Higher-performance plans can raise power use, fan noise and heat, and may not change game results. Measure before keeping it. You can restore the previous plan from Restore › History.',
       confirmLabel: `Switch to ${target.name}`,
     });
     if (!confirmed) return;
@@ -41,7 +41,7 @@ export function PowerPlanCard({ onChanged }: { onChanged: () => void }) {
     try {
       const result = await native.activatePowerPlan(guid);
       if (!result.success) throw new Error(result.error || 'Windows did not confirm the plan switch.');
-      setStatus(`${target.name} is active and verified. Restore is available in Recovery & history.`);
+      setStatus(`${target.name} is active and verified. Restore is available in Restore › History.`);
       onChanged();
       setInventory(await native.listPowerPlans());
     } catch (reason) {

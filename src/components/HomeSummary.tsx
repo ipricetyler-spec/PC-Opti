@@ -3,6 +3,8 @@ import { ArrowRight, CheckCircle2, Cpu, HardDrive, LoaderCircle, MemoryStick, Mo
 import type { AuditHistoryRecovery, AuditJournalEntry, BenchmarkEvidenceState, LocalRecommendation, SystemScanSnapshot } from '../types';
 import { graphicsAdapters } from '../lib/displaySetup';
 import { TestsOnHome } from './TestsOnHome';
+import { YourSetup } from './YourSetup';
+import type { SetupSection } from '../lib/yourSetup';
 
 type Target = LocalRecommendation['targetPanel'];
 
@@ -85,7 +87,7 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
   return items.slice(0, 3);
 }
 
-export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest }: {
+export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest, onOpenSetupSection }: {
   snapshot: SystemScanSnapshot | null;
   isScanning: boolean;
   scanError: string | null;
@@ -99,6 +101,8 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
   onOpenRestore: () => void;
   onOpenSuggestions: () => void;
   onOpenTest: () => void;
+  /** Opens a section from Your setup; the summary is shown only when this is given. */
+  onOpenSetupSection?: (section: SetupSection) => void;
 }) {
   const items = homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence });
   const suggestionCount = recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length;
@@ -158,6 +162,8 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
       </div>
       <button type="button" onClick={onOpenRestore} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200">Open Restore</button>
     </section>
+
+    {onOpenSetupSection ? <YourSetup onOpen={onOpenSetupSection} /> : null}
 
     <TestsOnHome onOpen={onOpenTest} />
   </div>;

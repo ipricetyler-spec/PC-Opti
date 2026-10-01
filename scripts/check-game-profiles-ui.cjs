@@ -309,13 +309,15 @@ async function main() {
     faultPage.on('pageerror', (error) => expectedFaults.push(error.message));
     await faultPage.route('**/InputDevicesCenter-*.js', (route) => route.abort());
     await openFixture(faultPage, origin);
-    const callsBeforeFault = calls.length;
+    // Only operations that change files count; Home now reads the backup list (read-only) on open.
+    const mutating = () => calls.filter((name) => ['apply', 'undo', 'restore'].includes(name)).length;
+    const callsBeforeFault = mutating();
     await openSection(faultPage, 'Input devices');
     await faultPage.getByRole('heading',{name:'This view could not be displayed'}).waitFor();
     await faultPage.getByRole('button',{name:'Open recovery',exact:true}).click();
     await faultPage.getByRole('heading',{name:'Everything Dialed has changed',exact:true}).waitFor();
     assert.equal(await sectionButton(faultPage, 'Restore').getAttribute('aria-current'), 'page');
-    assert.equal(calls.length,callsBeforeFault,'Display recovery replayed an operation');
+    assert.equal(mutating(),callsBeforeFault,'Display recovery replayed an operation');
     await faultPage.close();
     const report = { status: 'PASS', scope: 'Browser plus real backend against fixture files; no Windows/game-host validation', layouts, sessionArchiveImport: 'PASS', windowsControls: 'PASS', updaterFailClosed: 'PASS', errors, calls, fixtureDirectory: root };
     fs.writeFileSync(path.join(out, 'game-profiles-ui-report.json'), JSON.stringify(report, null, 2));

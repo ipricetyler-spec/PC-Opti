@@ -292,7 +292,7 @@ export function InputDevicesCenter() {
       setTest(result);
       // Only a rate check with an actual reading is remembered; controls checks say nothing about rate.
       const observed = result?.deliveryAssessment?.observedHz;
-      if (purpose === 'RATE' && typeof observed === 'number' && observed > 0) setMeasuredRates(rememberMeasuredRate(selected.id, observed));
+      if (purpose === 'RATE' && typeof observed === 'number' && observed > 0) setMeasuredRates(rememberMeasuredRate(selected.id, observed, new Date(), selected.name));
     });
   }
   function reconcile(historyId: string) {

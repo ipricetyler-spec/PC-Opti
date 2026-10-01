@@ -71,3 +71,20 @@ test('a change Windows set back reads as no longer in effect, and unknown stays 
   assert.equal(noLongerInEffect(card(null), { enabled: true }), false, 'nothing verified: unknown');
   assert.equal(noLongerInEffect({ ...wroteOff, undoEntry: null }, { enabled: true }), false);
 });
+
+test('suggestion progress counts only settings Windows reported, and ticks only batchable ones', async () => {
+  const { suggestionProgress } = await import('../src/lib/tweaks');
+  const withSuggestion = TWEAKS.filter((definition) => definition.suggested).slice(0, 3);
+  assert.equal(withSuggestion.length, 3);
+  const cards = withSuggestion.map((definition) => ({ definition, state: null, changes: [], undoEntry: null }));
+  const key = (index: number) => withSuggestion[index].userSettingId ?? withSuggestion[index].id;
+  const settings = {
+    [key(0)]: { enabled: withSuggestion[0].suggested === 'on' },
+    [key(1)]: { enabled: withSuggestion[1].suggested !== 'on' },
+    [key(2)]: { enabled: null },
+  };
+  const progress = suggestionProgress(cards, settings, () => true);
+  assert.deepEqual({ matching: progress.matching, known: progress.known }, { matching: 1, known: 2 }, 'an unread setting counts neither way');
+  assert.deepEqual(progress.toTick, [withSuggestion[1].id]);
+  assert.deepEqual(suggestionProgress(cards, settings, () => false).toTick, []);
+});

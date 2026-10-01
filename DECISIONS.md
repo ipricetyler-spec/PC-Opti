@@ -264,7 +264,18 @@ notice; none blocks the change or touches a security setting.
 - **Safety notices are a separate callout** in confirmations (BitLocker, Controlled folder access,
   Modern Standby), not folded into the small print.
 - **Readiness never says anti-cheat "is running" when it was not checked or only installed.**
-- Deferred to the owner (feature ideas from the TunedPC screen comparison): per-device rates in the
-  device list, a "Your setup" strip on Home, fewer recording confirmations, game profile status and
-  plain names, remembered network consent, an optional restore point before batches, and a "no
-  longer in effect" check for Dialed's own changes.
+- Feature ideas from the TunedPC screen comparison were built on 2026-10-01 (see below).
+
+## 2026-10-01 — Comparison features, built to the seven owner requirements
+
+- **Saved and measured stay apart.** Device rows say "Saved 4,000 Hz" (read back) and "Measured
+  about 4,005 reports/s today" (observed); measurements are dated and kept per user only.
+- **Home's "Your setup"** labels each line read from Windows, measured, or recorded by Dialed;
+  anything unread says "Could not read" or "Not checked yet". No score, no "optimized".
+- **Recording asks once** for the same game process, length and readings until Dialed closes;
+  recording changes nothing on the PC, and each run still gets a fresh preview.
+- **Network consent** is remembered for exactly the disclosed server, mode and limits.
+- **A reversed Dialed change reads as no longer in effect**; nothing is ever reapplied on its own.
+- **The restore point is opt-in**, recorded, not undone by Dialed, stops the batch if unconfirmed,
+  and is never presented as a file backup or an exact undo.
+- **The suggestion counter only selects**; Apply selected still reviews every change.

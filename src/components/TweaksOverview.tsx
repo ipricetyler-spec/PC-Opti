@@ -2,7 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, FlaskConical, RotateCcw } from 'lucide-react';
 import type { AuditJournalEntry } from '../types';
-import { TWEAK_GROUPS, changedLabel, noLongerInEffect, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
+import { TWEAK_GROUPS, changedLabel, noLongerInEffect, suggestionProgress, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
 
 export interface UserSettingState {
   enabled: boolean | null;
@@ -135,6 +135,14 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
       <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">{heading?.intro ?? 'Every setting Dialed can change or guide, with what it does and when to leave it alone. Nothing here changes on its own: each change is previewed, confirmed, checked afterwards and can be undone.'}</p>
       {cards.length > 4 && <div className="mt-3 flex flex-wrap items-center gap-2"><label className="sr-only" htmlFor="tweak-filter">Find a tweak</label><input id="tweak-filter" type="search" maxLength={60} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setQuery(''); }} placeholder="Find a tweak…" className="w-64 max-w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />{query.trim() && <span role="status" className="text-xs text-slate-400">{shown.length ? `${shown.length} match${shown.length === 1 ? '' : 'es'}` : 'No tweak matches that.'}</span>}</div>}
       {batch && <div className="sticky top-2 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs">
+        {(() => {
+          // Ticking only selects; Apply selected still shows every change for review first.
+          const progress = suggestionProgress(cards, userSettings, (id) => Boolean(batch.actions[id]));
+          return progress.known ? <>
+            <span className="text-slate-400">{progress.matching} of {progress.known} match Dialed's suggestion</span>
+            {progress.toTick.length > 0 && !batch.running && <button type="button" onClick={() => progress.toTick.forEach((id) => batch.onSelect(id, true))} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Tick the {progress.toTick.length} that differ</button>}
+          </> : null;
+        })()}
         <span role="status" className="text-slate-300">{batch.selected.size ? `${batch.selected.size} selected` : 'Tick several tweaks to apply them together.'}</span>
         <button type="button" disabled={!batch.selected.size || batch.running} onClick={batch.onApply} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">{batch.running ? 'Applying…' : 'Apply selected'}</button>
         {batch.restorePoint && <label className="inline-flex items-center gap-1.5 text-slate-300"><input type="checkbox" checked={batch.restorePoint.checked} disabled={batch.running} onChange={(event) => batch.restorePoint?.onChange(event.target.checked)} className="h-4 w-4 accent-cyan-400" />Make a Windows restore point first</label>}

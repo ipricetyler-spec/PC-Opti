@@ -383,6 +383,25 @@ export function noLongerInEffect(card: TweakCardState, current: { enabled: boole
   return typeof verified === 'boolean' && typeof current?.enabled === 'boolean' && verified !== current.enabled;
 }
 
+/**
+ * How many tweaks with a Dialed suggestion already match it, counted only where Windows reported
+ * the current value, and which unmatched ones can be ticked for Apply selected. Unread settings are
+ * left out of both numbers rather than counted either way.
+ */
+export function suggestionProgress(cards: TweakCardState[], userSettings: Partial<Record<string, { enabled: boolean | null }>>, batchable: (id: string) => boolean) {
+  let matching = 0, known = 0;
+  const toTick: string[] = [];
+  for (const card of cards) {
+    const suggested = card.definition.suggested;
+    const enabled = userSettings[card.definition.userSettingId ?? card.definition.id]?.enabled;
+    if (!suggested || typeof enabled !== 'boolean') continue;
+    known += 1;
+    if (enabled === (suggested === 'on')) matching += 1;
+    else if (batchable(card.definition.id)) toTick.push(card.definition.id);
+  }
+  return { matching, known, toTick };
+}
+
 export function changedLabel(card: TweakCardState): string | null {
   if (!card.changes.length) return null;
   if (card.definition.perItem) return `${card.changes.length} change${card.changes.length === 1 ? '' : 's'} made by Dialed`;

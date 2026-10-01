@@ -37,6 +37,9 @@ async function run(outcome) {
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
     await openFixture(page, origin);
     await openSection(page, 'Tweaks');
+    // Game Mode is on, as suggested: counted, and nothing offered to tick.
+    await page.getByText("1 of 1 match Dialed's suggestion").waitFor();
+    assert.equal(await page.getByRole('button', { name: /^Tick the / }).count(), 0);
     await page.getByRole('checkbox', { name: /^Select Game Mode/ }).check();
     await page.getByRole('checkbox', { name: 'Make a Windows restore point first' }).check();
     await page.getByRole('button', { name: 'Apply selected' }).click();

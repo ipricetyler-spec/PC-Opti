@@ -556,3 +556,16 @@ setting change and a restart).
 
 Checks, one at a time: npm test 852/852, test:ts 130/130, lint, build, UI fixtures (incl. contrast
 and the new confirmation check), native fixture — all pass.
+
+## 2026-10-01 — comparison features (step 3)
+
+Eight features, one commit each, each with its own tests: device saved/measured rates
+(measured-rates test + input UI check), game profile status and plain names (game-setting-names
+test + game profiles UI check), network consent memory and saved-test lines (network-test-memory
+test + workspace UI check), one recording confirmation and start delay (new check-recording-ui),
+"no longer in effect" (tweaks test + new check-tweak-state-ui), optional restore point (journal
+test with fakes + new check-restore-point-ui), Your setup on Home (your-setup test + Home layout
+passes), suggestion counter (tweaks test + restore-point UI check). After each: npm test, test:ts,
+lint and UI fixtures all passed; final counts 853/853 and 138/138. The policy corpus test failed
+once mid-run (Smart App Control family, AGENTS.md) and passed alone and on the full rerun.
+Not verified: any of it in an installed build or on hardware.

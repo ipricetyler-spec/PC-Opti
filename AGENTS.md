@@ -21,7 +21,7 @@ into the build snapshots under `output/` and fail for reasons unrelated to your 
 
 ```
 npm test         # Node suite, .cjs tests   — expect 856/856
-npm run test:ts  # bun, TypeScript tests    — expect 141/141
+npm run test:ts  # bun, TypeScript tests    — expect 142/142
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build
 ```

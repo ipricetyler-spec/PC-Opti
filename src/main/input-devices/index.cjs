@@ -585,12 +585,13 @@ function createInputService(directory, adapters = {}) {
   // renamed by Windows) is counted, never guessed at.
   async function setupRecordStatus() {
     const record = (adapters.readSetupRecord || readSetupRecord)();
-    if (!record) return { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0 };
+    if (!record) return { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0, missingRecordedNames: [] };
     const inventory = await readInventory();
     const present = new Map();
     for (const [id, node] of inventory.map) if (node.present && /^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}\\/i.test(id)) { const key = nativeSetupDeviceId(id); if (key) present.set(key, digest(id)); }
     const recordedDeviceIds = record.ownedDeviceIds.filter((id) => present.has(id)).map((id) => present.get(id));
-    return { state: record.state, recordedDeviceIds, missingRecordedCount: record.ownedDeviceIds.length - recordedDeviceIds.length };
+    const missing = record.ownedDeviceIds.filter((id) => !present.has(id));
+    return { state: record.state, recordedDeviceIds, missingRecordedCount: missing.length, missingRecordedNames: missing.map((id) => record.names?.[id]).filter(Boolean) };
   }
   async function setupSelectionKey(deviceId) {
     const inventory = await readInventory();

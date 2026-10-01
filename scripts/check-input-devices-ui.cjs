@@ -238,7 +238,7 @@ async function main() {
         getInputDriverLifecycleStatus: (deviceDigest) => call('lifecycleStatus', deviceDigest),
         getBundledInputStatus: () => call('bundleStatus'),
         // Setup's own record, as the page reads it: one recorded device is not connected.
-        readInputSetupRecord: async () => ({ state: 'OK', recordedDeviceIds: [], missingRecordedCount: 1 }),
+        readInputSetupRecord: async () => ({ state: 'OK', recordedDeviceIds: [], missingRecordedCount: 1, missingRecordedNames: ['DualSense Edge Wireless Controller'] }),
         openBundledInputSetup: async () => { window.__fixtureSetupLaunches = (window.__fixtureSetupLaunches || 0) + 1; return {status:'OPENED',changed:false}; },
         onBundledInputSetupClosed: listener => { window.__closeNativeSetup = listener; return () => { delete window.__closeNativeSetup; }; },
         previewInputDriverInstall: (deviceDigest, requestedHz) => call('lifecyclePreview', 'INSTALL', deviceDigest, requestedHz),
@@ -398,7 +398,7 @@ async function main() {
     await resultPanel.getByLabel('Polling rate result').getByText('About 4,005 reports per second', { exact: true }).waitFor();
     await resultPanel.getByLabel('Polling rate result').getByText('Matches the saved 4000 Hz.', { exact: true }).waitFor();
     // Setup's record reaches the page: a recorded device that is not connected is named.
-    await section.getByRole('note').filter({ hasText: /1 device whose original settings setup recorded is not connected/ }).waitFor();
+    await section.getByRole('note').filter({ hasText: /^DualSense Edge Wireless Controller isn't connected\. Setup recorded its original settings\. Plug it back into the same USB port/ }).waitFor();
     // The device list keeps saved and measured apart, and dates the measurement.
     await section.getByLabel('Connected input devices').getByText(/Saved 4,000 Hz · Measured about 4,005 reports\/s today/).waitFor();
     assert.doesNotMatch(await resultPanel.getByLabel('Polling rate result').getAttribute('class'), /emerald|green/);

@@ -898,7 +898,9 @@ test("setup's record is matched to connected devices, and a recorded device that
   // The harness's connected device; setup names it by its own id, the page by the app's id.
   const connected = input.nativeSetupDeviceId(String.raw`USB\VID_1234&PID_5678\ONE`);
   const status = async (record) => harness({ readSetupRecord: () => record }).service.setupRecordStatus();
-  assert.deepEqual(await status(null), { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0 });
+  assert.deepEqual(await status(null), { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0, missingRecordedNames: [] });
+  // A missing device is named when setup's record has its name.
+  assert.deepEqual((await status({ state: 'OK', ownedDeviceIds: ['c'.repeat(64)], names: { ['c'.repeat(64)]: 'DualSense Edge Wireless Controller' } })).missingRecordedNames, ['DualSense Edge Wireless Controller']);
   const missing = await status({ state: 'OK', ownedDeviceIds: ['c'.repeat(64)] });
   assert.equal(missing.missingRecordedCount, 1);
   assert.equal((await status({ state: 'NEEDS_REVIEW', ownedDeviceIds: [] })).state, 'NEEDS_REVIEW');

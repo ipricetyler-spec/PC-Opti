@@ -6,6 +6,7 @@ import { TabRow, TabPanel } from './TabRow';
 import { BundledInputStatus } from './BundledInputStatus';
 import { plainLabel } from '../lib/plainLabels';
 import { deviceRateLine, readMeasuredRates, rememberMeasuredRate } from '../lib/measuredRates';
+import { missingDevicesNotice } from '../lib/setupNotice';
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-40';
 const primary = 'inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-40';
@@ -74,7 +75,7 @@ export function InputDevicesCenter() {
   }, [inventory]);
   const setupNotice = setupRecord?.state === 'NEEDS_REVIEW' ? 'Setup\'s saved record needs a review before it can change rates again. Open setup and choose Review what changed.'
     : setupRecord?.state === 'PENDING' ? 'A saved rate change is still waiting to finish. Open setup and choose Check the saved change.'
-    : setupRecord && setupRecord.missingRecordedCount > 0 ? `${setupRecord.missingRecordedCount} device${setupRecord.missingRecordedCount === 1 ? ' whose original settings setup recorded is' : 's whose original settings setup recorded are'} not connected right now. If you moved one to another USB port, put it back in the port it used before restoring it or changing its rate.`
+    : setupRecord && setupRecord.missingRecordedCount > 0 ? missingDevicesNotice(setupRecord.missingRecordedCount, setupRecord.missingRecordedNames ?? [])
     : null;
   // After setup closes, keyboard focus moves to the check that shows what Windows receives. It never runs it.
   const rateCheckButton = useRef<HTMLButtonElement | null>(null);

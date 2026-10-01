@@ -18,7 +18,7 @@ test('the read-only reader verifies a journal written by the real native Journal
     runHidusbfFixture(['--write-journal-sample', file]);
     const bytes = fs.readFileSync(file);
     assert.equal(JSON.parse(latestVerifiedPayload(bytes)).Note, 'Unicode check: café', 'the latest verified record');
-    assert.deepEqual(readSetupRecord(programData), { state: 'NEEDS_REVIEW', ownedDeviceIds: ['a'.repeat(64), 'b'.repeat(64)] });
+    assert.deepEqual(readSetupRecord(programData), { state: 'NEEDS_REVIEW', ownedDeviceIds: ['a'.repeat(64), 'b'.repeat(64)], names: {} });
     // Any altered byte breaks the chain, and the result is unknown, never fine.
     const altered = Buffer.from(bytes); altered[10] ^= 1; fs.writeFileSync(file, altered);
     assert.equal(readSetupRecord(programData), null);
@@ -35,7 +35,7 @@ test('the read-only reader verifies a journal written by the real native Journal
 test('no record, a linked path or a malformed payload are told apart from a healthy record', () => {
   const programData = tempDir('dialed-setup-record-none-');
   try {
-    assert.deepEqual(readSetupRecord(programData), { state: 'NONE', ownedDeviceIds: [] });
+    assert.deepEqual(readSetupRecord(programData), { state: 'NONE', ownedDeviceIds: [], names: {} });
     assert.equal(readSetupRecord('relative'), null);
     assert.equal(readSetupRecord(programData, { lstatSync: () => ({ isSymbolicLink: () => true, isFile: () => true, size: 1 }) }), null);
   } finally { fs.rmSync(programData, { recursive: true, force: true }); }
@@ -43,4 +43,8 @@ test('no record, a linked path or a malformed payload are told apart from a heal
   assert.equal(summarizeSetupRecord('{"Ownership":{}}'), null);
   assert.equal(summarizeSetupRecord('{"NeedsReview":false,"Pending":{"x":1},"Ownership":{"Devices":{}}}').state, 'PENDING');
   assert.equal(summarizeSetupRecord('{"NeedsReview":false,"Pending":null,"Ownership":{"Devices":{}}}').state, 'OK');
+  // Names come from the saved observation and drop setup's instance-id suffix.
+  const id = 'd'.repeat(64);
+  const named = summarizeSetupRecord(JSON.stringify({ NeedsReview: false, Pending: null, Ownership: { Devices: { [id]: {} } }, Expected: { Devices: [{ Id: id, Name: 'DualSense Edge Wireless Controller · USB\\VID_054C&PID_0DF2\\X' }, { Id: 'e'.repeat(64), Name: 'Not owned' }] } }));
+  assert.deepEqual(named.names, { [id]: 'DualSense Edge Wireless Controller' });
 });

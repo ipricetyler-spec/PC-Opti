@@ -29,14 +29,22 @@ function latestVerifiedPayload(bytes) {
   return last;
 }
 
+// Setup names a device "<product> · <instance id>"; the page shows only the product name.
+const plainName = (name) => typeof name === 'string' ? name.split(' · ')[0].replace(/[\x00-\x1f]/g, '').trim().slice(0, 120) : '';
+
 /** NONE: setup has no record yet. OK / NEEDS_REVIEW / PENDING come from the latest record. */
 function summarizeSetupRecord(payload) {
-  if (payload === null) return { state: 'NONE', ownedDeviceIds: [] };
+  if (payload === null) return { state: 'NONE', ownedDeviceIds: [], names: {} };
   let record;
   try { record = JSON.parse(payload); } catch { return null; }
   if (!record || typeof record !== 'object' || typeof record.NeedsReview !== 'boolean') return null;
   const devices = record.Ownership?.Devices && typeof record.Ownership.Devices === 'object' ? Object.keys(record.Ownership.Devices).filter((id) => /^[a-f0-9]{64}$/.test(id)) : [];
-  return { state: record.NeedsReview ? 'NEEDS_REVIEW' : record.Pending ? 'PENDING' : 'OK', ownedDeviceIds: devices };
+  // Names come from the saved observation, so a device that is not connected can still be named.
+  const names = {};
+  for (const device of Array.isArray(record.Expected?.Devices) ? record.Expected.Devices : []) {
+    if (device && devices.includes(device.Id) && plainName(device.Name)) names[device.Id] = plainName(device.Name);
+  }
+  return { state: record.NeedsReview ? 'NEEDS_REVIEW' : record.Pending ? 'PENDING' : 'OK', ownedDeviceIds: devices, names };
 }
 
 function readSetupRecord(programData = process.env.ProgramData, io = fs) {

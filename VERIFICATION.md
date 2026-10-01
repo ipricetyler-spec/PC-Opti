@@ -640,3 +640,13 @@ Driven through UI Automation, captures by PrintWindow; nothing was left changed.
   games detection looks for (UI check added). Needs the next package to reach the installed app.
 Not exercised (need the owner): a mouse rate change and rate check while moving the mouse, plugging
 a device in between setup visits, recording with a start delay in a running game.
+
+## 2026-10-01 — clearer "not connected" notice on Input devices (owner feedback)
+
+The notice now names the device from setup's own record and says what to do: "DualSense Edge
+Wireless Controller isn't connected. Setup recorded its original settings. Plug it back into the
+same USB port before you restore them or change its rate." Without a readable name it says "A device
+whose original settings setup recorded…". Checked read-only against the owner's real record (names
+read: DualSense Edge Wireless Controller, Razer Viper V2 Pro; the DualSense is unplugged, so it is
+the one named). Checks: npm test 856/856, test:ts 142/142, lint, UI fixtures — all pass. Not yet in
+the installed build (installed = 407b041).

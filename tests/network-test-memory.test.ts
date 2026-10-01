@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { consentSignature, savedTestLine } from '../src/lib/networkTestMemory';
 import type { NetworkQualityHistoryEntry } from '../src/types';
 
-const entry = (overrides: Partial<NetworkQualityHistoryEntry> & { metrics?: Partial<NetworkQualityHistoryEntry['metrics']> } = {}): NetworkQualityHistoryEntry => ({
+const entry = (overrides: Omit<Partial<NetworkQualityHistoryEntry>, 'metrics'> & { metrics?: Partial<NetworkQualityHistoryEntry['metrics']> } = {}): NetworkQualityHistoryEntry => ({
   id: 'x', completedAt: '2026-09-30T18:05:00Z', status: 'COMPLETE', endpointId: 'e', methodVersion: 'warmed-https-v2', mode: 'quick', quality: 'SUFFICIENT',
   ...overrides,
   metrics: { idleLatencyMs: 12.4, idleJitterMs: 1, idleP90Ms: 15, idleVariabilityMs: 2, requestFailurePercent: 0, downloadLoadedLatencyMs: 40, downloadLoadedLatencyIncreaseMs: 27.6, uploadLoadedLatencyMs: null, uploadLoadedLatencyIncreaseMs: null, downloadMbps: 1153.2, uploadMbps: 46.04, ...overrides.metrics },

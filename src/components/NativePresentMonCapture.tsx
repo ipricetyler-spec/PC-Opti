@@ -1,6 +1,6 @@
 import { ErrorText } from './ErrorText';
 import { CheckCircle2, CircleStop, Cpu, ExternalLink, LoaderCircle, Play, RefreshCw, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BenchmarkImportPreview, PresentMonCaptureConsentPreview, PresentMonCaptureState, PresentMonTarget, PresentMonToolInfo } from '../types';
 import { plainLabel } from '../lib/plainLabels';
 import { readHardwareReadingsPreference } from '../lib/telemetry';
@@ -18,6 +18,14 @@ interface NativePresentMonCaptureProps {
    *  nothing is chosen, so another program is never recorded by accident. */
   preferTarget?: string;
 }
+
+// A recording changes nothing on the PC, so after one confirmation the same recording (same game
+// process, length and readings) starts without asking again until Dialed closes. Kept in memory
+// only; each recording still gets its own fresh preview, so the game must still be running.
+let approvedRecording: string | null = null;
+export const recordingApprovalKey = (target: { targetId: string; pid: number }, durationSeconds: number, hardwareReadings: boolean) =>
+  `${target.targetId}|${target.pid}|${durationSeconds}|${hardwareReadings ? 1 : 0}`;
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const letters = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -39,6 +47,10 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
   const [captureState, setCaptureState] = useState<PresentMonCaptureState>({ active: null, entries: [], maximumEntries: 100 });
   const [targetId, setTargetId] = useState('');
   const [duration, setDuration] = useState<10 | 20 | 30>(20);
+  // Seconds to wait after Start so the reader can switch back to the game first.
+  const [startDelay, setStartDelay] = useState<0 | 5 | 10>(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const cancelCountdown = useRef(false);
   const [selectedCaptures, setSelectedCaptures] = useState<string[]>([]);
   const [showAllRecordings, setShowAllRecordings] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -102,16 +114,27 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       setBusy(false);
       return;
     }
-    const confirmed = await confirm({
+    const approvalKey = recordingApprovalKey(preview.target, preview.durationSeconds, preview.hardwareReadings === true);
+    const confirmed = approvedRecording === approvalKey || await confirm({
       title: `Start a ${preview.durationSeconds}-second frame-time capture?`,
       description: preview.consequence,
       details: `Target: ${preview.target.name} (PID ${preview.target.pid})\nWindow: ${preview.target.windowTitle}\nPresentMon ${preview.toolVersion}\nHardware readings: ${preview.hardwareReadings ? 'on — CPU, memory and GPU counters once per second' : 'off'}`,
-      notice: 'Play the same scene the same way each time while it records.',
+      notice: 'Play the same scene the same way each time while it records. Recording changes nothing on this PC, so Dialed will not ask again for this game, length and readings until you close Dialed.',
       confirmLabel: 'Start recording',
     });
     if (!confirmed) {
       setBusy(false);
       return;
+    }
+    approvedRecording = approvalKey;
+    if (startDelay > 0) {
+      cancelCountdown.current = false;
+      for (let left = startDelay; left > 0; left -= 1) {
+        setCountdown(left);
+        await wait(1000);
+        if (cancelCountdown.current) { setCountdown(null); setStatus('Recording canceled before it started. Nothing was recorded.'); setBusy(false); return; }
+      }
+      setCountdown(null);
     }
     try {
       await window.pcOptiNative.startPresentMonCapture(preview.token);
@@ -202,6 +225,8 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     <div className={`${compact ? '' : 'mt-4 '}grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end`}>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Game</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={Boolean(captureState.active)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value="">Choose a running game</option>{targets.map((target) => <option key={target.targetId} value={target.targetId}>{target.name} · PID {target.pid} · {target.windowTitle}</option>)}</select></label>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Duration</span><select value={duration} onChange={(event) => setDuration(Number(event.target.value) as 10 | 20 | 30)} disabled={Boolean(captureState.active)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={10}>10 seconds</option><option value={20}>20 seconds</option><option value={30}>30 seconds</option></select></label>
+      <label className="text-xs text-slate-400"><span className="mb-1 block">Start</span><select value={startDelay} onChange={(event) => setStartDelay(Number(event.target.value) as 0 | 5 | 10)} disabled={Boolean(captureState.active) || busy} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={0}>Right away</option><option value={5}>After 5 seconds</option><option value={10}>After 10 seconds</option></select></label>
+      {countdown !== null ? <p role="status" className="self-center text-xs text-cyan-200">Recording starts in {countdown} s. Switch to the game. <button type="button" onClick={() => { cancelCountdown.current = true; }} className="ml-1 underline">Cancel</button></p> : null}
       {captureState.active ? <button type="button" onClick={stop} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40"><CircleStop className="h-4 w-4" />Stop</button> : <button type="button" onClick={start} disabled={busy || !selectedTarget || tool?.status !== 'AVAILABLE'} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-40">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}Start recording</button>}
       {compact && <button type="button" onClick={refreshAll} disabled={busy || Boolean(captureState.active)} title="Look for running games again" className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />Refresh</button>}
     </div>

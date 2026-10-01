@@ -606,3 +606,16 @@ An item-by-item pass over every MUST and SHOULD in all eight reports found four 
   connected. Unverifiable records report nothing. Tested against a journal written by the real
   C# JournalLog, plus altered and truncated copies.
 Checks, one at a time: npm test 856/856, test:ts 141/141, lint, build, UI fixtures — all pass.
+
+## 2026-10-01 — the signed build of 407b041 is installed
+
+Order per docs/RELEASE_PACKAGING_CHECKLIST.md, one step at a time: the Codex sandbox's read entry on
+C:\Users\itach\.dialed-signing was removed again (only that entry); npm run release:native (helpers
+built, Azure-signed, general release policy signed, both verifiers passed; broker 24f35fb7…,
+helper a1c165de…; policy expires 2027-10-31); npm run build; sbom (392 components);
+license:inventory (525 records); electron-builder --win nsis (installer, uninstaller and
+elevate.exe signed and verified); candidate:verify → SIGNED_INSTALLER_CANDIDATE. Installer
+SHA-256 E4D9EEC9…E5CE7ABE, run with /S, exit 0. Installed Dialed.exe, app.asar, both helpers and
+the policy/signature match the verified package byte for byte; Dialed.exe signature Valid;
+read-only status of the installed native release: NATIVE_BROKER_READY.
+Not yet verified: anything by running the installed app or on hardware.

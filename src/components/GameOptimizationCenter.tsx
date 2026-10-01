@@ -2,6 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useRef, useState } from 'react';
 import { ArchiveRestore, Check, Gamepad2, Play, Search, X } from 'lucide-react';
 import type { GameConfigBackup, GameOptimizationPreview, GameOptimizationProfile, GameOptimizationResult } from '../types';
+import { plainSettingName, plainSettingValue } from '../lib/gameSettingNames';
 
 interface Props {
   busy: boolean;
@@ -20,6 +21,21 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
   const inFlight = useRef(false);
+  const previewHeading = useRef<HTMLHeadingElement | null>(null);
+  // Read-only status for each card: whether Windows lists the game, and when Dialed last applied it.
+  const [installed, setInstalled] = useState<Set<string> | null>(null);
+  const [applied, setApplied] = useState<Map<string, string>>(new Map());
+  const readBackups = () => window.pcOptiNative?.listGameConfigBackups?.().then((value) => {
+    const latest = new Map<string, string>();
+    for (const backup of Array.isArray(value) ? value : []) if (backup.profileUndo && (!latest.has(backup.gameId) || backup.createdAt > latest.get(backup.gameId)!)) latest.set(backup.gameId, backup.createdAt);
+    setApplied(latest);
+  }).catch(() => {});
+  useEffect(() => {
+    void readBackups();
+    window.pcOptiNative?.discoverInstalledGames?.().then((value) => setInstalled(new Set(value.games.map((game) => game.guideId)))).catch(() => setInstalled(null));
+  }, []);
+  // Bring the preview into view: at 960px it opens below every profile card.
+  useEffect(() => { if (preview && previewHeading.current) { previewHeading.current.scrollIntoView({ block: 'nearest' }); previewHeading.current.focus(); } }, [preview]);
   useEffect(() => {
     let active = true;
     const api = window.pcOptiNative;
@@ -55,6 +71,7 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
       const applied = await window.pcOptiNative!.applyGameProfile(token);
       setResult(applied);
       onBackupCreated(applied.backup);
+      void readBackups();
     }, 'Backing up, applying and checking…');
   }
 
@@ -70,16 +87,17 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
       {profiles.map((profile) => <article key={profile.id} className="min-w-0 rounded-xl border border-slate-700 bg-slate-950/45 p-4">
         <h3 className="flex items-center gap-2 text-base font-bold text-white"><Gamepad2 className="h-4 w-4 shrink-0 text-cyan-300" />{profile.game}</h3>
         <p className="mt-1 text-xs font-semibold text-slate-200">{profile.title}</p>
+        <p className="mt-1 text-[11px] text-slate-400">{installed === null ? '' : installed.has(profile.gameId) ? 'Listed in Windows as installed · ' : 'Not listed in Windows as installed · '}{applied.has(profile.gameId) ? `Applied by Dialed on ${new Date(applied.get(profile.gameId)!).toLocaleDateString()}` : 'Not applied by Dialed'}</p>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">{profile.description}</p>
         <button type="button" onClick={() => showPreview(profile.id)} disabled={busy} className={`${buttonClass} mt-3`}><Search className="h-3.5 w-3.5" />Preview {profile.game}</button>
         <details data-technical-detail className="mt-3 text-[11px] leading-relaxed text-slate-400"><summary className="cursor-pointer text-slate-300">Sources and settings file</summary><p className="mt-2">{profile.evidence}</p><p className="mt-2">{profile.fileHint}</p><p className="mt-2">Only settings already in the file are changed. If the file looks unfamiliar, Dialed stops.</p><div className="mt-2 flex flex-wrap gap-3"><a href={profile.sourceUrl} onClick={(event) => { event.preventDefault(); void window.pcOptiNative?.openExternalLink(profile.sourceUrl).catch((error) => setError(String(error))); }} className="text-cyan-300 underline">Publisher guidance</a><a href={profile.pathSourceUrl} onClick={(event) => { event.preventDefault(); void window.pcOptiNative?.openExternalLink(profile.pathSourceUrl).catch((error) => setError(String(error))); }} className="text-cyan-300 underline">Config location</a></div></details>
       </article>)}
     </div>
     {preview ? <div className="mt-4 min-w-0 rounded-xl border border-cyan-400/30 bg-slate-950/70 p-4">
-      <div className="flex items-start justify-between gap-3"><h3 className="text-sm font-bold text-white">{currentProfile?.game} — exact changes</h3><button type="button" aria-label="Cancel profile preview" onClick={() => setPreview(null)} disabled={busy} className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button></div>
+      <div className="flex items-start justify-between gap-3"><h3 ref={previewHeading} tabIndex={-1} className="text-sm font-bold text-white">{currentProfile?.game} — exact changes</h3><button type="button" aria-label="Cancel profile preview" onClick={() => setPreview(null)} disabled={busy} className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button></div>
       <p className="mt-2 text-[11px] text-slate-400">{preview.sourcePath}</p>
       {preview.protectionNotice ? <p role="note" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 text-xs leading-relaxed text-amber-100">{preview.protectionNotice}</p> : null}
-      {preview.changes.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-xs"><thead className="text-slate-400"><tr><th className="py-2 pr-3">Setting</th><th className="pr-3">Current</th><th>After</th></tr></thead><tbody>{preview.changes.map((change) => <tr key={change.key} className="border-t border-slate-800"><td className="py-2 pr-3 text-slate-200">{change.key}</td><td className="pr-3 text-slate-400">{change.before}</td><td className="font-semibold text-cyan-300">{change.after}</td></tr>)}</tbody></table></div> : <p role="status" className="mt-3 text-sm text-emerald-300">Already matches this profile. Nothing to apply.</p>}
+      {preview.changes.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-xs"><thead className="text-slate-400"><tr><th className="py-2 pr-3">Setting</th><th className="pr-3">Current</th><th>After</th></tr></thead><tbody>{preview.changes.map((change) => <tr key={change.key} className="border-t border-slate-800"><td className="py-2 pr-3 text-slate-200">{plainSettingName(change.key)}<span data-technical-detail className="block text-[11px] text-slate-500">{change.key}</span></td><td className="pr-3 text-slate-400">{plainSettingValue(change.key, change.before)}<span data-technical-detail className="block text-[11px] text-slate-500">{change.before}</span></td><td className="font-semibold text-cyan-300">{plainSettingValue(change.key, change.after)}<span data-technical-detail className="block text-[11px] font-normal text-slate-500">{change.after}</span></td></tr>)}</tbody></table></div> : <p role="status" className="mt-3 text-sm text-emerald-300">Already matches this profile. Nothing to apply.</p>}
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">Lower effects mean less visual detail. Measure to see whether it helps. {onUndoProfile ? 'Undo puts back only these settings; anything else you change in the game stays. A full-file restore is under Games › Backups.' : 'Restoring puts back the whole file, including any other settings you changed since.'}</p>
       <button type="button" disabled={busy || preview.changes.length === 0} onClick={applyPreview} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"><Play className="h-3.5 w-3.5" />Back up & apply {preview.changes.length} {preview.changes.length === 1 ? 'change' : 'changes'}</button>
     </div> : null}

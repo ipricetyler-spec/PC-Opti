@@ -133,6 +133,10 @@ async function main() {
     await section.getByRole('button', { name: 'Preview Fortnite', exact: true }).click();
     await section.getByRole('heading', { name: 'Fortnite — exact changes' }).waitFor();
     assert.equal(await section.locator('tbody tr').count(), 3);
+    // Plain names and in-game levels, with the preview brought into view and focused.
+    const firstRow = await section.locator('tbody tr').first().innerText();
+    assert.match(firstRow, /Shadows/); assert.match(firstRow, /Epic/); assert.match(firstRow, /Low/);
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Fortnite — exact changes');
     assert.equal(calls.filter((name) => name === 'apply').length, 0);
     await section.getByRole('button', { name: 'Cancel profile preview' }).click();
     assert.equal(fs.readFileSync(source, 'utf8'), original);

@@ -25,12 +25,33 @@ namespace Dialed.HidusbfHelper {
     // adjacent key file or synthetic 'signed' flag can replace this trust anchor.
     static readonly string ReleasePublicKeyPem = "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA4IbQWYUyZlk1v99Q47u/\nUBDTAh+HG++NEaQdBPzd23cOKye+DeijbW8ZPOHeMM/7GrckszuDC8yz4dCJUJXW\n06iFrI0O/DQsnD3tSs86LMhVR6xj72aWJEcXsnMV3S+hxljNQWogcHYFf+EHSVv8\nFq0wagiOg+EBTeDYAYIvbQZTfjcZpFnnnsvFVBCA+9wv8aQ0kPBCqMxFtsbOQpfR\n6U805YCUdAFS2EldjO6YWtsKdGkaat8JCvrHiEdvpsMfymyNnwvm2zB7SlClKkC0\nAzSx1CWt7YbCOxJeQ5ygIKQ1H5I2tNOODvS1OpMJpYLrwQPogBbq+eOBOAWkOK5G\nSXfu6fwXhlzGcj+pA1AHtzVEBMRblOtb+JcN8aVqup270K6wtB8A/AIBX+NQgR8v\nNNcdDRosaJ3UOgA7GxwLmo5a9xaj/Xtgsz6I+lZLT+/QbHB6EDjjJhe/WimUzTa/\nAKZ7S9ad8JBVtUXU/guZZ68ZIczK4a0Kj5nSAVKx9OrBAgMBAAE=\n-----END PUBLIC KEY-----\n";
     public ReleasePolicyData Data { get; }
-    ReleasePolicy(ReleasePolicyData data) { Data = data; }
-    public static ReleasePolicy Load(string directory) {
+    /** The general release expired; only restoring devices and removing the driver are allowed. */
+    public bool RecoveryOnly { get; }
+    ReleasePolicy(ReleasePolicyData data, bool recoveryOnly = false) { Data = data; RecoveryOnly = recoveryOnly; }
+    public static ReleasePolicy Load(string directory, bool allowRecovery = false) {
       if (string.IsNullOrWhiteSpace(ReleasePublicKeyPem)) throw new InvalidOperationException("UNCONFIGURED: native release signing trust is not configured.");
       byte[] policy = ReadBounded(Path.Combine(directory, "release-policy.json"), 65536);
       byte[] signature = ReadBounded(Path.Combine(directory, "release-policy.sig"), 1024);
-      return new ReleasePolicy(Verify(policy, signature, ReleasePublicKeyPem, DateTimeOffset.UtcNow));
+      try { return new ReleasePolicy(Verify(policy, signature, ReleasePublicKeyPem, DateTimeOffset.UtcNow)); }
+      catch (InvalidOperationException) when (allowRecovery) {
+        var expired = ExpiredGeneralRelease(policy, signature, ReleasePublicKeyPem, DateTimeOffset.UtcNow);
+        if (expired == null) throw;
+        return new ReleasePolicy(expired, true);
+      }
+    }
+    // A schema 2 release that passes every check as of just before it expired: same key, same
+    // fields, same lifetime limit. Only the passage of time is forgiven, nothing else.
+    internal static ReleasePolicyData ExpiredGeneralRelease(byte[] policy, byte[] signature, string publicKeyPem, DateTimeOffset now) {
+      DateTimeOffset expiry;
+      try {
+        using var document = JsonDocument.Parse(policy, new JsonDocumentOptions { MaxDepth = 8 });
+        if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("SchemaVersion", out var schema) || schema.GetRawText() != "2" ||
+            !document.RootElement.TryGetProperty("ExpiresAt", out var at) || at.ValueKind != JsonValueKind.String ||
+            !DateTimeOffset.TryParse(at.GetString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out expiry)) return null;
+      } catch (JsonException) { return null; }
+      if (expiry > now) return null;
+      try { return Verify(policy, signature, publicKeyPem, expiry.AddTicks(-1)); }
+      catch (InvalidOperationException) { return null; }
     }
     internal static ReleasePolicyData Verify(byte[] bytes, byte[] signature, string publicKeyPem, DateTimeOffset now) {
       if (bytes.Length < 1 || bytes.Length > 65536 || signature.Length < 1 || signature.Length > 1024) throw new InvalidOperationException("Release policy exceeds bounds.");
@@ -111,10 +132,13 @@ namespace Dialed.HidusbfHelper {
         return stream;
       } catch { stream.Dispose(); throw; }
     }
-    public bool AcceptPlatform(PlatformFacts facts) => facts != null && Data.ExpiresAt > DateTimeOffset.UtcNow && (Data.SchemaVersion == 2
+    // In recovery the answers stay as they were, so the saved record still matches and a restore can
+    // run; every rate, install or recording request is refused by LifecycleSession.RecoveryOnly.
+    bool Current => RecoveryOnly || Data.ExpiresAt > DateTimeOffset.UtcNow;
+    public bool AcceptPlatform(PlatformFacts facts) => facts != null && Current && (Data.SchemaVersion == 2
       ? facts.WindowsBuild >= Data.MinimumWindowsBuild
       : Data.AcceptedPlatformDigests.Contains(facts.Digest, StringComparer.Ordinal));
-    public bool AcceptDevice(DeviceFacts facts) => facts != null && Data.ExpiresAt > DateTimeOffset.UtcNow && (Data.SchemaVersion == 2
+    public bool AcceptDevice(DeviceFacts facts) => facts != null && Current && (Data.SchemaVersion == 2
       ? DeviceAllowedByClass(Data, facts)
       : Data.AuthorizedDeviceDigests.Contains(facts.InterfaceDigest, StringComparer.Ordinal));
   }

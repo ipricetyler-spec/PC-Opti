@@ -6,6 +6,8 @@ export interface ConfirmRequest {
   description: string;
   details: string;
   notice: string;
+  /** Shown as a separate callout above the notice; see ActionPreviewRequest.warning. */
+  warning?: string | null;
   confirmLabel: string;
   detailsLabel?: string;
   tone?: 'default' | 'danger';
@@ -18,7 +20,7 @@ export function toPreviewRequest(request: ConfirmRequest): ActionPreviewRequest 
 }
 
 // Falls back to the browser dialog only when no provider is mounted (isolated tests).
-const fallback: ConfirmFunction = async (request) => window.confirm(`${request.title}\n\n${request.description}\n\n${request.details}\n\n${request.notice}`);
+const fallback: ConfirmFunction = async (request) => window.confirm(`${request.title}\n\n${request.description}\n\n${request.details}\n\n${request.warning ? `${request.warning}\n\n` : ''}${request.notice}`);
 
 export const ConfirmContext = createContext<ConfirmFunction>(fallback);
 

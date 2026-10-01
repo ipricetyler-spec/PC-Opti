@@ -12,6 +12,9 @@ using Dialed.HidusbfHelper;
 // Uses the actual product controls with invented data. No policy, process,
 // pipe, observation, journal or WindowsMachine is constructed by this mode.
 sealed class SetupAppearanceFixture : SetupView {
+  // Captures run beside whatever the owner is doing; never take focus from it.
+  protected override bool ShowWithoutActivation => true;
+  [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
   public static void CaptureViews(string directory) {
     Exception failure = null;
     var thread = new Thread(() => {
@@ -19,7 +22,7 @@ sealed class SetupAppearanceFixture : SetupView {
         Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
         Directory.CreateDirectory(directory);
         var report = new List<object>();
-        foreach (string scenario in new[] { "initial", "record", "rate", "rate-small", "reconnect", "complete", "inventory", "history", "policy-blocked" }) {
+        foreach (string scenario in new[] { "initial", "record", "rate", "rate-small", "reconnect", "complete", "inventory", "history", "policy-blocked", "drift" }) {
           using var view = new SetupAppearanceFixture(scenario);
           view.ShowInTaskbar = false; view.StartPosition = FormStartPosition.Manual; view.Location = new Point(-2000, 0);
           view.Show(); Application.DoEvents();
@@ -41,6 +44,22 @@ sealed class SetupAppearanceFixture : SetupView {
           report.Add(new { scenario, width=view.ClientSize.Width, height=view.ClientSize.Height, horizontalOverflow=false, reviewEnabled=view.preview.Enabled, savedRate=view.savedRate.Text, status=view.status.Text });
           view.Close();
         }
+        // The two review dialogs, shown off-screen without activation so the capture never takes focus.
+        void Dialog(string name, SetupReviewDialog dialog) {
+          using (dialog) {
+            dialog.StartPosition = FormStartPosition.Manual; dialog.ShowInTaskbar = false; dialog.Location = new Point(-3000, 0);
+            ShowWindow(dialog.Handle, 4); Application.DoEvents(); dialog.PerformLayout(); Application.DoEvents();
+            var layout = dialog.Controls.OfType<Panel>().Single().Controls.OfType<TableLayoutPanel>().Single();
+            dialog.ClientSize = new Size(dialog.ClientSize.Width, Math.Min(layout.PreferredSize.Height, 900)); Application.DoEvents();
+            using var bitmap = new Bitmap(dialog.Width, dialog.Height); dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            bitmap.Save(Path.Combine(directory, name + ".png"), ImageFormat.Png);
+            dialog.Close();
+          }
+        }
+        Dialog("dialog-rate-patching", new SetupReviewDialog(SetupPresentation.Review(SetupPresentation.Actions.Single(x => x.Code == "APPLY"), "DualSense Edge Wireless Controller", 8000, "PATCH_1K", false, true),
+          "Exact USB device: fixture", false, true));
+        Dialog("dialog-drift", new SetupReviewDialog(SetupPresentation.DriftReviewText(new[] { "DualSense Edge Wireless Controller: saved rate 8000 Hz, now 4000 Hz", "HIDUSBF service start type: saved Manual, now Automatic" }),
+          "State fingerprint shown in this review: " + new string('c', 64), false, false, "Keep current settings", "technical details"));
         File.WriteAllText(Path.Combine(directory,"RESULT.json"),JsonSerializer.Serialize(new {status="PASS",fixtureOnly=true,deviceAccess=false,scenarios=report},new JsonSerializerOptions {WriteIndented=true}));
       } catch (Exception error) { failure = error; }
     });
@@ -59,7 +78,7 @@ sealed class SetupAppearanceFixture : SetupView {
     if (failure != null) throw new Exception("Setup appearance fixture failed.", failure);
   }
   SetupAppearanceFixture(string scenario) : base(true) {
-    if (!new[] { "initial", "record", "rate", "rate-small", "reconnect", "complete", "inventory", "history", "policy-blocked" }.Contains(scenario)) throw new ArgumentException("Unknown appearance fixture.");
+    if (!new[] { "initial", "record", "rate", "rate-small", "reconnect", "complete", "inventory", "history", "policy-blocked", "drift" }.Contains(scenario)) throw new ArgumentException("Unknown appearance fixture.");
     Text += " · Appearance preview (no device access)";
     devices.Items.AddRange(new object[] { "DualSense Edge Wireless Controller", "USB Keyboard", "Two identical controllers · fixture 1", "Two identical controllers · fixture 2" }); devices.SelectedIndex = 0;
     bool recording = scenario == "initial" || scenario == "record";
@@ -101,6 +120,10 @@ sealed class SetupAppearanceFixture : SetupView {
       SetStatus(confirmed ? "Appearance preview: confirmation demonstrated. No request was sent; no device or history was changed." : "Preview canceled. No request was sent; no device or history was changed.");
     };
     reconcile.Click += (_, _) => SetStatus("Appearance preview only. No saved operation or USB inventory was read or changed.");
+    if (scenario == "drift") {
+      reviewDrift.Visible = true; preview.Visible = false;
+      SetStatus(SetupPresentation.FailureSummary("NEEDS_REVIEW: fixture"));
+    }
     if (scenario == "rate-small") Shown += (_, _) => ClientSize = new System.Drawing.Size(604, 560);
   }
 }

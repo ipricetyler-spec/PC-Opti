@@ -24,11 +24,12 @@ const technicalIdentity = (product: string) => {
 };
 // Mirrors rateCheckable in src/main/input-devices/index.cjs, which enforces it.
 function rateCheckable(kinds: InputDevice['testKinds']) {
-  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD'));
+  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || kinds.includes('MOUSE');
 }
 function rateInstruction(kinds: InputDevice['testKinds']) {
-  if (kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK')) return 'Leave the controller untouched. It reports continuously on its own, so this reads its rate directly.';
-  if (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD')) return 'Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves, so pauses read lower.';
+  if (kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK')) return 'Leave the controller still. Most controllers report on their own; if the check says too few reports arrived, run it again while slowly moving a stick.';
+  if (kinds.includes('MOUSE') && kinds.includes('KEYBOARD')) return 'Move the mouse in steady, continuous circles for the whole check. Its keyboard channel (often used for macro buttons) is ignored. A keyboard with a built-in pointer cannot be measured this way.';
+  if (kinds.includes('MOUSE')) return 'Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves, so pauses read lower.';
   return 'Keyboards only report when keys change, so their polling rate cannot be measured by listening to them.';
 }
 function rateVerdict(test: InputTest) {
@@ -413,7 +414,7 @@ export function InputDevicesCenter() {
           {urgentTier.length > 0 && <div role="status" aria-label="Legacy tier recovery needs review" className="rounded-xl border border-amber-500/40 p-3 text-xs text-amber-100"><strong>Saved driver tier recovery needs review.</strong>{urgentTier.map(item => <p key={item.id}>{item.targetName}: {plainLabel(item.status)}.<span data-technical-detail> Original PatchUSBXHCI {item.beforeSetting ?? 'unknown'}; recorded {item.afterSetting ?? 'unknown'}.</span></p>)}<button type="button" className={button} onClick={() => setAdvanced(true)}>Show saved tier recovery</button></div>}
           {restoreBlocked && <p role="status" className="rounded-xl border border-amber-500/30 p-3 text-xs text-amber-100">{inventory.legacyRestoreAuthority?.message}</p>}
           <details className="rounded-xl border border-slate-800 p-4" open={advanced} onToggle={(event) => { const open = event.currentTarget.open; setAdvanced(open); if (!open) { setPreview(null); setTierPreview(null); setDriverPreview(null); } }}>
-            <summary className="cursor-pointer text-sm font-semibold text-slate-200">Existing-driver tools and maintenance{isolationRecovery.length ? ` · ${isolationRecovery.length} other-device recovery record(s)` : ''}</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-slate-200">Existing-driver tools and maintenance{isolationRecovery.length ? ` · ${isolationRecovery.length} other-device recovery record${isolationRecovery.length === 1 ? '' : 's'}` : ''}</summary>
             {!legacyWrites && <p role="status" className="mt-3 rounded-lg border border-slate-700 p-3 text-xs text-slate-200">{inventory.legacyWriteMessage || 'Use Change rate above for new rate changes. These controls retain recovery for their own saved changes.'} Recovery remains subject to native machine-history checks.</p>}
             <p className="my-3 text-xs text-slate-400">Optional controls for an existing installation, shared-driver maintenance and signed-package recovery. Normal rate changes start with Change rate above.</p>
           <div className={box}><div className="flex flex-wrap items-start justify-between gap-2"><h3 className="font-semibold text-white">Existing-driver rate adjustment</h3><span data-technical-detail className="rounded-full bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold text-cyan-200">CONFIGURE + CHECK</span></div>

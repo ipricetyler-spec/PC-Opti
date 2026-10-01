@@ -30,11 +30,12 @@ const digest = (value) => crypto.createHash('sha256').update(typeof value === 's
 // writes it by default: backslashes doubled and '&' as &. Other characters that encoder
 // would escape never occur in USB instance IDs; an ID containing one gets no selection.
 // A controller reports every interval, and a mouse while it moves, so both show their rate.
-// A keyboard reports only key changes, and a keyboard that also exposes a mouse channel would
-// ask the reader to move a keyboard; neither can be measured this way.
+// A keyboard reports only key changes and cannot be measured this way. Many gaming mice also
+// expose a keyboard interface for macros; the verdict judges each channel on its own and never
+// infers a rate from keyboard traffic, so any device with a mouse channel can be checked.
 const RATE_CHECK_UNAVAILABLE = 'Keyboards only report when keys change, so their polling rate cannot be measured by listening to them. The controls check still works.';
 function rateCheckable(kinds = []) {
-  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || (kinds.includes('MOUSE') && !kinds.includes('KEYBOARD'));
+  return kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK') || kinds.includes('MOUSE');
 }
 function nativeSetupDeviceId(instanceId) {
   const upper = String(instanceId || '').toUpperCase();
@@ -278,7 +279,10 @@ function buildDevices(inventory, saved = { ports: {} }) {
       connectionEvidence: rule ? `${rule[1]} — controller-ID inference, not a verified motherboard socket map.` : 'CPU/chipset attachment is unknown; the controller name alone is not proof.',
       speed: ['Low-Speed', 'Full-Speed', 'High-Speed', 'SuperSpeed'][node.speed] || 'Unknown',
       filterActive: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf'),
-      configuredHz: rateForInterval(node.speed, node.interval?.value),
+      // The stored interval only applies while the HIDUSBF filter is attached; a driver reinstall
+      // removes the filter but can leave the value behind, which is then not in effect.
+      configuredHz: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf') ? rateForInterval(node.speed, node.interval?.value) : null,
+      inactiveHz: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf') ? null : rateForInterval(node.speed, node.interval?.value),
       maxSupportedHz: rates.length ? rates.at(-1) : null,
       canApply: !reason && inventory.elevated, eligibilityReason: reason || (!inventory.elevated ? 'This session lacks administrator access. The packaged Dialed app requests it at launch; read-only checks remain available in this session.' : null),
       rates, canTest: node.present && testKinds.length > 0, testKinds,

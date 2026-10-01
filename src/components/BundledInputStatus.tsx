@@ -7,17 +7,21 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
   const [error, setError] = useState('');
   const [opening, setOpening] = useState(false);
   const verified = bundle?.identity === 'VERIFIED';
-  const policyExpired = bundle?.nativeBroker?.code === 'NATIVE_RELEASE_REJECTED' && /expir/i.test(bundle.nativeBroker.message);
+  const policyExpired = bundle?.nativeBroker?.code === 'NATIVE_RELEASE_EXPIRED';
+  const recoveryOnly = policyExpired && bundle?.nativeBroker?.recoveryOnly === true;
   const statusMessage = verified
-    ? bundle?.nativeBroker?.available ? 'Setup is ready to review this device. Nothing changes until you confirm.' : 'Driver setup is currently unavailable.'
+    ? bundle?.nativeBroker?.available ? 'Setup is ready to review this device. Nothing changes until you confirm.'
+      : recoveryOnly ? 'Rate changes need a newer version of Dialed. You can still open setup to restore this device\'s original settings or remove the driver.'
+      : 'Driver setup is currently unavailable.'
     : error || (bundle ? 'The bundled files did not pass verification.' : 'Checking bundled files…');
   const supportedSpeed = device.speed === 'Full-Speed' || device.speed === 'High-Speed';
-  const setupBlocked = opening || busy || setupOpen || !bundle?.nativeBroker?.available || !verified || !supportedSpeed;
+  const setupBlocked = opening || busy || setupOpen || !(bundle?.nativeBroker?.available || recoveryOnly) || !verified || (!supportedSpeed && !recoveryOnly);
   const setupBlockReason = !verified
     ? bundle?.reasons.find((reason) => reason.code === 'BUNDLE_IDENTITY_FAILED')?.message || ''
     : policyExpired ? 'Rate changes need a newer version of Dialed. Update Dialed to change rates again; the polling-rate and controls checks still work.'
     : !bundle?.nativeBroker?.available
-      ? bundle?.nativeBroker?.message || bundle?.reasons.find((reason) => reason.code === 'AUTHENTICATED_NATIVE_HELPER_REQUIRED')?.message || ''
+      // The raw rejection stays in the details below; this line says what to do.
+      ? bundle?.reasons.find((reason) => reason.code === 'AUTHENTICATED_NATIVE_HELPER_REQUIRED')?.message || (bundle?.nativeBroker ? 'Driver setup is unavailable in this copy of Dialed. Reinstall or update Dialed to change rates.' : '')
       : !supportedSpeed ? 'Rate changes are unavailable for this USB speed. You can still check Windows input delivery.' : '';
   async function openSetup() {
     setOpening(true); setError(''); onSetupStateChange?.(true);
@@ -38,9 +42,10 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0"><p className="text-xs text-slate-400">Selected device</p><h3 className="mt-1 text-lg font-semibold text-white">{device.name}</h3><p className="mt-1 text-xs text-slate-400">{device.speed} USB{device.portLabel ? ` · ${device.portLabel}` : ''}</p></div>
       <div><p className="text-xs text-slate-400">Saved rate</p><p className="mt-1 text-2xl font-bold text-white">{device.configuredHz === null ? 'Default / unknown' : `${device.configuredHz} Hz`}</p></div>
+      {device.configuredHz === null && device.inactiveHz ? <p role="note" className="basis-full text-xs text-amber-100">A {device.inactiveHz} Hz rate was set earlier but is not in effect: the HIDUSBF driver is no longer attached to this device, often after a Windows or driver update. Set the rate again to use it.</p> : null}
     </div>
     {device.speed === 'Low-Speed' && <p className="mt-3 text-xs text-slate-300">Low-Speed USB is not supported by this rate-change workflow. You can still check key, button or movement activity below.</p>}
-    <button type="button" onClick={() => void openSetup()} disabled={setupBlocked} style={{ opacity: setupBlocked ? 0.45 : 1 }} aria-describedby={setupBlocked && setupBlockReason ? 'bundled-input-setup-blocked-reason' : undefined} className="mt-4 rounded-lg border border-cyan-300 bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-sm enabled:hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none">{opening ? 'Opening setup…' : setupOpen ? 'Setup is open…' : device.filterActive ? 'Change rate…' : 'Set up polling rate…'}</button>
+    <button type="button" onClick={() => void openSetup()} disabled={setupBlocked} style={{ opacity: setupBlocked ? 0.45 : 1 }} aria-describedby={setupBlocked && setupBlockReason ? 'bundled-input-setup-blocked-reason' : undefined} className="mt-4 rounded-lg border border-cyan-300 bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-sm enabled:hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none">{opening ? 'Opening setup…' : setupOpen ? 'Setup is open…' : recoveryOnly ? 'Open setup to undo…' : device.filterActive ? 'Change rate…' : 'Set up polling rate…'}</button>
     {setupBlocked && setupBlockReason && <p id="bundled-input-setup-blocked-reason" className="mt-2 text-xs text-slate-400">{setupBlockReason}</p>}
     <p id="bundled-input-setup-status" role="status" aria-live="polite" aria-atomic="true" className="mt-2 text-xs text-slate-300">{statusMessage}</p>
     {!setupBlocked || setupOpen || opening ? <p className="mt-2 text-xs text-slate-400">Confirm this device in setup. Dialed checks whether its originals are already recorded and shows the applicable rates.</p> : null}

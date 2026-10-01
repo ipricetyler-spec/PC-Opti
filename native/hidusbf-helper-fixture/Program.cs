@@ -275,6 +275,18 @@ class Program {
       ReleasePolicyData Signed(byte[] data) => ReleasePolicy.Verify(data, rsa.SignData(data, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss), pem, DateTimeOffset.UtcNow);
       var general = Signed(General());
       Assert(general.SchemaVersion == 2 && general.DeviceClasses.Length == 3 && general.MinimumWindowsBuild == 19045);
+      {
+        // An expired general release is still recognized for restore-only use; nothing else is forgiven.
+        byte[] Sign(byte[] data) => rsa.SignData(data, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss);
+        var expiredBytes = General(f => f["ExpiresAt"] = DateTimeOffset.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ssZ"));
+        Refuse(() => ReleasePolicy.Verify(expiredBytes, Sign(expiredBytes), pem, DateTimeOffset.UtcNow));
+        Assert(ReleasePolicy.ExpiredGeneralRelease(expiredBytes, Sign(expiredBytes), pem, DateTimeOffset.UtcNow)?.SchemaVersion == 2);
+        Assert(ReleasePolicy.ExpiredGeneralRelease(General(), Sign(General()), pem, DateTimeOffset.UtcNow) == null);
+        var altered = (byte[])expiredBytes.Clone(); altered[^2] ^= 1;
+        Assert(ReleasePolicy.ExpiredGeneralRelease(altered, Sign(expiredBytes), pem, DateTimeOffset.UtcNow) == null);
+        var expiredBad = General(f => { f["ExpiresAt"] = DateTimeOffset.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ssZ"); f["Purpose"] = "VALIDATION_ONLY"; });
+        Assert(ReleasePolicy.ExpiredGeneralRelease(expiredBad, Sign(expiredBad), pem, DateTimeOffset.UtcNow) == null);
+      }
       foreach (var bad in new Action<System.Collections.Generic.Dictionary<string, object>>[] {
         f => f["Purpose"] = "VALIDATION_ONLY",
         f => f["DeviceClasses"] = new[] { "MOUSE", "PRINTER" },

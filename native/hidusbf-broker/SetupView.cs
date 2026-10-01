@@ -29,7 +29,9 @@ class SetupView : SetupFrame {
   protected readonly Button preview = MakeButton("Review selected action", true);
   protected readonly Button reconcile = MakeButton("Check saved operation");
   // Shown only when the saved record is latched for review because something outside setup changed.
-  protected readonly Button reviewDrift = MakeButton("Review what changed");
+  // Shown only when it is the next step, so it is the main button.
+  protected readonly Button reviewDrift = MakeButton("Review what changed", true);
+  readonly Label reviewNote = Paragraph("Nothing changes until you confirm the review.");
   protected readonly Label actionDescription = Paragraph("");
   protected readonly Label installation = Paragraph("");
   protected readonly Label savedRate = Paragraph("Saved rate: checking…");
@@ -88,7 +90,7 @@ class SetupView : SetupFrame {
     // The HIDUSBF patching acknowledgement is asked in the review, only for a plan that patches.
     Add(requirement); requirement.Visible = false; Add(patching); patching.Visible = false;
     Add(Heading("3   Review and confirm"));
-    Add(Paragraph("Nothing changes until you confirm the review."));
+    Add(reviewNote);
     Add(preview);
     Add(reconcile); reconcileHelp.ForeColor = Muted; Add(reconcileHelp);
     Add(reviewDrift); reviewDrift.Visible = false;
@@ -116,8 +118,13 @@ class SetupView : SetupFrame {
   }
   internal static Button MakeButton(string text, bool primary = false) {
     var result = new Button { Text = text, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlatStyle = FlatStyle.Flat, Padding = new Padding(12, 6, 12, 6), Margin = new Padding(0, 0, 0, 8), UseVisualStyleBackColor = false };
-    result.BackColor = primary && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#e2e8f0") : Surface;
-    result.ForeColor = primary && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#0f172a") : Ink;
+    // A flat button keeps its colours when disabled, so a disabled main button looked clickable.
+    void Paint() {
+      bool bright = primary && result.Enabled && !SystemInformation.HighContrast;
+      result.BackColor = bright ? ColorTranslator.FromHtml("#e2e8f0") : Surface;
+      result.ForeColor = bright ? ColorTranslator.FromHtml("#0f172a") : result.Enabled || SystemInformation.HighContrast ? Ink : Muted;
+    }
+    Paint(); result.EnabledChanged += (_, _) => Paint();
     result.FlatAppearance.BorderColor = SystemInformation.HighContrast ? SystemColors.WindowText : ColorTranslator.FromHtml("#46505d");
     return result;
   }
@@ -156,6 +163,10 @@ class SetupView : SetupFrame {
     actionDescription.Visible = actionDescription.Text.Length > 0;
     preview.Text = action?.Code == "ADOPT" ? "Review recording" : action?.Code == "APPLY" ? "Review rate change" : "Review selected action";
     preview.Enabled = canPreview && !reconnectPending; reconcile.Enabled = enabled;
+    // While a saved rate waits for the reconnect, nothing invites a new review.
+    reviewNote.Visible = !reconnectPending;
+    if (reconnectPending) installation.Text = "Rate saved. Waiting for the device to reconnect.";
+    maintenance.Visible = maintenance.Enabled || maintenance.Checked;
     reconcile.Text = SetupPresentation.ReconcileLabel(inventoryChanged);
     // Setup runs the routine check itself when it opens; the button stays for the cases that
     // need the reader: a saved change to finish, changed connections, or maintenance.
@@ -182,8 +193,9 @@ class SetupView : SetupFrame {
     foreach (Button button in rateRow.Controls) {
       bool chosen = Equals(button.Tag, rates.SelectedItem);
       button.Enabled = rates.Enabled;
-      button.BackColor = chosen && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#e2e8f0") : Surface;
-      button.ForeColor = chosen && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#0f172a") : Ink;
+      // A disabled choice keeps its border, not the bright fill, so it never looks clickable.
+      button.BackColor = chosen && rates.Enabled && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#e2e8f0") : Surface;
+      button.ForeColor = chosen && rates.Enabled && !SystemInformation.HighContrast ? ColorTranslator.FromHtml("#0f172a") : rates.Enabled || SystemInformation.HighContrast ? Ink : Muted;
       button.FlatAppearance.BorderSize = chosen ? 2 : 1;
       button.AccessibleName = button.Tag + " Hz" + (Equals(button.Tag, SavedRateHz) ? ", saved" : "") + (chosen ? ", selected" : "");
     }
@@ -210,12 +222,10 @@ sealed class SetupReviewDialog : SetupFrame {
     ClientSize = new Size(600, 560); MinimumSize = new Size(500, 400);
     var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
     var layout = SetupView.Stack(); layout.Padding = new Padding(24);
+    // The closing question goes last, just above the buttons, after the risk and the details.
+    string question = null; int split = review.LastIndexOf('\n');
+    if (split > 0 && review.TrimEnd().EndsWith("?", StringComparison.Ordinal)) { question = review.Substring(split + 1).Trim(); review = review.Substring(0, split).TrimEnd(); }
     var message = SetupView.Paragraph(review); message.MaximumSize = new Size(552, 0); layout.Controls.Add(message);
-    detailsName ??= "exact device and plan details";
-    var disclosure = SetupView.MakeButton("Show " + detailsName); layout.Controls.Add(disclosure);
-    var details = new TextBox { Text = technical, ReadOnly = true, Multiline = true, Height = 140, Dock = DockStyle.Top, ScrollBars = ScrollBars.Vertical, Visible = false, AccessibleName = "Exact preview details" }; layout.Controls.Add(details);
-    disclosure.Click += (_, _) => { details.Visible = !details.Visible; disclosure.Text = (details.Visible ? "Hide " : "Show ") + detailsName; };
-    var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 16, 0, 0) };
     var cancel = SetupView.MakeButton("Cancel"); cancel.DialogResult = DialogResult.No; cancel.Margin = new Padding(0, 0, 12, 0);
     var confirm = SetupView.MakeButton(confirmText ?? (recording ? "Record settings" : "Confirm this action"), true); confirm.DialogResult = DialogResult.Yes;
     if (patchingAcknowledgement) {
@@ -225,9 +235,16 @@ sealed class SetupReviewDialog : SetupFrame {
       requirement.MaximumSize = new Size(552, 0); requirement.Margin = new Padding(0, 12, 0, 8); layout.Controls.Add(requirement);
       var acknowledge = new CheckBox { Text = "I understand what patching mode means", AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
       layout.Controls.Add(acknowledge);
+      var hint = SetupView.Paragraph("Tick the box above to continue."); hint.ForeColor = SetupView.Muted; layout.Controls.Add(hint);
       confirm.Enabled = false;
-      acknowledge.CheckedChanged += (_, _) => confirm.Enabled = acknowledge.Checked;
+      acknowledge.CheckedChanged += (_, _) => { confirm.Enabled = acknowledge.Checked; hint.Visible = !acknowledge.Checked; };
     }
+    detailsName ??= "exact device and plan details";
+    var disclosure = SetupView.MakeButton("Show " + detailsName); layout.Controls.Add(disclosure);
+    var details = new TextBox { Text = technical, ReadOnly = true, Multiline = true, Height = 140, Dock = DockStyle.Top, ScrollBars = ScrollBars.Vertical, Visible = false, AccessibleName = "Exact preview details" }; layout.Controls.Add(details);
+    disclosure.Click += (_, _) => { details.Visible = !details.Visible; disclosure.Text = (details.Visible ? "Hide " : "Show ") + detailsName; };
+    if (question != null) { var ask = SetupView.Paragraph(question); ask.Margin = new Padding(0, 12, 0, 0); layout.Controls.Add(ask); }
+    var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 16, 0, 0) };
     buttons.Controls.Add(cancel); buttons.Controls.Add(confirm); layout.Controls.Add(buttons);
     viewport.Controls.Add(layout); Controls.Add(viewport); SetupView.Style(this);
     // Enter, Escape, closing the window and the initial focus all cancel. APPLY

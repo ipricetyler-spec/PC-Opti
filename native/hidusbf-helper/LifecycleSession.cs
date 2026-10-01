@@ -35,6 +35,9 @@ namespace Dialed.HidusbfHelper {
   public interface ILifecycleMachine {
     LifecycleObservation Observe();
     void Execute(NativePlan plan, LifecycleObservation before, Action assertPeer);
+    // The last observation's platform fingerprint recomputed with another set of eligible device
+    // scopes; null when the machine cannot say, which keeps the exact comparison.
+    string PlatformFor(IEnumerable<string> eligibleScopes) => null;
   }
 
   public sealed partial class LifecycleSession : IDisposable {
@@ -98,7 +101,10 @@ namespace Dialed.HidusbfHelper {
       expected != null && Digest(expected with { BootId = state.BootId }) == Digest(state);
     LifecycleObservation ReadExact(LifecycleRecord record) {
       assertPeer();
-      if (record.Pending != null || record.NeedsReview) throw new InvalidOperationException("NEEDS_REVIEW: reconcile the saved operation.");
+      // A saved change still running its own check is not drift: naming it NEEDS_REVIEW offered
+      // "Review what changed", which then refused it.
+      if (record.Pending != null && !record.NeedsReview) throw new InvalidOperationException("PENDING_OPERATION: a saved change is waiting. Choose Check saved operation to finish it.");
+      if (record.NeedsReview) throw new InvalidOperationException("NEEDS_REVIEW: reconcile the saved operation.");
       var state = machine.Observe();
       BootSessionIdentity.RequireValid(state.BootId);
       if (BootSessionIdentity.IsLegacy(record.Expected?.BootId)) {
@@ -108,7 +114,7 @@ namespace Dialed.HidusbfHelper {
       }
       if (record.Expected != null && Digest(record.Expected) != Digest(state)) {
         if (BootOnlyChange(record.Expected, state)) throw new InvalidOperationException("BOOT_RECONCILE_REQUIRED: reconcile the unchanged state after Windows restart.");
-        if (InventoryReconciliation.CanRefresh(record, state)) {
+        if (InventoryReconciliation.CanRefresh(record, state, machine.PlatformFor)) {
           previews.Clear();
           throw new InvalidOperationException("INVENTORY_RECONCILE_REQUIRED: unrelated USB inventory changed; refresh USB inventory before creating a new preview.");
         }
@@ -264,8 +270,12 @@ namespace Dialed.HidusbfHelper {
       return true;
     }
     public void Dispose() { lock (gate) { CloseReconnectWatch(); previews.Clear(); } }
+    // Set when the signed release policy has expired: setup may still restore a device or remove the
+    // driver, so an old copy of Dialed never strands a change it made (promise 2), but nothing new.
+    public bool RecoveryOnly { get; init; }
     public NativePreview Preview(LifecycleIntent intent) {
       lock (gate) {
+        Require(!RecoveryOnly || intent?.Action == "DETACH" || intent?.Action == "REMOVE", "POLICY_EXPIRED: this version of Dialed can no longer change rates. It can still restore a device's original settings or remove the driver. Update Dialed to change rates again.");
         var record = ReadRecord(); var state = ReadExact(record);
         var plan = Plan(state, intent, record.Ownership);
         foreach (var key in previews.Where(x => x.Value.ExpiresAt <= clock()).Select(x => x.Key).ToArray()) previews.Remove(key);
@@ -347,21 +357,32 @@ namespace Dialed.HidusbfHelper {
     DriftResolution ResolveDrift(LifecycleRecord record, LifecycleObservation state) {
       if (record.Pending == null) {
         Require(record.Expected != null && (record.NeedsReview || Digest(record.Expected) != Digest(state)), "NOTHING_TO_REVIEW: the saved record matches this PC.");
-        return new DriftResolution(record.Expected, record.Ownership, null, null);
+        // An unlatched record that setup updates on its own (a restart, unrelated USB inventory, an
+        // older session identity) is not the reader's to accept: that path checks more.
+        if (!record.NeedsReview)
+          Require(!SameExceptBoot(record.Expected, state) && !BootSessionIdentity.IsLegacy(record.Expected.BootId) &&
+            !InventoryReconciliation.CanRefresh(record, state, machine.PlatformFor), "NOTHING_TO_REVIEW: setup can update this record itself. Choose Check saved operation.");
+        return new DriftResolution(record.Expected, DriverChangedOutside(record.Expected, state, record.Ownership), null, null);
       }
       // A saved change is resolved by its own check; it comes here only once that check gave up.
       Require(record.NeedsReview, "PENDING_OPERATION: a saved change is waiting. Choose Check saved operation to finish it.");
       var pending = record.Pending;
       string outcome = PendingOutcome(pending, state);
       var ownership = outcome == "APPLIED" ? pending.Plan.Ownership : outcome == "NOT_APPLIED" ? record.Ownership : KeepAllOriginals(record.Ownership, pending.Plan.Ownership);
-      return new DriftResolution(outcome == "NOT_APPLIED" ? pending.Before : pending.Plan.After, ownership, outcome, pending.Plan.Intent?.DeviceId);
+      var reference = outcome == "NOT_APPLIED" ? pending.Before : pending.Plan.After;
+      return new DriftResolution(reference, DriverChangedOutside(reference, state, ownership), outcome, pending.Plan.Intent?.DeviceId);
     }
-    // Only the settings a change writes decide whether it took effect. The service's running state
-    // is left out: it follows device attachment and restarts, not the change itself.
+    // The driver file, service or patch settings differ from what Dialed recorded, so something else
+    // installed or changed them. Dialed stops claiming the driver: a later removal must never delete a
+    // driver another tool put there.
+    static LifecycleOwnership DriverChangedOutside(LifecycleObservation reference, LifecycleObservation state, LifecycleOwnership ownership) =>
+      ownership.ServiceOwned && ServiceShape(reference?.Service) != ServiceShape(state.Service) ? ownership with { ServiceOwned = false } : ownership;
+    // The service's running state is left out: it follows device attachment and restarts.
+    static string ServiceShape(ServiceObservation service) => Digest(service == null ? null : service with { Service = service.Service == null ? null : service.Service with { State = 0 } });
+    // Only the settings a change writes decide whether it took effect.
     static string PendingOutcome(PendingOperation pending, LifecycleObservation state) {
       static Dictionary<string, DeviceSetting> Index(DeviceSetting[] devices) => (devices ?? Array.Empty<DeviceSetting>()).Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
       static string Settings(DeviceSetting device) => device == null ? "absent" : Digest(new { device.Filters, device.Interval });
-      static string ServiceShape(ServiceObservation service) => Digest(service == null ? null : service with { Service = service.Service == null ? null : service.Service with { State = 0 } });
       var before = Index(pending.Before.Devices); var after = Index(pending.Plan.After.Devices); var now = Index(state.Devices);
       var touched = before.Keys.Union(after.Keys).Where(id => Settings(before.GetValueOrDefault(id)) != Settings(after.GetValueOrDefault(id))).ToArray();
       bool serviceTouched = ServiceShape(pending.Before.Service) != ServiceShape(pending.Plan.After.Service);
@@ -379,7 +400,7 @@ namespace Dialed.HidusbfHelper {
     void RequireAcceptable(DriftResolution resolution, LifecycleObservation state) {
       Require(state.SecurityAccepted, "SECURITY_UNKNOWN: Windows security state could not be confirmed, so no new baseline is saved.");
       Require(state.Service?.File == null || state.Service.File.Variant != null, "UNRECOGNIZED_DRIVER: the installed HIDUSBF file is not one Dialed recognizes, so it is not accepted as a baseline.");
-      Require(InventoryReconciliation.OwnedDevicesIntact(resolution.Ownership, state), "OWNED_DEVICE_MOVED: a device with recorded originals is no longer at the location those originals belong to. Keep the history file; restoring it needs review.");
+      Require(InventoryReconciliation.OwnedDevicesIntact(resolution.Ownership, state), "OWNED_DEVICE_MOVED: a device whose originals are recorded is unplugged or connected differently from when they were recorded, so they could not be restored. Connect it to the port it used then and review again. Nothing was saved.");
     }
     public DriftReview ReviewDrift() {
       lock (gate) {
@@ -388,12 +409,15 @@ namespace Dialed.HidusbfHelper {
         BootSessionIdentity.RequireValid(state.BootId);
         var resolution = ResolveDrift(record, state);
         RequireAcceptable(resolution, state);
-        var lines = DescribeDrift(resolution.Reference, state, resolution.Ownership);
+        var lines = DescribeDrift(resolution.Reference, state, resolution.Ownership, InventoryReconciliation.OnlyDevicesChangedPlatform(resolution.Reference, state, machine.PlatformFor));
+        if (!resolution.Ownership.ServiceOwned && (record.Ownership.ServiceOwned || record.Pending?.Plan?.Ownership?.ServiceOwned == true))
+          lines = lines.Append("Keeping these settings means Dialed no longer treats the HIDUSBF driver as its own, so it will not remove the driver for you.").ToArray();
         if (resolution.Outcome != null) {
           string device = state.Devices.FirstOrDefault(x => x?.Id == resolution.TargetId)?.Name ?? "the device";
           int cut = device.IndexOf(" · USB\\", StringComparison.OrdinalIgnoreCase); if (cut > 0) device = device.Substring(0, cut);
           lines = new[] { resolution.Outcome switch {
-            "APPLIED" => "The saved change to " + device + " took effect: its setting matches the change. The list below is what else differs.",
+            // A matching setting proves it was saved, not that the device uses it yet.
+            "APPLIED" => "The saved change to " + device + " was saved: its setting matches the change. If the device has not been reconnected or Windows restarted since, do that for it to apply, then use Check polling rate in Dialed. The list below is what else differs.",
             "NOT_APPLIED" => "The saved change to " + device + " did not take effect: the previous setting is still in place. The list below is what else differs.",
             _ => "It is unclear whether the saved change to " + device + " took effect: its setting matches neither the old nor the new value. Every original recorded before or by it is kept."
           } }.Concat(lines.Where(x => !x.StartsWith("The saved record is flagged", StringComparison.Ordinal))).ToArray();
@@ -418,21 +442,23 @@ namespace Dialed.HidusbfHelper {
         return new LifecycleResult("BASELINE_ACCEPTED");
       }
     }
-    static string[] DescribeDrift(LifecycleObservation before, LifecycleObservation after, LifecycleOwnership ownership) {
+    static string[] DescribeDrift(LifecycleObservation before, LifecycleObservation after, LifecycleOwnership ownership, bool onlyDevicesChangedPlatform = false) {
       var lines = new List<string>();
       string Label(DeviceSetting device) {
         string name = device.Name ?? "USB device"; int cut = name.IndexOf(" · USB\\", StringComparison.OrdinalIgnoreCase);
         return (cut > 0 ? name.Substring(0, cut) : name) + (ownership.Devices.ContainsKey(device.Id) ? " (originals recorded)" : "");
       }
-      string Interval(DwordValue value) => value?.Present == true ? "interval " + value.Value : "no interval set";
+      // The reader judges these lines, so rates are in Hz; a raw interval means different rates at different USB speeds.
+      string Rate(DeviceSetting device) => ConfiguredRate(device) is int hz ? hz + " Hz" : device.Interval?.Present == true ? "a setting Dialed does not recognize" : "the Windows default";
       if (before.MemoryIntegrity != after.MemoryIntegrity) lines.Add("Memory Integrity is now " + (after.MemoryIntegrity ? "on." : "off."));
-      if (before.PlatformDigest != after.PlatformDigest) lines.Add("Windows, Secure Boot or the USB controller driver changed (platform identity differs).");
+      if (before.PlatformDigest != after.PlatformDigest && !onlyDevicesChangedPlatform)
+        lines.Add("Windows, Secure Boot or the USB controller driver is different from when the record was saved.");
       if (Digest(before.Service?.File) != Digest(after.Service?.File))
         lines.Add("The HIDUSBF driver file changed" + (after.Service?.File?.Variant is string variant ? " (now " + variant + ")." : "."));
       if (Digest(before.Service?.Service) != Digest(after.Service?.Service) || before.Service?.ServiceKeyPresent != after.Service?.ServiceKeyPresent)
-        lines.Add("The HIDUSBF service configuration or state changed.");
+        lines.Add("The HIDUSBF driver's service settings changed.");
       if (Digest(before.Service?.ServiceParameters) != Digest(after.Service?.ServiceParameters) || Digest(before.Service?.ControlParameters) != Digest(after.Service?.ControlParameters))
-        lines.Add("The HIDUSBF controller patch setting changed.");
+        lines.Add("The HIDUSBF patching mode setting changed.");
       var previous = before.Devices.Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
       var current = after.Devices.Where(x => x != null).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First());
       foreach (var device in previous.Values.Where(x => !current.ContainsKey(x.Id))) lines.Add(Label(device) + ": no longer listed by Windows.");
@@ -440,11 +466,11 @@ namespace Dialed.HidusbfHelper {
       foreach (var device in current.Values.Where(x => previous.ContainsKey(x.Id))) {
         var old = previous[device.Id];
         if (Digest(old) == Digest(device)) continue;
-        if (Digest(old.Interval) != Digest(device.Interval)) lines.Add(Label(device) + ": rate setting changed from " + Interval(old.Interval) + " to " + Interval(device.Interval) + ".");
-        if (Digest(old.Filters) != Digest(device.Filters)) lines.Add(Label(device) + ": filter drivers changed.");
+        if (Digest(old.Interval) != Digest(device.Interval)) lines.Add(Label(device) + ": rate changed from " + Rate(old) + " to " + Rate(device) + ".");
+        if (Digest(old.Filters) != Digest(device.Filters)) lines.Add(Label(device) + ": the drivers attached to this device changed.");
         if (old.Present != device.Present) lines.Add(Label(device) + (device.Present ? ": connected." : ": disconnected."));
-        if (old.Coordinate != device.Coordinate || old.IntervalLocation != device.IntervalLocation) lines.Add(Label(device) + ": its setting now lives in a different registry location.");
-        if (old.Authorized != device.Authorized || old.Eligible != device.Eligible) lines.Add(Label(device) + ": eligibility under the current release policy changed.");
+        if (old.Coordinate != device.Coordinate || old.IntervalLocation != device.IntervalLocation) lines.Add(Label(device) + ": Windows moved where this device's setting is stored.");
+        if (old.Authorized != device.Authorized || old.Eligible != device.Eligible) lines.Add(Label(device) + ": whether setup may adjust this device changed.");
         if (old.InterfaceDigest != device.InterfaceDigest || old.Speed != device.Speed || old.Name != device.Name || old.IntervalIsolated != device.IntervalIsolated)
           lines.Add(Label(device) + ": USB connection details changed.");
       }
@@ -473,7 +499,7 @@ namespace Dialed.HidusbfHelper {
             previews.Clear();
             return new LifecycleResult("CONFIGURATION_VERIFIED");
           }
-          if (InventoryReconciliation.CanRefresh(record, state)) {
+          if (InventoryReconciliation.CanRefresh(record, state, machine.PlatformFor)) {
             previews.Clear();
             string observedDigest = Digest(state);
             assertPeer();

@@ -214,6 +214,11 @@ test('speed-specific interval mapping and exact signed patch tiers gate High-Spe
   let device = scan.devices[0];
   assert.equal(device.speed, 'High-Speed');
   assert.equal(device.configuredHz, 8000);
+  assert.equal(device.inactiveHz, null);
+  // A driver reinstall can drop the filter and leave the interval behind; that rate is not in effect.
+  const unfiltered = (await harness({ speed: 2, value: 1, filtered: false }).service.scan()).devices[0];
+  assert.equal(unfiltered.configuredHz, null);
+  assert.equal(unfiltered.inactiveHz, 8000);
   assert.equal(device.maxSupportedHz, 1000);
   assert.deepEqual(device.rates, [1000]);
   await assert.rejects(oneKilohertz.service.preview(device.id, 8000), /installed driver tier/);
@@ -575,7 +580,8 @@ test('the rate and controls checks tell the capture window which one runs, and a
   assert.equal(input.rateCheckable(['GAMEPAD']), true);
   assert.equal(input.rateCheckable(['JOYSTICK']), true);
   assert.equal(input.rateCheckable(['MOUSE']), true);
-  assert.equal(input.rateCheckable(['KEYBOARD', 'MOUSE']), false);
+  // Gaming mice often expose a keyboard interface for macros; the verdict ignores keyboard traffic.
+  assert.equal(input.rateCheckable(['KEYBOARD', 'MOUSE']), true);
   assert.equal(input.rateCheckable(['KEYBOARD']), false);
 });
 
@@ -729,7 +735,7 @@ test('native authority path guard allows absence but refuses journal reservation
   fs.writeFileSync(path.join(nativePath,'journal.bin'),'not parsed'); assert.equal(legacyRestoreAuthority(base).allowed,false);
   assert.equal(legacyRestoreAuthority('relative').allowed,false);
   assert.equal(legacyRestoreAuthority(base,{lstatSync(){throw Object.assign(new Error('Denied'),{code:'EACCES'});}}).allowed,false);
-  assert.match(legacyRestoreAuthority(base,{lstatSync(){return {isSymbolicLink:()=>true,isDirectory:()=>true};}}).message,/linked/);
+  assert.match(legacyRestoreAuthority(base,{lstatSync(){return {isSymbolicLink:()=>true,isDirectory:()=>true};}}).message,/not an ordinary folder/);
 });
 
 test('input test excludes concurrent preview, can be canceled, and stores no button values', async () => {

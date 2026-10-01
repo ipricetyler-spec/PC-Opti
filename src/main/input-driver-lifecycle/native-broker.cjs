@@ -21,13 +21,27 @@ function readFile(file, maximum) {
   if (size < 1 || size > maximum) throw new Error('Native release file exceeds bounds.');
   return fs.readFileSync(file);
 }
-function readNativeBrokerStatus(directory) {
+// A schema 2 release that passes every check as of just before it expired. Setup then allows only
+// restoring devices and removing the driver (LifecycleSession.RecoveryOnly), so an old Dialed never
+// strands a change it made. Only the passage of time is forgiven.
+function verifyExpiredGeneralPolicy(bytes, signature, publicKey, now = Date.now()) {
+  if (!isGeneralRelease(bytes)) return null;
+  let expiry;
+  try { expiry = Date.parse(JSON.parse(bytes.toString('utf8')).ExpiresAt); } catch { return null; }
+  if (!Number.isFinite(expiry) || expiry > now) return null;
+  try { return verifyPolicy(bytes, signature, publicKey, expiry - 1); } catch { return null; }
+}
+function readNativeBrokerStatus(directory, now = Date.now()) {
   if (!RELEASE_PUBLIC_KEY) return { available: false, code: 'NATIVE_RELEASE_TRUST_UNCONFIGURED', message: 'The native setup implementation is present in source, but this build has no signed native release configuration.' };
   try {
-    const policy = verifyPolicy(readFile(path.join(directory, 'release-policy.json'), 65536), readFile(path.join(directory, 'release-policy.sig'), 1024), RELEASE_PUBLIC_KEY);
+    const bytes = readFile(path.join(directory, 'release-policy.json'), 65536), signature = readFile(path.join(directory, 'release-policy.sig'), 1024);
+    let policy, recoveryOnly = false;
+    try { policy = verifyPolicy(bytes, signature, RELEASE_PUBLIC_KEY, now); }
+    catch (error) { policy = verifyExpiredGeneralPolicy(bytes, signature, RELEASE_PUBLIC_KEY, now); if (!policy) throw error; recoveryOnly = true; }
     for (const [name, hash] of [['Dialed.HidusbfBroker.exe', policy.BrokerSha256], ['Dialed.HidusbfHost.exe', policy.HelperSha256]]) {
       if (crypto.createHash('sha256').update(readFile(path.join(directory, name), 128 * 1024 * 1024)).digest('hex') !== hash) throw new Error('Native executable differs from the reviewed release.');
     }
+    if (recoveryOnly) return { available: false, recoveryOnly: true, code: 'NATIVE_RELEASE_EXPIRED', message: 'Rate changes need a newer version of Dialed. You can still open setup to restore a device\'s original settings or remove the driver.' };
     return { available: true, code: 'NATIVE_BROKER_READY', message: 'Open native setup to inspect this exact device and review an operation. Device compatibility is checked there.' };
   } catch (error) { return { available: false, code: 'NATIVE_RELEASE_REJECTED', message: error.message }; }
 }
@@ -37,6 +51,7 @@ function observeSetupExit(child, onClosed) {
   child.once('exit', () => { if (completed) return; completed = true; onClosed(); });
 }
 function setupSelectionArguments(deviceId) {
+  if (deviceId === null) return [];
   if (typeof deviceId !== 'string' || deviceId.length !== 64 || !/^[a-f0-9]{64}$/.test(deviceId)) throw new Error('Select a valid input device for setup.');
   // Presentation hint only. Native inventory and policy still decide which
   // exact device exists and whether any operation may be reviewed/applied.
@@ -47,7 +62,7 @@ function createNativeBrokerLauncher(directory, onClosed = () => {}) {
   async function launch(deviceId) {
     const selectionArguments = setupSelectionArguments(deviceId);
     const status = readNativeBrokerStatus(directory);
-    if (!status.available) throw new Error(status.message);
+    if (!status.available && !status.recoveryOnly) throw new Error(status.message);
     if (running) throw new Error('Native driver setup is already open.');
     running = true;
     try {
@@ -67,4 +82,4 @@ function createNativeBrokerLauncher(directory, onClosed = () => {}) {
   launch.isRunning = () => running;
   return launch;
 }
-module.exports = { readNativeBrokerStatus, createNativeBrokerLauncher, verifyPolicy, observeSetupExit, setupSelectionArguments };
+module.exports = { readNativeBrokerStatus, createNativeBrokerLauncher, verifyPolicy, verifyExpiredGeneralPolicy, observeSetupExit, setupSelectionArguments };

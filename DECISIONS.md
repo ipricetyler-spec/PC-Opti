@@ -206,7 +206,8 @@ findings are listed in the review queue.
 - **A latched review has a way out.** "Review what changed" lists every difference; "Keep current
   settings" saves exactly the reviewed state as the new baseline. It is refused while a change is
   pending, when security is unknown, for an unrecognized driver file, or when a device with recorded
-  originals has moved. Originals are kept. A pending change that drifted still has no way out.
+  originals has moved. Originals are kept. (Superseded the same week: a pending change whose own
+  check gave up can now be reviewed too — see the pending-change entry below.)
 
 ## 2026-09-30 — Protection notices before boot, game-file and power plan changes
 
@@ -235,3 +236,35 @@ notice; none blocks the change or touches a security setting.
   the full list.
 - **The vertical sidebar starts at 960px**, the window's minimum width, with a narrower rail below
   1024px.
+
+## 2026-10-01 — Systems re-review and product re-review fixes
+
+- **"Keep current settings" only promises a restore that would work.** Accepting a reviewed state
+  now requires each device with recorded originals to be eligible and on the same scope, exactly
+  what restoring it requires. Otherwise it refuses and asks for the device on its original port.
+- **Plugging a device in or out no longer looks like a Windows change.** The platform fingerprint
+  includes every eligible input device. The helper now recomputes it from the current Windows,
+  security and USB driver state with the saved device set; when that reproduces the saved value,
+  only devices differ and they are compared one by one. No saved-record format changed.
+- **An expired release policy still allows undo.** A schema 2 policy that passes every check as of
+  just before it expired puts setup in recovery-only mode: restore a device or remove the driver,
+  nothing else. The candidate gate still refuses any package with under 30 days left.
+- **Setup refuses Windows on ARM** before anything runs; the bundled driver is x64 only.
+- **Native setup has its own capability record** (`input:polling-setup`, S3, signed helper with
+  UAC) instead of opening under the read-only USB checks.
+- **Accepting a state where the driver changed outside Dialed** stops Dialed claiming the driver,
+  so removal can never delete another tool's driver; the review says so.
+- **A saved change waiting for its own check says so** (`PENDING_OPERATION`), instead of offering
+  a review that then refused.
+- **The review reads in Hz and plain words**, and a change whose setting matches says "was saved",
+  not "took effect".
+- **A rate is shown as not in effect when the HIDUSBF filter is gone**, instead of as the saved rate.
+- **Gaming mice with a macro keyboard interface can run the rate check**; keyboard traffic is
+  ignored by the verdict.
+- **Safety notices are a separate callout** in confirmations (BitLocker, Controlled folder access,
+  Modern Standby), not folded into the small print.
+- **Readiness never says anti-cheat "is running" when it was not checked or only installed.**
+- Deferred to the owner (feature ideas from the TunedPC screen comparison): per-device rates in the
+  device list, a "Your setup" strip on Home, fewer recording confirmations, game profile status and
+  plain names, remembered network consent, an optional restore point before batches, and a "no
+  longer in effect" check for Dialed's own changes.

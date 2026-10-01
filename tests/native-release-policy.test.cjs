@@ -250,3 +250,20 @@ test('JavaScript signed-policy verdicts match the actual C# contract on the same
   const result = runHidusbfFixture(['--verify-policy-corpus', file], { timeout: 60000 });
   assert.ok(result.includes(`closed-policy-corpus-pass:${corpus.length}`));
 });
+
+test('an expired general release still allows restore-only setup; nothing else is forgiven', () => {
+  const { verifyExpiredGeneralPolicy } = require('../src/main/input-driver-lifecycle/native-broker.cjs');
+  const publicKey = pair.publicKey.export({ type: 'spki', format: 'pem' });
+  const general = (expiresAt, extra = {}) => Buffer.from(JSON.stringify({ SchemaVersion: 2, ExpiresAt: expiresAt, BrokerSha256: 'a'.repeat(64), HelperSha256: 'b'.repeat(64),
+    PublisherThumbprint: 'C'.repeat(40), Purpose: 'ACCEPTED_RELEASE', DeviceClasses: ['GAMEPAD', 'MOUSE'], SpeedClasses: ['FULL', 'HIGH'], MinimumWindowsBuild: 19041, DeniedDevices: [], ...extra }));
+  const expired = general(new Date(Date.now() - 30 * 86400000).toISOString().replace(/\.\d+Z$/, 'Z'));
+  assert.throws(() => verifyPolicy(expired, sign(expired), publicKey));
+  assert.equal(verifyExpiredGeneralPolicy(expired, sign(expired), publicKey).Purpose, 'ACCEPTED_RELEASE');
+  const current = general(new Date(Date.now() + 30 * 86400000).toISOString().replace(/\.\d+Z$/, 'Z'));
+  assert.equal(verifyExpiredGeneralPolicy(current, sign(current), publicKey), null, 'a current policy is not a recovery case');
+  assert.equal(verifyExpiredGeneralPolicy(expired, sign(current), publicKey), null, 'the signature must match');
+  const wrongPurpose = general(new Date(Date.now() - 86400000).toISOString().replace(/\.\d+Z$/, 'Z'), { Purpose: 'VALIDATION_ONLY' });
+  assert.equal(verifyExpiredGeneralPolicy(wrongPurpose, sign(wrongPurpose), publicKey), null, 'every other field is still checked');
+  const otherKey = other.publicKey.export({ type: 'spki', format: 'pem' });
+  assert.equal(verifyExpiredGeneralPolicy(expired, sign(expired), otherKey), null, 'the trust anchor is unchanged');
+});

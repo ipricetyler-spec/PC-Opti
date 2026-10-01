@@ -89,7 +89,7 @@ static class SetupPresentation {
       "This request changed no device settings or saved history. Recorded original settings stay intact. Create a new preview after refreshing.\r\nDetails: " + message
     : IsHistoryRefusal(message)
     ? "Dialed cannot safely use this saved recovery history because its exact restore locations are missing or its format is unsupported.\r\n" +
-      "No device settings were changed by this request. Keep the history file intact; do not delete or reset it. The saved record needs review before this version can manage devices.\r\n" +
+      "No device settings were changed by this request. Keep the history file intact; do not delete or reset it. The saved record needs review before this version can manage devices: update Dialed, or save a support file from Dialed's Settings and send it to us.\r\n" +
       "Setup actions are paused for this session.\r\nDetails: " + message
     : message;
   public static string FailureSummary(string message) {

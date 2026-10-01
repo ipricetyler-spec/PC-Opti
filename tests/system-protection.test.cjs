@@ -75,13 +75,17 @@ test('the notices reach the boot, game-file and power plan confirmations', () =>
   assert.match(app, /const bootNotice = isBootEntry\(entry\) \? await readBootNotice\(\) : null;/);
   assert.match(app, /const undoAllBootNotice = restorable\.some\(isBootEntry\) \? await readBootNotice\(\) : null;/);
   assert.match(app, /const runBootNotice = undoable\.some\(isBootEntry\) \? await readBootNotice\(\) : null;/);
-  assert.equal([...app.matchAll(/(timingBootNotice|bootNotice|undoAllBootNotice|runBootNotice) \? `\$\{\1\}\\n\\n`/g)].length, 4);
+  // Each notice is passed as the dialog's separate warning callout, not folded into the small print.
+  assert.equal([...app.matchAll(/warning: (timingBootNotice|bootNotice|undoAllBootNotice|runBootNotice) \?\? null/g)].length, 4);
   assert.match(app, /const isBootEntry = \(entry: AuditJournalEntry\) => entry\.actionId\.startsWith\('timing:'\);/);
   const catalog = fs.readFileSync(path.join(__dirname, '../src/components/OptimizationCatalog.tsx'), 'utf8');
   assert.match(catalog, /selectedItems\.some\(\(item\) => item\.kind === 'timing'\) \? await readBootNotice\?\.\(\) \?\? null : null/);
-  assert.match(catalog, /notice: `\$\{bootNotice \? `\$\{bootNotice\}\\n\\n` : ''\}/);
+  assert.match(catalog, /warning: bootNotice \?\? null, notice: `/);
   assert.match(app, /readBootNotice=\{readBootNotice\}/);
-  assert.equal([...app.matchAll(/preview\.protectionNotice \? `\$\{preview\.protectionNotice\}/g)].length, 2);
+  assert.equal([...app.matchAll(/warning: preview\.protectionNotice \?\? null/g)].length, 2);
+  assert.match(app, /warning: planNotice \?\? null/);
+  const dialog = fs.readFileSync(path.join(__dirname, '../src/components/ActionPreviewDialog.tsx'), 'utf8');
+  assert.match(dialog, /request\.warning \? <p id="action-preview-warning" role="note"/);
   assert.match(app, /const planNotice = settingId === 'ultimate-plan' \?/);
   assert.match(fs.readFileSync(path.join(__dirname, '../src/components/GameOptimizationCenter.tsx'), 'utf8'), /preview\.protectionNotice \?/);
   assert.match(fs.readFileSync(path.join(__dirname, '../src/components/PowerPlanCard.tsx'), 'utf8'), /inventory\?\.planNotice \?/);

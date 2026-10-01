@@ -481,3 +481,28 @@ against the code before fixing; all 23 reproduced as described, and none were wr
   and a history-deletion failure still shown raw (same class as MUST 5). `npm test` 850/850, lint clean,
   UI fixtures passed twice; the BIOS fixture's first-Tab skip-link check failed once (also once on
   2026-09-28) and is intermittent, not caused by these changes.
+
+## 2026-10-01 — systems re-review (since df9c9ae), product re-review with screenshots, TunedPC screen comparison
+
+Four read-only reviews, owner-confirmed. TunedPC was judged from 14 screenshots only (clean room).
+Each finding was checked against the code before fixing. Verified, one at a time, on the working tree:
+
+- `npm test` 851/851, `npm run test:ts` 129/129, `npm run lint` clean, `npm run build` clean,
+  `npm run test:ui:fixtures` all pass.
+- Native fixture (`tests/hidusbf-native-protocol.test.cjs`) passes, with new checks: owned device
+  unplugged or on another port refuses acceptance; a newly plugged eligible device built through
+  the real platform-fingerprint function refreshes, a changed USB controller driver still refuses;
+  an unlatched record is not offered for acceptance; a driver changed outside Dialed is no longer
+  claimed; recovery-only sessions refuse rate changes and still preview restore; an expired signed
+  general release is recognized for recovery while a tampered, wrong-key or wrong-purpose one is not.
+- Setup window screens recaptured off-screen without focus (new fixture scenarios: drift state and
+  both review dialogs). App screens recaptured headless: BitLocker callout, Modern Standby notice,
+  Tweaks › Windows, Restore › History.
+
+Not verified: anything on real hardware or in an installed build. The native helpers in
+`output/hidusbf-native` are now stale (helper source changed) and must be rebuilt and re-signed with
+`npm run release:native` before packaging. Still to test on hardware: a mouse rate change and the
+rate check on a mouse with a keyboard interface; plugging a device in between setup visits (should
+refresh, not latch); "Review what changed" on a real latched record with the owned device unplugged;
+the BitLocker and Modern Standby notices on PCs where they apply. MPO on build 26200 (whether
+`OverlayTestMode=5` is still honoured) is unverified.

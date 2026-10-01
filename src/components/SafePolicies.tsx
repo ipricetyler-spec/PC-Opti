@@ -99,14 +99,14 @@ export function SafePolicies({ policies, errors, loading, activePolicyId, action
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">{policy.description}</p>
             <dl data-technical-detail className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
-              <PolicyDetail label="Windows policy value" value="HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent\\DisableWindowsConsumerFeatures" />
+              <PolicyDetail label="Windows policy value" value={"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent\\DisableWindowsConsumerFeatures"} />
               <PolicyDetail label="Current state" value={policy.enabled ? 'DWORD 1 (enabled)' : policy.valueExists ? `${policy.valueKind || 'Unknown'} ${policy.value ?? ''}` : 'Not configured'} />
             </dl>
           </div>
           <button onClick={() => onEnable(policy)} disabled={active || policy.enabled || unsupportedValue} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"><ShieldCheck className="h-3.5 w-3.5" /> {active ? 'Applying…' : policy.enabled ? 'Already configured' : unsupportedValue ? 'Set to an unexpected value' : 'Apply'}</button>
         </div></section>;
       })}
-      {!loading && visiblePolicies.length === 0 && <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-500">Nothing matches these filters.</section>}
+      {!loading && policies.length > 0 && visiblePolicies.length === 0 && <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-500">Nothing matches these filters.</section>}
       {!loading && policies.length === 0 && <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-500">Windows did not return any policies.</section>}
     </div>
   );

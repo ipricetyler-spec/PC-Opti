@@ -55,6 +55,23 @@ static class InventoryReconciliationChecks {
     // stuck after restarts plus a plugged-in keyboard). An unusable session identity may not.
     Check(InventoryReconciliation.CanRefresh(record, next with { BootId = BootSessionChecks.Next(next.BootId) }), "later boot plus inventory accepted");
     Check(!InventoryReconciliation.CanRefresh(record, next with { BootId = "not-a-boot-session" }), "unusable boot identity refused");
+    // The real platform fingerprint names every eligible device (WindowsMachine.Observe), so a newly
+    // plugged eligible mouse changes it. Build both fingerprints the way the machine does.
+    {
+      Func<string, Func<IEnumerable<string>, string>> core = xhci => scopes => ScopeDigests.Platform("10.0.26200.0", 1u, 1, xhci, "ABSENT", scopes);
+      var platformFor = core("xhci-a");
+      IEnumerable<string> Eligible(LifecycleObservation o) => o.Devices.Where(d => d.Eligible).Select(d => d.InterfaceDigest);
+      var realBaseline = baseline with { PlatformDigest = platformFor(Eligible(baseline)) };
+      var realRecord = record with { Expected = realBaseline };
+      var mouse = DefaultDevice(@"USB\VID_046D&PID_C547\MOUSE", "New mouse", "FULL") with { Eligible = true };
+      var plugged = realBaseline with { Devices = realBaseline.Devices.Append(mouse).ToArray() };
+      plugged = plugged with { PlatformDigest = platformFor(Eligible(plugged)) };
+      Check(plugged.PlatformDigest != realBaseline.PlatformDigest, "an eligible device changes the real platform fingerprint");
+      Check(!InventoryReconciliation.CanRefresh(realRecord, plugged), "without the machine's recomputation the comparison stays exact");
+      Check(InventoryReconciliation.CanRefresh(realRecord, plugged, platformFor), "a newly plugged eligible device alone is refreshable");
+      var updated = plugged with { PlatformDigest = core("xhci-b")(Eligible(plugged)) };
+      Check(!InventoryReconciliation.CanRefresh(realRecord, updated, core("xhci-b")), "a changed USB controller driver is still refused");
+    }
     // An absent entry with nothing setup reads or writes may disappear; anything else may not.
     var staleStick = DefaultDevice(@"USB\VID_0781&PID_5575\STICK", "Old USB stick") with { Present = false };
     var withStale = record with { Expected = baseline with { Devices = baseline.Devices.Append(staleStick).ToArray() } };
@@ -150,7 +167,8 @@ static class InventoryReconciliationChecks {
       Check(!InventoryReconciliation.CanRefresh(blocked, next), "pending/review classification refuses");
       using var log = new JournalLog(new MemoryStream()); Seed(log, blocked);
       var machine = new MemoryMachine { State = next }; var session = new LifecycleSession(log, machine, () => { });
-      Refuse(() => session.Preview(apply), "NEEDS_REVIEW"); Refuse(() => session.Reconcile(), "NEEDS_REVIEW");
+      // A saved change still running its own check is named as such, so setup offers Check saved operation, not a review.
+      Refuse(() => session.Preview(apply), blocked.Pending != null ? "PENDING_OPERATION" : "NEEDS_REVIEW"); Refuse(() => session.Reconcile(), "NEEDS_REVIEW");
       Check(Read(log).NeedsReview && LifecycleSession.Digest(Read(log).Expected) == LifecycleSession.Digest(baseline) && machine.Executions == 0, "pending/review keeps original expectation");
       Check(LifecycleSession.Digest(Read(log).Pending) == LifecycleSession.Digest(blocked.Pending), "pending evidence retained");
     }
@@ -229,7 +247,8 @@ static class InventoryReconciliationChecks {
       Refuse(() => session.Preview(apply), "NEEDS_REVIEW");
       var review = session.ReviewDrift();
       Check(review.StateDigest == LifecycleSession.Digest(drifted), "review fingerprints what it saw");
-      Check(review.Differences.Any(x => x.Contains("rate setting changed from interval 1 to interval 4") && x.Contains("originals recorded")), "review names the owned device's changed rate");
+      Check(review.Differences.Any(x => x.Contains("rate changed from ") && x.Contains(" Hz to ") && x.Contains("originals recorded")), "review names the owned device's changed rate in Hz");
+      Check(!review.Differences.Any(x => x.Contains("interval") || x.Contains("identity") || x.Contains("policy")), "review avoids raw driver terms");
       byte[] original = bytes.ToArray();
       Refuse(() => session.AcceptCurrent(new string('e', 64)), "REVIEW_STALE");
       Refuse(() => session.AcceptCurrent("not a digest"), "REVIEW_STALE");
@@ -245,6 +264,9 @@ static class InventoryReconciliationChecks {
     }
     foreach (var (name, state, code) in new[] {
       ("owned device moved", drifted with { Devices = drifted.Devices.Select(d => d.Id == target.Id ? d with { Coordinate = IntervalBinding.Create(d.Coordinate.InstanceId, "Driver", @"{36fc9e60-c465-11cf-8056-444553540000}\0031") } : d).ToArray() }, "OWNED_DEVICE_MOVED"),
+      // Restore needs the device eligible and its scope unchanged, so acceptance may not promise it otherwise.
+      ("owned device unplugged", drifted with { Devices = drifted.Devices.Select(d => d.Id == target.Id ? d with { Present = false, Eligible = false } : d).ToArray() }, "OWNED_DEVICE_MOVED"),
+      ("owned device on another port", drifted with { Devices = drifted.Devices.Select(d => d.Id == target.Id ? d with { InterfaceDigest = LifecycleSession.Digest("other port") } : d).ToArray() }, "OWNED_DEVICE_MOVED"),
       ("security unknown", drifted with { SecurityAccepted = false }, "SECURITY_UNKNOWN"),
       ("unrecognized driver", drifted with { Service = drifted.Service with { File = drifted.Service.File with { Sha256 = new string('e', 64), Variant = null } } }, "UNRECOGNIZED_DRIVER"),
     }) {
@@ -262,13 +284,13 @@ static class InventoryReconciliationChecks {
     }
     // A latched saved change: say whether it took effect and keep the matching originals.
     var unrelated = record.Expected.Devices.First(d => d.Id != target.Id);
-    DeviceSetting[] WithTarget(DeviceSetting[] devices, DwordValue interval) => devices.Select(d => d.Id == target.Id ? d with { Interval = interval } : d.Id == unrelated.Id ? d with { Name = "Renamed elsewhere" } : d).ToArray();
+    DeviceSetting[] WithTarget(DeviceSetting[] devices, DwordValue interval) => devices.Select(d => d.Id == target.Id ? d with { Interval = interval } : d.Id == unrelated.Id ? d with { Name = "Renamed elsewhere", Eligible = true } : d).ToArray();
     var plannedInterval = plan.After.Devices.Single(d => d.Id == target.Id).Interval;
     // The plan also records an original for a second, real device, as an install would.
     var withNewPlan = plan with { Ownership = new LifecycleOwnership(false, new Dictionary<string, SavedDevice>(plan.Ownership.Devices) {
       [unrelated.Id] = new SavedDevice(unrelated.InterfaceDigest, unrelated.Filters, unrelated.Interval, unrelated.IntervalLocation, unrelated.Coordinate) }) };
     foreach (var (outcome, interval, expectedOwnership, message) in new[] {
-      ("APPLIED", plannedInterval, withNewPlan.Ownership, "took effect"),
+      ("APPLIED", plannedInterval, withNewPlan.Ownership, "was saved"),
       ("NOT_APPLIED", target.Interval, record.Ownership, "did not take effect"),
       ("UNCLEAR", new DwordValue(true, 2), withNewPlan.Ownership, "is unclear") }) {
       var reference = outcome == "NOT_APPLIED" ? record.Expected : withNewPlan.After;
@@ -290,6 +312,31 @@ static class InventoryReconciliationChecks {
     using (var log = new JournalLog(new MemoryStream())) {
       Seed(log, record);
       Refuse(() => new LifecycleSession(log, new MemoryMachine { State = record.Expected }, () => { }).ReviewDrift(), "NOTHING_TO_REVIEW");
+    }
+    // An expired policy leaves only restore and removal.
+    using (var log = new JournalLog(new MemoryStream())) {
+      Seed(log, record);
+      var recovery = new LifecycleSession(log, new MemoryMachine { State = record.Expected }, () => { }) { RecoveryOnly = true };
+      Refuse(() => recovery.Preview(apply), "POLICY_EXPIRED");
+      Check(recovery.Preview(apply with { Action = "DETACH", RequestedHz = null }).Plan != null, "restore still previews when the policy expired");
+    }
+    // An unlatched record that setup updates on its own is not offered for acceptance.
+    using (var log = new JournalLog(new MemoryStream())) {
+      Seed(log, record);
+      var refreshable = record.Expected with { Devices = record.Expected.Devices.Select(d => d.Id == unrelated.Id ? d with { Name = "Renamed elsewhere" } : d).ToArray() };
+      Check(InventoryReconciliation.CanRefresh(record, refreshable), "renamed unowned device is refreshable");
+      Refuse(() => new LifecycleSession(log, new MemoryMachine { State = refreshable }, () => { }).ReviewDrift(), "NOTHING_TO_REVIEW");
+      Refuse(() => new LifecycleSession(log, new MemoryMachine { State = record.Expected with { BootId = BootSessionChecks.Next(record.Expected.BootId) } }, () => { }).ReviewDrift(), "NOTHING_TO_REVIEW");
+    }
+    // A driver changed outside Dialed is no longer claimed, so removal can never delete another tool's driver.
+    using (var log = new JournalLog(new MemoryStream())) {
+      var owning = latched with { Ownership = latched.Ownership with { ServiceOwned = true } };
+      Seed(log, owning);
+      var outside = drifted with { Service = drifted.Service with { Service = drifted.Service.Service with { Start = drifted.Service.Service.Start == 3u ? 2u : 3u } } };
+      var session = new LifecycleSession(log, new MemoryMachine { State = outside }, () => { });
+      var review = session.ReviewDrift();
+      Check(review.Differences.Any(x => x.Contains("will not remove the driver")), "review states the ownership consequence");
+      Check(session.AcceptCurrent(review.StateDigest).Status == "BASELINE_ACCEPTED" && !Read(log).Ownership.ServiceOwned, "a changed driver is no longer claimed");
     }
     using (var bytes = new MemoryStream()) using (var log = new JournalLog(bytes)) {
       // The PC changes between the two observations of the acceptance itself.

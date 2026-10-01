@@ -112,7 +112,7 @@ static class DeviceReconnectChecks {
       Check(c.Record.SchemaVersion == 3 && c.Record.Pending != null && !c.Record.NeedsReview, "new pending format rejects old binaries");
       Check(c.Machine.Registrations == 1 && c.Machine.State.Devices[0].Interval.Value == 4, "watch armed after exact readback");
       Refuse(() => c.Session.Apply(p.Token, p.PlanDigest), "consumed");
-      Refuse(() => c.Session.Preview(c.Intent), "NEEDS_REVIEW");
+      Refuse(() => c.Session.Preview(c.Intent), "PENDING_OPERATION");
       byte[] pending = c.Bytes.ToArray(); int reads = c.Machine.Observations;
       for (int i = 0; i < 3; i++) Check(c.Session.Reconcile().Status == "RECONNECT_REQUIRED", "unchanged device never unlocks");
       Check(c.Machine.Observations == reads && pending.SequenceEqual(c.Bytes.ToArray()), "waiting polls do not scan or append");

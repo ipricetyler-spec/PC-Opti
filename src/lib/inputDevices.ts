@@ -3,11 +3,11 @@ export interface InputDevice {
   portId: string; portLabel: string; portNumber: number | null; location: string;
   routeComplete: boolean; hubs: number | null; hubNames: string[]; controller: string;
   connection: 'CPU' | 'CHIPSET' | 'UNKNOWN'; connectionEvidence: string; speed: string;
-  filterActive: boolean; configuredHz: number | null; maxSupportedHz: number | null; canApply: boolean; eligibilityReason: string | null;
+  filterActive: boolean; configuredHz: number | null; inactiveHz?: number | null; maxSupportedHz: number | null; canApply: boolean; eligibilityReason: string | null;
   rates: number[]; canTest: boolean; testKinds: Array<'MOUSE' | 'KEYBOARD' | 'JOYSTICK' | 'GAMEPAD'>; advice: string;
 }
 export interface BundledInputStatus {
-  nativeBroker?: { available: boolean; code: string; message: string };
+  nativeBroker?: { available: boolean; recoveryOnly?: boolean; code: string; message: string };
   identity: 'VERIFIED' | 'INVALID_OR_MISSING';
   packaged: boolean;
   selectedFileCount: number;

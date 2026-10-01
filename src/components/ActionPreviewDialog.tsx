@@ -7,6 +7,8 @@ export interface ActionPreviewRequest {
   detailsLabel: string;
   details: string;
   notice: string;
+  /** A safety warning the reader must not miss (BitLocker, Controlled folder access, Modern Standby); shown apart from the notice. */
+  warning?: string | null;
   confirmLabel: string;
   tone?: 'default' | 'danger';
 }
@@ -75,7 +77,7 @@ export function ActionPreviewDialog({ request, onCancel, onConfirm }: ActionPrev
       role="dialog"
       aria-modal="true"
       aria-labelledby="action-preview-heading"
-      aria-describedby="action-preview-description action-preview-notice"
+      aria-describedby={`action-preview-description${request.warning ? ' action-preview-warning' : ''} action-preview-notice`}
       className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
     >
       <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
@@ -94,6 +96,7 @@ export function ActionPreviewDialog({ request, onCancel, onConfirm }: ActionPrev
           <p className="border-b border-slate-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{request.detailsLabel}</p>
           <pre tabIndex={0} aria-label={request.detailsLabel} className="max-h-[min(45vh,24rem)] min-h-24 overflow-auto whitespace-pre-wrap p-4 font-mono text-[11px] leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{request.details}</pre>
         </div>
+        {request.warning ? <p id="action-preview-warning" role="note" className="mt-3 flex gap-2 whitespace-pre-line rounded-lg border border-amber-500/40 bg-amber-950/25 p-3 text-xs font-semibold leading-relaxed text-amber-100"><AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><span>{request.warning}</span></p> : null}
         <p id="action-preview-notice" className={`mt-3 whitespace-pre-line text-xs leading-relaxed ${danger ? 'text-rose-200' : 'text-amber-100'}`}>{request.notice}</p>
       </div>
 

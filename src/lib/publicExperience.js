@@ -10,7 +10,8 @@ export function computeReadinessState(input) {
   if (input.scanError) reviewItems.push('The last scan hit an error.');
   if (input.historyRecovery || input.unresolvedHistory > 0) reviewItems.push('A change in your history did not finish or could not be confirmed.');
   if (input.driftError) reviewItems.push('Dialed could not compare this PC with your saved snapshot.');
-  if (input.antiCheatStatus === 'WARN') reviewItems.push('Anti-cheat software is running, so Dialed is being extra careful with game-related changes.');
+  // WARN covers found-and-running, found-but-idle and could-not-check; none of them may claim it is running.
+  if (input.antiCheatStatus === 'WARN') reviewItems.push('Dialed found anti-cheat software or could not check for it, so it is being extra careful with game-related changes.');
   if (input.reviewRecommendations > 0) reviewItems.push('A suggestion needs your decision.');
   if (benchmarkNeedsReview(input.benchmarkComparisons || [])) reviewItems.push('A performance test is unfinished, unclear, or showed things got worse.');
   return {

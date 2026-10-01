@@ -36,11 +36,11 @@ const HISTORY_FILTERS = [
   { value: 'all', label: 'All entries' },
   { value: 'needs-review', label: 'Needs review' },
   { value: 'failed', label: 'Failed' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: 'Not finished' },
   { value: 'success', label: 'Success' },
   { value: 'rollback', label: 'Can be undone' },
   { value: 'undone', label: 'Undone changes and undos' },
-  { value: 'unresolved', label: 'Unfinished' },
+  { value: 'unresolved', label: 'To check' },
 ] as const;
 
 type HistoryFilterValue = (typeof HISTORY_FILTERS)[number]['value'];
@@ -195,7 +195,7 @@ export function LocalAuditHistory({
         </div>
       </div>
       <ShowDetails className="mt-4" label="History tools: how undo works, export, clear old records">
-      <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4 text-xs leading-relaxed text-cyan-100/80"><strong className="text-cyan-200">How undo works:</strong> changes that can be undone have a Restore button below. If Dialed was closed partway through a change, a banner asks you to re-check it before anything else happens. Clearing old history never undoes a change.</div>
+      <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4 text-xs leading-relaxed text-cyan-100/80"><strong className="text-cyan-200">How undo works:</strong> changes that can be undone have an Undo button below. If Dialed was closed partway through a change, a banner asks you to re-check it before anything else happens. Clearing old history never undoes a change.</div>
       <div className="mt-3 flex flex-col gap-3 rounded-xl border border-rose-500/20 bg-rose-950/10 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold text-rose-200">Clear old history</p>
@@ -266,9 +266,9 @@ export function LocalAuditHistory({
       <LedgerStat active={!focusedEntry && historyFilter === 'success'} onClick={() => pickFilter('success')} label="Success" value={`${counts.completed}`} detail="Finished and confirmed." />
       <LedgerStat active={!focusedEntry && historyFilter === 'needs-review'} onClick={() => pickFilter('needs-review')} label="Needs review" value={`${counts.needsReview}`} detail="Could not be confirmed; worth a look." />
       <LedgerStat active={!focusedEntry && historyFilter === 'failed'} onClick={() => pickFilter('failed')} label="Failed" value={`${counts.failed}`} detail="Windows refused or the change failed." />
-      <LedgerStat active={!focusedEntry && historyFilter === 'pending'} onClick={() => pickFilter('pending')} label="Pending" value={`${counts.pending}`} detail="Still being checked." />
-      <LedgerStat active={!focusedEntry && historyFilter === 'rollback'} onClick={() => pickFilter('rollback')} label="Can be undone" value={`${counts.rollbackAvailable}`} detail="Have a Restore button." />
-      <LedgerStat active={!focusedEntry && historyFilter === 'unresolved'} onClick={() => pickFilter('unresolved')} label="Unfinished" value={`${counts.protected}`} detail="Kept until they are checked." />
+      <LedgerStat active={!focusedEntry && historyFilter === 'pending'} onClick={() => pickFilter('pending')} label="Not finished" value={`${counts.pending}`} detail="Started, but Dialed could not see it finish." />
+      <LedgerStat active={!focusedEntry && historyFilter === 'rollback'} onClick={() => pickFilter('rollback')} label="Can be undone" value={`${counts.rollbackAvailable}`} detail="Have an Undo button." />
+      <LedgerStat active={!focusedEntry && historyFilter === 'unresolved'} onClick={() => pickFilter('unresolved')} label="To check" value={`${counts.protected}`} detail="Not finished or not confirmed. Kept until checked." />
     </section>
 
     <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">

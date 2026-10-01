@@ -44,7 +44,7 @@ test('native framing, preview refusals, scope construction and journal survive c
   const file = path.join(directory, 'corpus.json');
   fs.writeFileSync(file, JSON.stringify(corpus), { flag: 'wx' });
   const output = runHidusbfFixture(['--digest-corpus', file], { timeout: 60000 });
-  assert.match(output, /closed-native-protocol-pass:140\b/);
+  assert.match(output, /closed-native-protocol-pass:145\b/);
   assert.match(output, /closed-boot-recovery-pass:61/);
   assert.match(output, /closed-boot-session-pass:\d+/);
   assert.match(output, /closed-preview-transport-pass:55/);

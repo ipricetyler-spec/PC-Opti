@@ -158,6 +158,7 @@ select option {
 :root .text-cyan-200,
 :root .text-cyan-300,
 :root .text-cyan-400 { color: var(--app-accent-soft) !important; }
+:root .accent-cyan-400 { accent-color: var(--app-accent); }
 :root .bg-cyan-300,
 :root .bg-cyan-400,
 :root .bg-cyan-500 { background-color: var(--app-accent) !important; }

@@ -16,7 +16,12 @@ class BrokerEntryPoint {
     Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
     try {
       string selectionHint = SetupSelection.ParseArguments(args);
-      var policy = ReleasePolicy.Load(AppContext.BaseDirectory);
+      if (System.Runtime.InteropServices.RuntimeInformation.OSArchitecture != System.Runtime.InteropServices.Architecture.X64) {
+        MessageBox.Show("Polling-rate setup needs 64-bit Windows on an Intel or AMD processor. This PC runs Windows on ARM, which cannot load the bundled driver, so setup cannot change rates here. Nothing was changed. The polling-rate and controls checks in Dialed still work.",
+          "Dialed driver setup unavailable", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return;
+      }
+      var policy = ReleasePolicy.Load(AppContext.BaseDirectory, allowRecovery: true);
       using var ownImage = policy.PinExecutable(Environment.ProcessPath, true);
       string helper = Path.Combine(AppContext.BaseDirectory, "Dialed.HidusbfHost.exe");
       using var helperImage = policy.PinExecutable(helper, false);
@@ -45,6 +50,10 @@ sealed class SetupWindow : SetupView {
   readonly System.Windows.Forms.Timer reconnectTimer = new System.Windows.Forms.Timer { Interval = 1500 };
   public SetupWindow(ReleasePolicy policy, string helper, string selectionHint = null) : base(policy.Data.Purpose == "VALIDATION_ONLY") {
     this.policy = policy; this.helper = helper; this.selectionHint = selectionHint;
+    if (policy.RecoveryOnly) {
+      sessionNote.Text = "This version of Dialed can no longer change rates. You can still restore a device's original settings or remove the driver with the recovery actions below. Update Dialed to change rates again.";
+      maintenance.Checked = true;
+    }
     actions.SelectedIndexChanged += (_, _) => { if (refreshing) return; patching.Checked = false; UpdateActions(); };
     patching.CheckedChanged += (_, _) => UpdateActions();
     rates.SelectedIndexChanged += (_, _) => { if (!refreshing) { patching.Checked = false; PresentNewRequest(); UpdateActions(); } };
@@ -75,6 +84,8 @@ sealed class SetupWindow : SetupView {
       (action?.UsesRate != true || rates.SelectedItem is int), reconnectPending, setup?.Pending != null);
     reviewDrift.Visible = driftReviewAvailable;
     reviewDrift.Enabled = client?.IsUsable == true && !busy;
+    // Only the step the status asks for is offered; a disabled rate review beside it misled.
+    preview.Visible = !driftReviewAvailable && !inventoryChanged;
     FitContent();
   }
   void UpdateDetails() {
@@ -250,7 +261,7 @@ sealed class SetupWindow : SetupView {
     reconnectPending = SetupPresentation.IsReconnectPending(result.Status);
     if (reconnectPending) reconnectTimer.Start(); else reconnectTimer.Stop();
     if (reconnectPending && result.RequestedHz is int hz && result.DeviceId == (devices.SelectedItem as DeviceChoice)?.Device.Id)
-      savedRate.Text = "Saved rate: " + hz + " Hz · Reconnect verification pending";
+    { savedRate.Text = "Saved rate: " + hz + " Hz · Reconnect verification pending"; SavedRateHz = hz; }
     progress.Text = SetupPresentation.Progress(result);
     string message = SetupPresentation.ResultText(result, action);
     SetStatus(message);

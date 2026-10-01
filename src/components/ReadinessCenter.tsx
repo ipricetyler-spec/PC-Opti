@@ -71,7 +71,8 @@ export function ReadinessCenter({
     if (antiCheat.status !== 'AVAILABLE') {
       return {
         status: 'WARN' as OutcomeStatus,
-        detail: `${antiCheat.status.toLowerCase()} anti-cheat posture (${antiCheat.reason})`,
+        detail: 'Not checked in your last scan. Scan again to check.',
+        checked: false,
       };
     }
     if (antiCheat.value.length === 0) {
@@ -84,7 +85,8 @@ export function ReadinessCenter({
     if (running === 0) {
       return {
         status: 'WARN' as OutcomeStatus,
-        detail: `${antiCheat.value.length} anti-cheat package(s) found, but runtime state is not explicitly running.`,
+        detail: `${antiCheat.value.length} anti-cheat ${antiCheat.value.length === 1 ? 'program is' : 'programs are'} installed; none was running during the scan.`,
+        installedOnly: true,
       };
     }
     const installedProducts = antiCheat.value.slice(0, 3).map((item) => item.product).join(', ');
@@ -237,7 +239,11 @@ export function ReadinessCenter({
       detail: antiCheatSignal.detail,
       recommendation: antiCheatSignal.status === 'BLOCKED'
         ? 'Dialed offers no game-related changes until it can check for anti-cheat.'
-        : antiCheatSignal.status === 'WARN'
+        : antiCheatSignal.status === 'WARN' && 'checked' in antiCheatSignal
+          ? 'Dialed could not check for anti-cheat, so it treats it as present and takes extra care with game-related changes.'
+          : antiCheatSignal.status === 'WARN' && 'installedOnly' in antiCheatSignal
+            ? 'Anti-cheat is installed. Be careful with timing and startup experiments.'
+          : antiCheatSignal.status === 'WARN'
           ? 'Anti-cheat is running. Be careful with timing and startup experiments.'
           : 'No anti-cheat conflict found. Dialed never changes anti-cheat software.',
     },

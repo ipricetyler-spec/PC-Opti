@@ -137,7 +137,7 @@ async function main() {
     throw new Error('Unknown input fixture operation.');
   };
   let nativeHistory = false;
-  const service = input.createInputService(path.join(root, 'user-data'), { native, allowLegacyNewWrites: () => legacyWrites, legacyRestoreAuthority: () => ({ allowed: !nativeHistory, message: nativeHistory ? 'Native setup has reserved machine history. Legacy restore is blocked; saved values are retained.' : '' }) });
+  const service = input.createInputService(path.join(root, 'user-data'), { native, allowLegacyNewWrites: () => legacyWrites, legacyRestoreAuthority: () => ({ allowed: !nativeHistory, message: nativeHistory ? "Setup now keeps the history for these devices, so this older restore is switched off to avoid two conflicting records. The saved values are listed below. Do not delete setup's history to get around this." : '' }) });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   try {
     const context = await browser.newContext({ viewport: { width: 960, height: 700 } });
@@ -170,7 +170,7 @@ async function main() {
       if (method === 'reconcile') return service.reconcile(args[0]);
       if (method === 'reconcileTier') return service.reconcileTier(args[0]);
       if (method === 'lifecycleStatus') { assert.match(args[0], /^[a-f0-9]{64}$/); return clone(lifecycleStatus()); }
-      if (method === 'bundleStatus') return readBundledStatus(path.resolve(__dirname, '../vendor/hidusbf'), nativeExpired ? { nativeBroker: {available:false,code:'NATIVE_RELEASE_REJECTED',message:'Fixture policy expired.'} } : nativeSetupReady ? { nativeBroker: {available:true,code:'FIXTURE_READY',message:'Closed fixture setup is available.'} } : {});
+      if (method === 'bundleStatus') return readBundledStatus(path.resolve(__dirname, '../vendor/hidusbf'), nativeExpired ? { nativeBroker: {available:false,recoveryOnly:true,code:'NATIVE_RELEASE_EXPIRED',message:'Fixture policy expired.'} } : nativeSetupReady ? { nativeBroker: {available:true,code:'FIXTURE_READY',message:'Closed fixture setup is available.'} } : {});
       if (method === 'lifecycleMode') { lifecycleMode = args[0]; cancelNextLifecycleElevation = Boolean(args[1]); lifecyclePreview = null; lifecycleLastOutcome = null; return clone(lifecycleStatus()); }
       if (method === 'lifecyclePreview') {
         const [action, deviceDigest, requestedHz] = args;
@@ -263,7 +263,7 @@ async function main() {
     page.on('pageerror', (error) => errors.push(error.message));
     await openFixture(page, origin);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.technicalDetails), 'hidden');
-    await page.getByRole('status').filter({ hasText: /^Scan completed/ }).waitFor();
+    await page.getByRole('status').filter({ hasText: /^Scanned / }).waitFor();
     await page.getByRole('button', { name: 'Scan details', exact: true }).first().click();
     await page.getByText('Scan finished', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Scan again' }).count(), 1);
@@ -367,7 +367,7 @@ async function main() {
     await section.getByRole('button', { name: 'Check after restart' }).click();
     await section.getByText(/Driver setup is ready for the selected device/).waitFor();
     assert.equal(await section.getByLabel('Choose a new polling-rate request').inputValue(), '8000');
-    await section.getByText(/Leave the controller untouched/).first().waitFor();
+    await section.getByText(/Leave the controller still/).first().waitFor();
     await section.getByRole('button', { name: 'Check polling rate' }).click();
     const rateCard = section.getByLabel('Polling rate result');
     await rateCard.getByText('About 8,000 reports per second', { exact: true }).waitFor();
@@ -662,8 +662,9 @@ async function main() {
         await section.getByRole('tab', { name: 'Polling rate' }).click();
         await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
         await section.getByText(/Rate changes need a newer version of Dialed/).first().waitFor();
-        assert.equal(await section.getByRole('button',{name:'Change rate…'}).isDisabled(),true);
-        assert.ok(Number(await section.getByRole('button',{name:'Change rate…'}).evaluate(el=>getComputedStyle(el).opacity)) < 0.6);
+        // An expired policy still lets the reader undo: setup opens for restore and removal only.
+        assert.equal(await section.getByRole('button',{name:'Change rate…'}).count(),0);
+        assert.equal(await section.getByRole('button',{name:'Open setup to undo…'}).isEnabled(),true);
         assert.equal(await section.getByRole('button',{name:'Check controls'}).isEnabled(),true);
       }
       if (workspace === 'Games') {

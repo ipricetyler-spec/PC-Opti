@@ -41,13 +41,15 @@ namespace Dialed.HidusbfHelper {
         string.Equals(other.Coordinate.KeyPath, device.Coordinate.KeyPath, StringComparison.OrdinalIgnoreCase) &&
         string.Equals(other.Coordinate.ValueName, device.Coordinate.ValueName, StringComparison.OrdinalIgnoreCase));
 
-    // Every device with recorded originals is still present at exactly the registry location
-    // its originals belong to, so restoring them later writes the same value to the same place.
+    // Every device with recorded originals still meets exactly what restoring it requires (see
+    // DETACH in LifecycleSession.Plan): eligible, the same scope, and the same registry location.
+    // Accepting a baseline promises the reader restore stays possible, so this must not be looser.
     public static bool OwnedDevicesIntact(LifecycleOwnership ownership, LifecycleObservation current) {
       if (ownership?.Devices == null || !Index(current?.Devices, out var after)) return false;
       foreach (var entry in ownership.Devices) {
         var saved = entry.Value;
-        if (saved?.Coordinate == null || !after.TryGetValue(entry.Key, out var device) ||
+        if (saved?.Coordinate == null || !after.TryGetValue(entry.Key, out var device) || !device.Eligible ||
+            device.InterfaceDigest != saved.InterfaceDigest ||
             device.Coordinate != saved.Coordinate || device.IntervalLocation != saved.IntervalLocation) return false;
         try { IntervalBinding.Validate(device); }
         catch (InvalidOperationException) { return false; }
@@ -56,7 +58,18 @@ namespace Dialed.HidusbfHelper {
       return true;
     }
 
-    public static bool CanRefresh(LifecycleRecord record, LifecycleObservation current) {
+    static IEnumerable<string> EligibleScopes(LifecycleObservation observation) =>
+      (observation?.Devices ?? Array.Empty<DeviceSetting>()).Where(x => x != null && x.Eligible).Select(x => x.InterfaceDigest);
+
+    // The platform fingerprint also names every connected eligible input device, so plugging one in
+    // or out changes it. platformFor recomputes the current Windows, security and USB driver state with
+    // a given device set: if the saved fingerprint is reproduced from the saved devices, only the
+    // devices differ, and those are compared one by one elsewhere.
+    public static bool OnlyDevicesChangedPlatform(LifecycleObservation expected, LifecycleObservation current, Func<IEnumerable<string>, string> platformFor) =>
+      platformFor != null && expected != null && current != null && expected.PlatformDigest != current.PlatformDigest &&
+      platformFor(EligibleScopes(expected)) == expected.PlatformDigest && platformFor(EligibleScopes(current)) == current.PlatformDigest;
+
+    public static bool CanRefresh(LifecycleRecord record, LifecycleObservation current, Func<IEnumerable<string>, string> platformFor = null) {
       var expected = record?.Expected;
       if (record == null || record.SchemaVersion != 2 && record.SchemaVersion != 3 || record.NeedsReview || record.Pending != null ||
           record.Ownership?.Devices == null || expected == null || current == null ||
@@ -69,7 +82,8 @@ namespace Dialed.HidusbfHelper {
       // both together left setup stuck for good (2026-09-28). Everything that
       // decides a rate is still compared exactly below.
       if (current.BootId != expected.BootId && !BootSessionIdentity.IsLater(expected.BootId, current.BootId)) return false;
-      if (LifecycleSession.Digest(expected with { Devices = current.Devices, BootId = current.BootId }) != LifecycleSession.Digest(current) ||
+      string platform = OnlyDevicesChangedPlatform(expected, current, platformFor) ? current.PlatformDigest : expected.PlatformDigest;
+      if (LifecycleSession.Digest(expected with { Devices = current.Devices, BootId = current.BootId, PlatformDigest = platform }) != LifecycleSession.Digest(current) ||
           LifecycleSession.Digest(expected) == LifecycleSession.Digest(current)) return false;
       string controlSet;
       try {

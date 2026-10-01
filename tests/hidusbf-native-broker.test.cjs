@@ -35,14 +35,16 @@ test('Dialed opens setup on the same device by sending the setup helper its own 
   assert.equal(nativeSetupDeviceId(String.raw`usb\vid_054c&pid_0df2\6&23491980&0&2`), '7a31bcb3aae6e1ea56029dc4cc3654e820d4665e40436f46c07fd1600acf4a04');
   for (const unusual of ['', null, 'USB\\VID_1<2', 'USB\\VID_1"2', 'USB\\VID_1+2']) assert.equal(nativeSetupDeviceId(unusual), null);
   const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '../electron/main.cjs'), 'utf8');
-  assert.match(main, /const selection = await inputDevices\(\)\.setupSelectionKey\(args\[0\]\);/);
-  assert.match(main, /return launchBundledBroker\(selection\);/);
+  // A device setup cannot name opens setup without a pre-selection rather than refusing to open.
+  assert.match(main, /return launchBundledBroker\(await inputDevices\(\)\.setupSelectionKey\(args\[0\]\)\);/);
 });
 
 test('setup accepts only a bounded selection hint and never an operation, path or rate', async () => {
   const id = 'b'.repeat(64);
   assert.deepEqual(setupSelectionArguments(id), ['--select-device', id]);
-  for (const value of [undefined, null, '', 'B'.repeat(64), 'g'.repeat(64), 'a'.repeat(63), 'a'.repeat(65),
+  // null means no pre-selected device: setup opens and the reader chooses.
+  assert.deepEqual(setupSelectionArguments(null), []);
+  for (const value of [undefined, '', 'B'.repeat(64), 'g'.repeat(64), 'a'.repeat(63), 'a'.repeat(65),
     '--apply', 'USB\\VID_1234&PID_5678\\DEVICE', 8000, { deviceId: id, action: 'APPLY' }, [id], id + '\n']) {
     assert.throws(() => setupSelectionArguments(value), /valid input device/);
     await assert.rejects(createNativeBrokerLauncher('nonexistent')(value), /valid input device/);

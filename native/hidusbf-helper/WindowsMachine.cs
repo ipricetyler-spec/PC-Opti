@@ -19,6 +19,8 @@ namespace Dialed.HidusbfHelper {
     readonly NativeDiagnostics diagnostics;
     readonly Dictionary<string, string> instanceIds = new Dictionary<string, string>();
     readonly Dictionary<string, string> interfaceIds = new Dictionary<string, string>();
+    Func<IEnumerable<string>, string> platformFor;
+    public string PlatformFor(IEnumerable<string> eligibleScopes) => platformFor?.Invoke(eligibleScopes);
     [StructLayout(LayoutKind.Sequential)] struct CiInformation { public uint Length, Options; }
     [StructLayout(LayoutKind.Sequential)] struct DeviceInfo { public uint Size; public Guid ClassGuid; public uint DevInst; public IntPtr Reserved; }
     [DllImport("ntdll.dll")] static extern int NtQuerySystemInformation(int information, ref CiInformation value, int size, out int returned);
@@ -130,9 +132,10 @@ namespace Dialed.HidusbfHelper {
       using var secureBoot = machine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\SecureBoot\State", false);
       object secureBootValue = secureBoot?.GetValue("UEFISecureBootEnabled");
       bool securityKnown = secureBootValue is int value && (value == 0 || value == 1) && (ci.Options & 1) != 0 && (ci.Options & (2 | 0x20 | 0x40 | 0x80 | 0x800)) == 0;
-      string platform = ScopeDigests.Platform(Environment.OSVersion.Version.ToString(), ci.Options, secureBootValue,
-        HashSystemDriver("USBXHCI.SYS"), HashSystemDriver("USBPORT.SYS"),
-        states.Where(x => x.Eligible).Select(x => x.InterfaceDigest));
+      string os = Environment.OSVersion.Version.ToString(), usbXhci = HashSystemDriver("USBXHCI.SYS"), usbPort = HashSystemDriver("USBPORT.SYS");
+      uint options = ci.Options;
+      platformFor = scopes => ScopeDigests.Platform(os, options, secureBootValue, usbXhci, usbPort, scopes);
+      string platform = platformFor(states.Where(x => x.Eligible).Select(x => x.InterfaceDigest));
       return new LifecycleObservation(diagnostics.At("OBSERVE_BOOT", BootIdentity), securityKnown && acceptedPlatform(new PlatformFacts(platform, Environment.OSVersion.Version.Build)), (ci.Options & 0x400) != 0,
         diagnostics.At("OBSERVE_SERVICE", ServiceInventory.Read), states.ToArray(), platform);
     }

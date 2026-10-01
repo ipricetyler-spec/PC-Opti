@@ -99,7 +99,7 @@ export function OptimizationCatalog({ items, loading, onRefresh, onRunSelected, 
       title: `Run ${selectedItems.length} selected fix${selectedItems.length === 1 ? '' : 'es'}?`,
       description: 'Dialed runs them one at a time, rechecks each target first, verifies each result, and keeps going if one fails or is skipped.',
       details: selectedItems.map((item) => `• ${item.title}${item.requiresReboot ? ' (reboot needed)' : ''}${item.irreversible ? ' (cannot be undone)' : ''}`).join('\n'),
-      notice: `${bootNotice ? `${bootNotice}\n\n` : ''}${adminCount} need administrator rights, ${rebootCount} need a reboot, and ${irreversibleCount} cannot be undone. Every attempt is recorded in Restore › History.`,
+      warning: bootNotice ?? null, notice: `${adminCount} need administrator rights, ${rebootCount} need a reboot, and ${irreversibleCount} cannot be undone. Every attempt is recorded in Restore › History.`,
       confirmLabel: `Run ${selectedItems.length}`,
       tone: irreversibleCount > 0 ? 'danger' : 'default',
     });

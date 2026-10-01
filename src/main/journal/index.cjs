@@ -1310,8 +1310,8 @@ function assertManageableConsumerFeaturesPolicy(state) {
   }
 }
 
-function createSafetyCheckpointPowerShellScript() {
-  const description = encodePowerShellValue('Dialed pre-policy safety state');
+function createSafetyCheckpointPowerShellScript(label = 'Dialed pre-policy safety state') {
+  const description = encodePowerShellValue(label);
   // Microsoft documents the one-checkpoint-per-day limit and Get-ComputerRestorePoint
   // readback. Dialed reports that limit instead of changing its Registry frequency:
   // https://learn.microsoft.com/powershell/module/microsoft.powershell.management/checkpoint-computer
@@ -1364,14 +1364,42 @@ function createSafetyCheckpointPowerShellScript() {
   }`;
 }
 
-async function createSafetyCheckpoint() {
-  const script = createSafetyCheckpointPowerShellScript();
+async function createSafetyCheckpoint(label) {
+  const script = createSafetyCheckpointPowerShellScript(label);
   const { stdout, stderr, exitCode } = await runPowerShell(script, 90_000);
   const output = JSON.parse(stdout);
   if (!['VERIFIED', 'THROTTLED'].includes(output?.status)) {
     throw new Error('Windows returned an invalid System Restore checkpoint result.');
   }
   return { output, stdout, stderr, exitCode };
+}
+
+// An optional Windows restore point before a batch of changes, asked for by the reader. It is
+// recorded so History shows it, and it is not something Dialed undoes. VERIFIED and THROTTLED (one
+// already made in the past 24 hours) are both reported; anything else throws, so the caller stops.
+async function createRestorePointBeforeChanges(userDataPath, adapters = {}) {
+  const readElevation = adapters.isCurrentProcessElevated || isCurrentProcessElevated;
+  const createCheckpoint = adapters.createSafetyCheckpoint || createSafetyCheckpoint;
+  assertCurrentProcessAdministrator('recovery:restore-point', await readElevation(),
+    'Creating a restore point needs Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
+  const entry = createEntry('recovery:restore-point', 'Create a Windows restore point', {},
+    { category: 'Recovery', rollback: { available: false, reason: 'A restore point is not undone by Dialed. Windows removes old restore points on its own.' } });
+  appendEntry(userDataPath, entry);
+  try {
+    const result = await createCheckpoint('Dialed: before applying selected tweaks');
+    const checkpoint = result?.output;
+    if (!checkpoint || !['VERIFIED', 'THROTTLED'].includes(checkpoint.status)) throw new Error('Windows returned an invalid restore point result.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.resultingState = { checkpoint };
+    replaceEntry(userDataPath, entry);
+    return { status: checkpoint.status, message: checkpoint.message || '' };
+  } catch (error) {
+    // Windows may or may not have made one, so the entry stays for review rather than claiming either.
+    markUnverifiedMutation(entry, error);
+    replaceEntry(userDataPath, entry);
+    throw new Error(`Dialed could not confirm a restore point, so none of the selected changes were made. ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 async function writeConsumerFeaturesPolicy() {
@@ -2772,6 +2800,7 @@ module.exports = {
   createAuditExportPreview,
   createJournalDeletionPreview,
   createSafetyCheckpointPowerShellScript,
+  createRestorePointBeforeChanges,
   disableStartupItem,
   enableConsumerFeaturesPolicy,
   enableProcessEcoQos,

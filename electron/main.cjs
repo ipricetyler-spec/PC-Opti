@@ -104,6 +104,7 @@ const {
   createJournalDeletionPreview,
   disableStartupItem,
   enableConsumerFeaturesPolicy,
+  createRestorePointBeforeChanges,
   enableProcessEcoQos,
   executeMaintenanceAction,
   executeOptionalAppRemoval,
@@ -749,6 +750,11 @@ ipcMain.handle('pc-opti:enable-process-ecoqos', async (_event, processId, creati
 ipcMain.handle('pc-opti:list-safe-policies', async () => {
   assertCapabilityAvailable('policy:disable-windows-consumer-features');
   return listSafePolicies();
+});
+
+ipcMain.handle('pc-opti:create-restore-point', async () => {
+  assertCapabilityAvailable('recovery:restore-point');
+  return serializeMutation(() => createRestorePointBeforeChanges(app.getPath('userData')));
 });
 
 ipcMain.handle('pc-opti:enable-consumer-features-policy', async () => {

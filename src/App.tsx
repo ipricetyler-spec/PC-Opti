@@ -1009,6 +1009,7 @@ export default function App() {
     }
     return actions;
   }, [tweakCards, userSettings, outsideChanges]);
+  const [batchRestorePoint, setBatchRestorePoint] = useState(false);
   const applySelectedTweaks = async () => {
     const native = window.pcOptiNative;
     if (!native || batchRunning || busySettingId) return;
@@ -1021,9 +1022,36 @@ export default function App() {
       details: plan.map(({ card, action }) => `${card.definition.title}: ${action.from} → ${action.to}`).join('\n'),
       detailsLabel: 'Changes',
       notice: `Dialed records each previous value first and checks each new value after writing it. If one fails, the others still run and the failure is shown.${restart.length ? ` Restart Windows afterwards for: ${restart.join(', ')}.` : ' Restart a running game for the changes to apply.'}`,
+      warning: batchRestorePoint ? 'Dialed asks Windows for a restore point first and stops if it cannot confirm one. A restore point rolls back system settings and programs together and does not back up your files; to reverse one tweak, use its own Undo.' : null,
       confirmLabel: `Apply ${plan.length}`,
     });
     if (!confirmed) return;
+    if (batchRestorePoint) {
+      setBatchRunning(true);
+      setTweakError(null);
+      try {
+        if (!native.createRestorePoint) throw new Error('This build cannot make a restore point. Nothing was changed.');
+        const point = await native.createRestorePoint();
+        if (point.status === 'THROTTLED') {
+          setBatchRunning(false);
+          const proceed = await confirmAction({
+            title: 'Continue without a new restore point?',
+            description: point.message || 'Windows made a restore point within the past 24 hours, so it did not make another.',
+            details: plan.map(({ card, action }) => `${card.definition.title}: ${action.from} → ${action.to}`).join('\n'),
+            detailsLabel: 'Changes',
+            notice: 'Windows allows one restore point per 24 hours. The earlier one is still there, and each change can still be undone on its own.',
+            confirmLabel: `Apply ${plan.length} without a new one`,
+          });
+          if (!proceed) return;
+          setBatchRunning(true);
+        }
+      } catch (error) {
+        setBatchRunning(false);
+        setTweakError(error instanceof Error ? error.message : 'Dialed could not confirm a restore point, so none of the selected changes were made.');
+        await loadHistory();
+        return;
+      }
+    }
     setBatchRunning(true);
     setBatchResults(null);
     const results: BatchResult[] = [];
@@ -1499,7 +1527,7 @@ export default function App() {
     {activeTab === 'startup' && <TabPanel ariaLabel="Optimize categories" value={optimizeView}>
     {activeTab === 'startup' && optimizeView === 'timing' && <Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense>}
     {activeTab === 'startup' && optimizeView === 'bios' && (capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative) && <Suspense fallback={<p className="text-sm text-slate-400">Loading BIOS guide…</p>}><BiosGuidanceCenter /></Suspense>}
-    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
+    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined, restorePoint: window.pcOptiNative?.createRestorePoint && capabilityIds.has('recovery:restore-point') ? { checked: batchRestorePoint, onChange: setBatchRestorePoint } : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
     {activeTab === 'startup' && optimizeView === 'recommended' && <div className="space-y-6"><section className="rounded-2xl border border-cyan-400/20 bg-cyan-950/10 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Recommended</p><h2 className="mt-2 text-2xl font-bold text-white">Choose a small, reviewable set of changes</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Pick the fixes you want. Each one is checked again before it runs, verified afterwards, and recorded so you can undo it. The tabs above explain each area in more detail.</p></section><OptimizationCatalog items={batchOptimizationItems} loading={isScanning || isStartupLoading || isProcessLoading || isPolicyLoading || isTimingLoading} onRefresh={refreshBatchOptimizationTargets} onRunSelected={runOptimizationBatch} readBootNotice={readBootNotice} /></div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
     {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}

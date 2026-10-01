@@ -33,6 +33,10 @@ const EXECUTION_AUTHORITY_BY_CAPABILITY = Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/input-devices/index.cjs rechecks the fresh native elevated bit at preview and immediately before mutation.',
   }),
+  'recovery:restore-point': Object.freeze({
+    mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
+    enforcement: 'src/main/journal/index.cjs requires a fresh current-process Administrator check before Checkpoint-Computer runs.',
+  }),
   'input:polling-setup': Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.SIGNED_HELPER_UAC,
     enforcement: 'The signed setup window starts the signed helper through a Windows administrator prompt; each verifies the other\'s exact file, signature and release policy before any request.',
@@ -126,6 +130,26 @@ const CAPABILITIES = Object.freeze([
     gamingConsiderations: 'No game hooks, injection, anti-cheat changes or kernel patching by Dialed.', securityImplications: 'No driver download, installation or Windows security changes; main-owned preview tokens and bounded adapters.',
     unavailableReason: 'Unknown device/driver contract, missing permission or stale preview', profiles: ['public', 'owner'], publicAvailability: 'ENABLED',
   })),
+  {
+    id: 'recovery:restore-point', actionPattern: 'pc-opti:create-restore-point',
+    title: 'Windows restore point before changes', category: 'Recovery',
+    description: 'Asks Windows to make a System Restore point before a batch of tweaks, when the reader ticks the option. A restore point rolls back system settings and programs together; it does not back up personal files and is not an exact undo of one change.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['System Protection turned on for the Windows drive (Dialed never turns it on)', 'Elevated session', 'The reader ticked the option'],
+    detectionMethod: 'Get-ComputerRestorePoint before and after', currentStateMethod: 'Restore points Windows lists',
+    recommendedStateMethod: 'Optional; each Dialed change already records its exact previous value',
+    expectedBenefit: 'A Windows-level fallback that does not depend on Dialed.',
+    evidenceLevel: 'Windows readback of the new restore point', confidence: 'High that Windows listed a new restore point; nothing about its later use',
+    riskLevel: 'Low', safetyClass: 'S1', privilegeRequirement: 'Already elevated app session; no automatic elevation',
+    persistence: 'Until Windows removes it on its own schedule', rebootRequirement: 'None',
+    mutationScope: 'One System Restore point; Dialed never changes System Protection or its 24-hour limit',
+    rollbackMethod: 'Not undone by Dialed', rollbackLimitations: 'Windows allows one restore point per 24 hours by default; Dialed reports that limit and asks before continuing.',
+    verificationMethod: 'A new restore point appears in Get-ComputerRestorePoint', measurableSuccessCriteria: 'New restore point listed, or the 24-hour limit reported; any other result stops the batch',
+    knownConflicts: ['System Protection off', 'The 24-hour restore point limit'],
+    gamingConsiderations: 'None.', securityImplications: 'Uses Windows Checkpoint-Computer only; no protection settings are changed.',
+    unavailableReason: 'System Protection off, missing elevation, or Windows did not report a new restore point',
+    profiles: ['public', 'owner'], publicAvailability: 'ENABLED',
+  },
   {
     // Native setup can install a kernel filter driver and may use a patching mode, so it is gated and
     // described as what it is, not under the read-only USB checks.

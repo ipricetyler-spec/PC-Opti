@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   enableProcessEcoQos: (processId, creationTime) => ipcRenderer.invoke('pc-opti:enable-process-ecoqos', processId, creationTime),
   listSafePolicies: () => ipcRenderer.invoke('pc-opti:list-safe-policies'),
   enableConsumerFeaturesPolicy: () => ipcRenderer.invoke('pc-opti:enable-consumer-features-policy'),
+  createRestorePoint: () => ipcRenderer.invoke('pc-opti:create-restore-point'),
   confirmConsumerFeaturesPolicy: (throttleToken) => ipcRenderer.invoke('pc-opti:confirm-consumer-features-policy', throttleToken),
   openExternalLink: (url) => ipcRenderer.invoke('pc-opti:open-external-link', url),
   listTimingExperiments: () => ipcRenderer.invoke('pc-opti:list-timing-experiments'),

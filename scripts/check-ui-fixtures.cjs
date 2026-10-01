@@ -15,6 +15,7 @@ const checks = [
   'check-confirmation-ui.cjs',
   'check-recording-ui.cjs',
   'check-tweak-state-ui.cjs',
+  'check-restore-point-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

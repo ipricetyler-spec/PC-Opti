@@ -38,6 +38,7 @@ declare global {
       enableProcessEcoQos: (processId: number, creationTime: string) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
       listSafePolicies: () => Promise<{ items: SafeOsPolicy[]; errors: Array<{ component: string; message: string }> }>;
       enableConsumerFeaturesPolicy: () => Promise<PolicyMutationResult>;
+      createRestorePoint?: () => Promise<{ status: 'VERIFIED' | 'THROTTLED'; message: string }>;
       confirmConsumerFeaturesPolicy: (throttleToken: string) => Promise<PolicyMutationResult>;
       openExternalLink: (url: string) => Promise<{ opened: boolean }>;
       listTimingExperiments: () => Promise<{ items: TimingExperiment[]; errors: Array<{ component: string; message: string }> }>;

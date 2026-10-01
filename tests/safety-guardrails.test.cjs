@@ -470,6 +470,7 @@ test('every privileged capability has an explicit authority contract wired to it
     'policy:disable-windows-consumer-features',
     'policy:exclude-windows-update-drivers',
     'policy:no-auto-restart-signed-in',
+    'recovery:restore-point',
     'startup:disable-machine-run',
     'timing:disable-dynamic-tick',
     'timing:global-timer-resolution',
@@ -2363,4 +2364,35 @@ test('while anti-cheat is installed, a program with a window is never throttled,
   // A window may open later; undoing is still allowed.
   background.adapters.readRunningProcess = async () => ({ pid: background.process.pid, name: background.process.name, creationTime: background.process.creationTime, parentPid: 1000, parentName: 'explorer', hasWindow: true });
   assert.equal((await journal.rollbackAuditEntry(directory, applied.entry.id, background.adapters)).success, true);
+});
+
+test('a restore point before tweaks is recorded, never claimed undoable, and a failure stops the batch', async () => {
+  const made = createJournal([]);
+  const ok = await journal.createRestorePointBeforeChanges(made, {
+    isCurrentProcessElevated: async () => true,
+    createSafetyCheckpoint: async (label) => { assert.match(label, /before applying selected tweaks/); return { output: { status: 'VERIFIED', message: 'Windows reported the new restore point.' }, exitCode: 0 }; },
+  });
+  assert.equal(ok.status, 'VERIFIED');
+  const [entry] = journal.readJournal(made);
+  assert.equal(entry.status, 'SUCCESS');
+  assert.equal(entry.rollback.available, false);
+
+  const throttled = await journal.createRestorePointBeforeChanges(createJournal([]), {
+    isCurrentProcessElevated: async () => true,
+    createSafetyCheckpoint: async () => ({ output: { status: 'THROTTLED', message: 'Another restore point was created within the past 24 hours.' }, exitCode: 0 }),
+  });
+  assert.equal(throttled.status, 'THROTTLED');
+
+  const failedDirectory = createJournal([]);
+  await assert.rejects(journal.createRestorePointBeforeChanges(failedDirectory, {
+    isCurrentProcessElevated: async () => true,
+    createSafetyCheckpoint: async () => { throw new Error('System Protection is off.'); },
+  }), /could not confirm a restore point, so none of the selected changes were made/);
+  // Windows may or may not have made one, so the entry is kept for review, not called failed or done.
+  assert.equal(journal.readJournal(failedDirectory)[0].status, 'NEEDS_REVIEW');
+
+  await assert.rejects(journal.createRestorePointBeforeChanges(createJournal([]), {
+    isCurrentProcessElevated: async () => false,
+    createSafetyCheckpoint: async () => { throw new Error('must not run'); },
+  }), /running as administrator/);
 });

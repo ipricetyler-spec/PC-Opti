@@ -120,6 +120,8 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
     /** Whether the results come from applying or from undoing a run. */
     resultsVerb?: 'applied' | 'undone';
     onUndoRun?: () => void;
+    /** Optional Windows restore point before applying; off unless the reader ticks it. */
+    restorePoint?: { checked: boolean; onChange: (checked: boolean) => void };
   };
 }) {
   const [query, setQuery] = useState('');
@@ -135,6 +137,7 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
       {batch && <div className="sticky top-2 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs">
         <span role="status" className="text-slate-300">{batch.selected.size ? `${batch.selected.size} selected` : 'Tick several tweaks to apply them together.'}</span>
         <button type="button" disabled={!batch.selected.size || batch.running} onClick={batch.onApply} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">{batch.running ? 'Applying…' : 'Apply selected'}</button>
+        {batch.restorePoint && <label className="inline-flex items-center gap-1.5 text-slate-300"><input type="checkbox" checked={batch.restorePoint.checked} disabled={batch.running} onChange={(event) => batch.restorePoint?.onChange(event.target.checked)} className="h-4 w-4 accent-cyan-400" />Make a Windows restore point first</label>}
         {batch.selected.size > 0 && !batch.running && <button type="button" onClick={batch.onClear} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Clear</button>}
       </div>}
       {batch?.results && <div role="log" aria-label="Apply selected results" className="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs">

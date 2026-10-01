@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { readSetupRecord } = require('./setup-record.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -579,6 +580,18 @@ function createInputService(directory, adapters = {}) {
   }
   // Translates a device chosen in Dialed into the native setup's own name for it, from a fresh
   // scan, so setup opens on the same physical device.
+  // Read-only: what setup's own record says, matched to the devices connected now. A device whose
+  // originals setup recorded but that is not connected (unplugged, or moved to another port and so
+  // renamed by Windows) is counted, never guessed at.
+  async function setupRecordStatus() {
+    const record = (adapters.readSetupRecord || readSetupRecord)();
+    if (!record) return { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0 };
+    const inventory = await readInventory();
+    const present = new Map();
+    for (const [id, node] of inventory.map) if (node.present && /^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}\\/i.test(id)) { const key = nativeSetupDeviceId(id); if (key) present.set(key, digest(id)); }
+    const recordedDeviceIds = record.ownedDeviceIds.filter((id) => present.has(id)).map((id) => present.get(id));
+    return { state: record.state, recordedDeviceIds, missingRecordedCount: record.ownedDeviceIds.length - recordedDeviceIds.length };
+  }
   async function setupSelectionKey(deviceId) {
     const inventory = await readInventory();
     const matches = [...inventory.map.keys()].filter((id) => /^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}\\/i.test(id) && digest(id) === deviceId);
@@ -887,7 +900,7 @@ function createInputService(directory, adapters = {}) {
     });
   }
   return {
-    scan, setupSelectionKey, preview, previewIsolation, apply, previewTier, applyTier,
+    scan, setupSelectionKey, setupRecordStatus, preview, previewIsolation, apply, previewTier, applyTier,
     labelPort, test, reconcile, reconcileTier,
     cancelTest: () => { testController?.abort(); return { canceled: Boolean(testController) }; },
     isBusy: () => mutationBusy || Boolean(testController),

@@ -590,3 +590,19 @@ Each was checked in the code before changing anything.
 Codex's one failing test (key custody ACL) fails only without SeSecurityPrivilege in its sandbox;
 it passes in the admin shell. Checks, one at a time: npm test 853/853, test:ts 141/141, lint,
 build, UI fixtures — all pass. Not verified in an installed build or on hardware.
+
+## 2026-10-01 — the four partly-done SHOULD items, finished
+
+An item-by-item pass over every MUST and SHOULD in all eight reports found four only partly done:
+- Product S4: unfinished History entries now carry their own next step ("Check again" when Dialed
+  can re-check; plain guidance for needs-review entries it cannot check on its own).
+- Systems S2: "Keep current settings" now says a kept setting applies after a reconnect or restart
+  and points to Check polling rate.
+- Product comparison SHOULD 6: saved network tests end with "held steady / slowed while busy",
+  using the same 30 ms threshold as the latest-result advice, and only from sufficient timing.
+- Systems comparison polling SHOULD: the Input devices page reads setup's own record read-only
+  (src/main/input-devices/setup-record.cjs verifies the same hash chain the native JournalLog
+  writes) and says when it needs review, has a change waiting, or a recorded device is not
+  connected. Unverifiable records report nothing. Tested against a journal written by the real
+  C# JournalLog, plus altered and truncated copies.
+Checks, one at a time: npm test 856/856, test:ts 141/141, lint, build, UI fixtures — all pass.

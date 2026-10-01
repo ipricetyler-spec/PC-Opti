@@ -367,6 +367,7 @@ static class InventoryReconciliationChecks {
     string text = SetupPresentation.DriftReviewText(new[] { "Mouse: filter drivers changed." });
     Check(text.Contains("•  Mouse: filter drivers changed.") && text.Contains("Nothing on your devices changes") && text.Contains("If you are unsure, cancel"), "review text lists changes and limits");
     Check(SetupPresentation.ResultText("BASELINE_ACCEPTED").Contains("originals are kept"), "acceptance result states what is kept");
+    Check(SetupPresentation.ResultText("BASELINE_ACCEPTED").Contains("Check polling rate"), "acceptance result points to the rate check");
   }
 
   static void CheckPresentation() {

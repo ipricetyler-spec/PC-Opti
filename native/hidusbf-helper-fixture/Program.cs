@@ -27,6 +27,16 @@ class Program {
     if (args.Length == 2 && args[0] == "--preview-setup-ui") {
       SetupAppearanceFixture.Run(args[1]); return;
     }
+    // A real journal written by the real JournalLog, so the app's read-only reader
+    // (src/main/input-devices/setup-record.cjs) is tested against the actual format.
+    if (args.Length == 2 && args[0] == "--write-journal-sample") {
+      using (var file = new FileStream(args[1], FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Read))
+      using (var log = new JournalLog(file)) {
+        log.Append(System.Text.Json.JsonSerializer.Serialize(new { Ownership = new { ServiceOwned = true, Devices = new System.Collections.Generic.Dictionary<string, object> { [new string('a', 64)] = new { } } }, Pending = (object)null, NeedsReview = false }), 0);
+        log.Append(System.Text.Json.JsonSerializer.Serialize(new { Ownership = new { ServiceOwned = true, Devices = new System.Collections.Generic.Dictionary<string, object> { [new string('a', 64)] = new { }, [new string('b', 64)] = new { } } }, Pending = (object)null, NeedsReview = true, Note = "Unicode check: café" }), 1);
+      }
+      return;
+    }
     if (args.Length == 2 && args[0] == "--verify-inventory-corpus") {
       InventoryReconciliationChecks.RunCaptured(args[1]); return;
     }

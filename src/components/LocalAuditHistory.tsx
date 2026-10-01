@@ -365,6 +365,9 @@ export function LocalAuditHistory({
           {/* Shown only when it adds something beyond the reconciliation message above. */}
           {entry.status === 'NEEDS_REVIEW' && entry.stderr && entry.stderr !== entry.reconciliation?.message && <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-950/30 p-3 text-xs text-amber-100"><ErrorText text={entry.stderr} /></p>}
           {!entry.stderr && !entry.reconciliation?.message && entry.status === 'NEEDS_REVIEW' && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-950/20 p-3 text-xs text-amber-100">No message was returned from this run.</p>}
+          {/* Every unfinished entry offers its own next step; Home's "Check it" lands here. */}
+          {entry.status === 'PENDING' && recovery?.kind === 'INTERRUPTED' && <button type="button" onClick={onRetryVerification} disabled={controlsDisabled} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 disabled:opacity-50">{recoveryBusy ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : null}Check again</button>}
+          {entry.status === 'NEEDS_REVIEW' && <p className="mt-3 text-xs leading-relaxed text-slate-300">Dialed could not confirm what happened and cannot check this one on its own. Compare what it tried to change (Details) with Windows. {entry.rollback.available ? 'If the change is in place, Undo puts back the previous value.' : 'This one cannot be undone from Dialed.'}</p>}
         </article>; })}
       </section>
     ) : (

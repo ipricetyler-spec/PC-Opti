@@ -52,6 +52,7 @@ declare global {
       getBundledInputStatus: () => Promise<import('./lib/inputDevices').BundledInputStatus>;
       openBundledInputSetup: (deviceId: string) => Promise<{ status: 'OPENED'; changed: false }>;
       onBundledInputSetupClosed: (listener: () => void) => () => void;
+      readInputSetupRecord?: () => Promise<{ state: 'UNKNOWN' | 'NONE' | 'OK' | 'NEEDS_REVIEW' | 'PENDING'; recordedDeviceIds: string[]; missingRecordedCount: number }>;
       previewInputDriverInstall: (deviceDigest: string, requestedHz: number) => Promise<import('./lib/inputDevices').InputDriverLifecyclePreview>;
       previewInputDriverAdoption: (deviceDigest: string, requestedHz: number) => Promise<import('./lib/inputDevices').InputDriverLifecyclePreview>;
       previewInputDriverRepair: (deviceDigest: string) => Promise<import('./lib/inputDevices').InputDriverLifecyclePreview>;

@@ -1,5 +1,5 @@
 import { ErrorText } from './ErrorText';
-import { consentSignature, hasRememberedConsent, rememberConsent, savedTestLine } from '../lib/networkTestMemory';
+import { BUSY_SLOWDOWN_MS, consentSignature, hasRememberedConsent, rememberConsent, savedTestLine } from '../lib/networkTestMemory';
 import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, History, LoaderCircle, Play, Search, Signal, ShieldAlert, SlidersHorizontal, Square, Wifi, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -254,7 +254,7 @@ export function NetworkQualityLab({ snapshot, onOpenScan }: NetworkQualityLabPro
   const activeWireless = adapters.some((adapter) => normalizeStatus(adapter.status) === 'Online' && /wi-?fi|wireless|802\.11/i.test(`${adapter.name} ${adapter.interfaceDescription}`));
   const guidance = [
     activeWireless ? 'You are on Wi-Fi. If you can, repeat the test on a cable to compare.' : 'Keep the connection, VPN and downloads the same when comparing tests.',
-    probeResult?.metrics.downloadLoadedLatencyIncreaseMs !== null && probeResult?.metrics.downloadLoadedLatencyIncreaseMs !== undefined && probeResult.metrics.downloadLoadedLatencyIncreaseMs > 30
+    probeResult?.metrics.downloadLoadedLatencyIncreaseMs !== null && probeResult?.metrics.downloadLoadedLatencyIncreaseMs !== undefined && probeResult.metrics.downloadLoadedLatencyIncreaseMs > BUSY_SLOWDOWN_MS
       ? 'Your connection slowed by more than 30 ms while busy. Pause big downloads and test again; if it keeps happening, look at your router\'s QoS or SQM settings.'
       : 'Run a few tests at similar times before trusting one result.',
     probeResult && probeResult.metrics.failedSamples > 0

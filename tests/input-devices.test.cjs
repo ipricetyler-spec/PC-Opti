@@ -90,7 +90,7 @@ function harness(options = {}) {
     }
     throw new Error('unexpected fixture mode');
   };
-  const service = input.createInputService(directory, { native, now: options.now, save: options.save, allowLegacyNewWrites: () => options.allowLegacyNewWrites !== false, nativeSetupActive: () => options.nativeSetupActive === true, legacyRestoreAuthority: () => options.nativeHistory ? { allowed: false, message: 'Native machine history blocks legacy restore.' } : { allowed: true, message: '' } });
+  const service = input.createInputService(directory, { native, readSetupRecord: options.readSetupRecord, now: options.now, save: options.save, allowLegacyNewWrites: () => options.allowLegacyNewWrites !== false, nativeSetupActive: () => options.nativeSetupActive === true, legacyRestoreAuthority: () => options.nativeHistory ? { allowed: false, message: 'Native machine history blocks legacy restore.' } : { allowed: true, message: '' } });
   return { directory, service, current, get changes() { return changes; }, get tierChanges() { return tierChanges; }, get heldTest() { return heldTest; } };
 }
 
@@ -892,4 +892,18 @@ test('the input history moves into the admin-only folder once, and a later per-u
   const other = path.join(tempDir('dialed-input-protected-'), 'Input');
   assert.throws(() => input.moveInputHistoryToProtectedFolder(userData, other), /invalid/);
   assert.equal(fs.existsSync(path.join(other, 'input-devices.json')), false, 'an invalid history is not copied');
+});
+
+test("setup's record is matched to connected devices, and a recorded device that is not connected is counted", async () => {
+  // The harness's connected device; setup names it by its own id, the page by the app's id.
+  const connected = input.nativeSetupDeviceId(String.raw`USB\VID_1234&PID_5678\ONE`);
+  const status = async (record) => harness({ readSetupRecord: () => record }).service.setupRecordStatus();
+  assert.deepEqual(await status(null), { state: 'UNKNOWN', recordedDeviceIds: [], missingRecordedCount: 0 });
+  const missing = await status({ state: 'OK', ownedDeviceIds: ['c'.repeat(64)] });
+  assert.equal(missing.missingRecordedCount, 1);
+  assert.equal((await status({ state: 'NEEDS_REVIEW', ownedDeviceIds: [] })).state, 'NEEDS_REVIEW');
+  const matched = await status({ state: 'OK', ownedDeviceIds: [connected, 'c'.repeat(64)] });
+  const [device] = (await harness().service.scan()).devices;
+  assert.deepEqual(matched.recordedDeviceIds, [device.id]);
+  assert.equal(matched.missingRecordedCount, 1);
 });

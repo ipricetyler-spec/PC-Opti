@@ -64,6 +64,18 @@ export function InputDevicesCenter() {
   const [nativeSetupAvailable, setNativeSetupAvailable] = useState(false);
   const [suggestRateCheck, setSuggestRateCheck] = useState(false);
   const [measuredRates, setMeasuredRates] = useState(() => readMeasuredRates());
+  // What setup's own record says, re-read after every scan; null until read or when unavailable.
+  const [setupRecord, setSetupRecord] = useState<Awaited<ReturnType<NonNullable<NonNullable<typeof window.pcOptiNative>['readInputSetupRecord']>>> | null>(null);
+  useEffect(() => {
+    if (!inventory || !window.pcOptiNative?.readInputSetupRecord) return;
+    let live = true;
+    window.pcOptiNative.readInputSetupRecord().then((value) => { if (live) setSetupRecord(value); }).catch(() => { if (live) setSetupRecord(null); });
+    return () => { live = false; };
+  }, [inventory]);
+  const setupNotice = setupRecord?.state === 'NEEDS_REVIEW' ? 'Setup\'s saved record needs a review before it can change rates again. Open setup and choose Review what changed.'
+    : setupRecord?.state === 'PENDING' ? 'A saved rate change is still waiting to finish. Open setup and choose Check the saved change.'
+    : setupRecord && setupRecord.missingRecordedCount > 0 ? `${setupRecord.missingRecordedCount} device${setupRecord.missingRecordedCount === 1 ? ' whose original settings setup recorded is' : 's whose original settings setup recorded are'} not connected right now. If you moved one to another USB port, put it back in the port it used before restoring it or changing its rate.`
+    : null;
   // After setup closes, keyboard focus moves to the check that shows what Windows receives. It never runs it.
   const rateCheckButton = useRef<HTMLButtonElement | null>(null);
   const focusRateCheck = useRef(false);
@@ -326,6 +338,7 @@ export function InputDevicesCenter() {
     {error && <p role="alert" className="mt-3 rounded-lg border border-rose-400/30 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={error} /></p>}
     <TabRow<typeof tab> ariaLabel="Input device tools" items={[{ id: 'ports', label: <><Usb className="h-4 w-4" />USB connection</> }, { id: 'polling', label: <><Activity className="h-4 w-4" />Polling rate</> }]} value={tab} onChange={setTab} className="mt-5 flex flex-wrap gap-2 border-b border-slate-800 pb-3" buttonClassName={(selected) => selected ? primary : button} />
     <TabPanel ariaLabel="Input device tools" value={tab}>
+    {tab === 'polling' && setupNotice ? <p role="note" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs leading-relaxed text-amber-100">{setupNotice}</p> : null}
     {!inventory ? <div className="py-10 text-center"><Plug className="mx-auto h-9 w-9 text-cyan-300" /><h3 className="mt-3 font-semibold text-white">Start with the devices you actually use</h3><p className="mx-auto mt-2 max-w-md text-sm text-slate-400">Scan to find connected USB input devices and their connection paths. Scanning does not change drivers or settings.</p></div> : !inventory.devices.length ? <div className="py-8 text-center text-sm text-slate-400">No connected USB input devices were identified. Connect a device and refresh. Bluetooth-only and remote-session devices may not appear.</div> : <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(180px,0.65fr)_minmax(0,1.35fr)]">
       <div className="min-w-0 space-y-2" aria-label="Connected input devices">
         {inventory.devices.map((device) => <button type="button" key={device.id} disabled={setupOpen || !!busy} onClick={() => { setSelectedId(device.id); setStatus(''); setError(''); }} aria-pressed={device.id === selectedId} className={`w-full min-w-0 rounded-xl border p-3 text-left transition-colors disabled:opacity-50 ${device.id === selectedId ? 'border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20' : 'border-slate-800 bg-slate-950/40 hover:border-slate-600'}`}>

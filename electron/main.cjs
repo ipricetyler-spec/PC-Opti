@@ -295,6 +295,10 @@ ipcMain.handle('pc-opti:get-bundled-input-status', () => {
   const nativeBroker = readNativeBrokerStatus(app.isPackaged ? path.join(process.resourcesPath, 'hidusbf-native') : path.join(app.getAppPath(), 'output', 'hidusbf-native'));
   return readBundledStatus(app.isPackaged ? path.join(process.resourcesPath, 'hidusbf') : path.join(app.getAppPath(), 'vendor', 'hidusbf'), { packaged: app.isPackaged, nativeBroker });
 });
+ipcMain.handle('pc-opti:read-input-setup-record', async () => {
+  assertCapabilityAvailable('input:usb-advisor');
+  return inputDevices().setupRecordStatus();
+});
 let launchBundledBroker;
 ipcMain.handle('pc-opti:open-bundled-input-setup', async (event, ...args) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Driver setup must be opened from the main Dialed window.');

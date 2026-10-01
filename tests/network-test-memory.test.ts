@@ -11,7 +11,10 @@ const entry = (overrides: Omit<Partial<NetworkQualityHistoryEntry>, 'metrics'> &
 
 test('a saved test reads as one line: speeds, response and the measured increase while busy', () => {
   const line = savedTestLine(entry());
-  assert.match(line, /1153 down \/ 46\.0 up Mbps · 12 ms response · \+28 ms while downloading$/);
+  assert.match(line, /1153 down \/ 46\.0 up Mbps · 12 ms response · \+28 ms while downloading · held steady while busy$/);
+  assert.match(savedTestLine(entry({ metrics: { downloadLoadedLatencyIncreaseMs: 45 } })), /slowed while busy$/);
+  // No verdict without timing good enough to judge.
+  assert.doesNotMatch(savedTestLine(entry({ quality: 'INSUFFICIENT' })), /while busy$/);
   // A missing increase is left out, never shown as zero.
   assert.doesNotMatch(savedTestLine(entry({ metrics: { downloadLoadedLatencyIncreaseMs: null } })), /while downloading/);
   assert.match(savedTestLine(entry({ status: 'PARTIAL' })), /some parts failed$/);

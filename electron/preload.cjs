@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   getInputDriverLifecycleStatus: (deviceDigest) => ipcRenderer.invoke('pc-opti:get-input-driver-lifecycle-status', deviceDigest),
   getBundledInputStatus: () => ipcRenderer.invoke('pc-opti:get-bundled-input-status'),
   openBundledInputSetup: (deviceId) => ipcRenderer.invoke('pc-opti:open-bundled-input-setup', deviceId),
+  readInputSetupRecord: () => ipcRenderer.invoke('pc-opti:read-input-setup-record'),
   onBundledInputSetupClosed: (listener) => {
     if (typeof listener !== 'function') throw new TypeError('Setup completion listener required.');
     const handler = () => listener();

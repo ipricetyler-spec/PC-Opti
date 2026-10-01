@@ -124,6 +124,8 @@ async function main() {
     await layout('Optimize failed refresh with retained prior rows');
     await navigate('Restore');
     await page.getByRole('heading', { name: 'Fixture pending operation', exact: true }).waitFor();
+    // A needs-review entry says what the reader can do next, not just that it is unfinished.
+    await page.locator('#audit-entry-fixture-history-3').getByText(/cannot check this one on its own/).waitFor();
     const notices = page.getByRole('region', { name: 'Where your change history is kept' });
     await notices.getByText('An earlier change history is no longer used.', { exact: true }).waitFor();
     await notices.getByText('Details', { exact: true }).click();

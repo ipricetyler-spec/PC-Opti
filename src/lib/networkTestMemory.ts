@@ -24,6 +24,9 @@ export function rememberConsent(signature: string | null, given: boolean) {
   try { localStorage.setItem(CONSENT_KEY, JSON.stringify(given ? [signature, ...rest].slice(0, 8) : rest)); } catch { /* per-user convenience only */ }
 }
 
+/** The increase while busy above which the latest-result advice says the connection slowed. */
+export const BUSY_SLOWDOWN_MS = 30;
+
 const ms = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${Math.round(value)} ms` : null;
 const mbps = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${value >= 100 ? Math.round(value) : value.toFixed(1)}` : '—';
 
@@ -39,6 +42,8 @@ export function savedTestLine(entry: NetworkQualityHistoryEntry): string {
   const busy = typeof m.downloadLoadedLatencyIncreaseMs === 'number' && Number.isFinite(m.downloadLoadedLatencyIncreaseMs)
     ? `${m.downloadLoadedLatencyIncreaseMs >= 0 ? '+' : ''}${Math.round(m.downloadLoadedLatencyIncreaseMs)} ms while downloading` : null;
   if (busy) parts.push(busy);
+  // A plain verdict only from a measured increase and timing good enough to judge.
+  if (busy && entry.quality === 'SUFFICIENT') parts.push((m.downloadLoadedLatencyIncreaseMs as number) > BUSY_SLOWDOWN_MS ? 'slowed while busy' : 'held steady while busy');
   if (entry.status === 'PARTIAL') parts.push('some parts failed');
   return parts.join(' · ');
 }

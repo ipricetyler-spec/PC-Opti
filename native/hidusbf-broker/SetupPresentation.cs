@@ -134,7 +134,7 @@ static class SetupPresentation {
     "CONFIGURATION_VERIFIED" when action == "ADOPT" => "Current settings recorded. You can now preview a polling-rate change. Recording settings did not change the driver or device configuration and requires no restart.",
     "CONFIGURATION_VERIFIED" => "Saved settings checked: they match this PC. Nothing was changed, and no restart is needed.",
     "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check the saved change. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
-    "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again.",
+    "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again. A kept setting only applies once the device has reconnected or Windows has restarted; then use Check polling rate in Dialed to see what Windows receives.",
     "NOT_APPLIED" => "The saved change was not applied. Review a new preview before requesting another change.",
     _ => "Setup could not tell how this ended (status " + status + "). Choose Check the saved change before trying again."
   };

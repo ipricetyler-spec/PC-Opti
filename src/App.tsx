@@ -1352,7 +1352,7 @@ export default function App() {
       setHistory(result.entries);
       setHistoryPrivacyStatus(`Deleted ${result.deletedCount} completed entr${result.deletedCount === 1 ? 'y' : 'ies'}; retained ${result.retainedCount}. No Windows action was changed.`);
     } catch (error) {
-      setHistoryPrivacyStatus(error instanceof Error ? error.message : 'Restore › History deletion could not be completed.');
+      setHistoryActionError(error instanceof Error ? error.message : 'The history entries could not be deleted.');
     } finally {
       setIsHistoryPrivacyBusy(false);
     }

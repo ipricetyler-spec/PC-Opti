@@ -107,7 +107,7 @@ const CAPABILITIES = Object.freeze([
   ...[false, true].map((write) => ({
     id: write ? 'input:polling-rate' : 'input:usb-advisor',
     actionPattern: write ? 'pc-opti:apply-input-polling' : 'pc-opti:scan-input-devices',
-    title: write ? 'Input-device polling controls' : 'USB connection and input-delivery check', category: 'Input devices',
+    title: write ? 'Input-device polling controls' : 'USB connection and input checks', category: 'Input devices',
     description: write ? 'Preview, change and restore an existing polling override on an eligible HIDUSBF device.' : 'Trace USB input connections, label physical ports, compare moves and inspect observed input-event timing.',
     supportedWindows: ['Windows 10', 'Windows 11'], prerequisites: write ? ['Exact reviewed Microsoft-signed HIDUSBF variant already running', 'Existing unambiguous DWORD and filter', 'Confirmed Full-Speed or eligible High-Speed device', 'High-Speed request within detected xHCI patch tier', 'Explicit preview', 'Elevated session'] : ['Readable Windows device inventory'],
     detectionMethod: 'SetupAPI, Configuration Manager and hub connection query', currentStateMethod: 'Fresh device/driver identity and configuration read',

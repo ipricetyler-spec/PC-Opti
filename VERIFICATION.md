@@ -475,3 +475,9 @@ against the code before fixing; all 23 reproduced as described, and none were wr
   Instrument selected device card in amber. The native setup capture shows "8000 Hz (saved)".
 - `npm test` 850/850, `npm run test:ts` 129/129, lint clean, `npm run test:ui:fixtures` passed, the
   native fixture passed; `npm run release:native` re-signed the helpers. Not packaged.
+
+- Follow-up re-scan for each finding's symptom found three gaps, now fixed: a capability still titled
+  "input-delivery check" (SHOULD 13), scan-schema jargon in a second snapshot message (SHOULD 16),
+  and a history-deletion failure still shown raw (same class as MUST 5). `npm test` 850/850, lint clean,
+  UI fixtures passed twice; the BIOS fixture's first-Tab skip-link check failed once (also once on
+  2026-09-28) and is intermittent, not caused by these changes.

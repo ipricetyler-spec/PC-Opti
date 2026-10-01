@@ -66,7 +66,8 @@ function migrateMetricEvidence(snapshot, field, component, sourceSchemaVersion) 
   if (matchingErrors.length > 0) {
     return unavailableEvidence(
       'UNKNOWN',
-      `The ${component} query failed in SystemScanSnapshot schema ${sourceSchemaVersion}: ${matchingErrors.map((error) => String(error.message || 'unknown error')).join('; ')}`,
+      // Saved by an older version of Dialed (scan schema ${sourceSchemaVersion}).
+      `Your last scan could not read this. Scan again to check. Details: ${matchingErrors.map((error) => String(error.message || 'unknown error')).join('; ')}`,
       'Schema migration',
     );
   }

@@ -24,6 +24,8 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
   const previewHeading = useRef<HTMLHeadingElement | null>(null);
   // Read-only status for each card: whether Windows lists the game, and when Dialed last applied it.
   const [installed, setInstalled] = useState<Set<string> | null>(null);
+  // Only games detection actually looks for get an install status; for the rest Dialed has no basis to say either way.
+  const [detectable, setDetectable] = useState<Set<string>>(new Set());
   // Latest profile record per game, and whether it was undone; null when backups could not be read.
   const [applied, setApplied] = useState<Map<string, { at: string; undone: boolean }> | null>(new Map());
   const readBackups = () => window.pcOptiNative?.listGameConfigBackups?.().then((value) => {
@@ -33,6 +35,7 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
   }).catch(() => setApplied(null));
   useEffect(() => {
     void readBackups();
+    window.pcOptiNative?.listGameSettingsGuides?.().then((guides) => setDetectable(new Set(guides.map((guide) => guide.id)))).catch(() => setDetectable(new Set()));
     window.pcOptiNative?.discoverInstalledGames?.().then((value) => setInstalled(new Set(value.games.map((game) => game.guideId)))).catch(() => setInstalled(null));
   }, []);
   // An undo or restore finished (it reports through restoreStatus): read the records again.
@@ -90,7 +93,7 @@ export function GameOptimizationCenter({ busy, restoreStatus, restoreError, onBu
       {profiles.map((profile) => <article key={profile.id} className="min-w-0 rounded-xl border border-slate-700 bg-slate-950/45 p-4">
         <h3 className="flex items-center gap-2 text-base font-bold text-white"><Gamepad2 className="h-4 w-4 shrink-0 text-cyan-300" />{profile.game}</h3>
         <p className="mt-1 text-xs font-semibold text-slate-200">{profile.title}</p>
-        <p className="mt-1 text-[11px] text-slate-400">{installed === null ? '' : installed.has(profile.gameId) ? 'Listed in Windows as installed · ' : 'Not listed in Windows as installed · '}{applied === null ? 'Could not read whether Dialed applied it' : applied.has(profile.gameId) ? `Applied by Dialed on ${new Date(applied.get(profile.gameId)!.at).toLocaleDateString()}${applied.get(profile.gameId)!.undone ? ', then undone' : ''}` : 'Not applied by Dialed'}</p>
+        <p className="mt-1 text-[11px] text-slate-400">{installed === null || !detectable.has(profile.gameId) ? '' : installed.has(profile.gameId) ? 'Listed in Windows as installed · ' : 'Not listed in Windows as installed · '}{applied === null ? 'Could not read whether Dialed applied it' : applied.has(profile.gameId) ? `Applied by Dialed on ${new Date(applied.get(profile.gameId)!.at).toLocaleDateString()}${applied.get(profile.gameId)!.undone ? ', then undone' : ''}` : 'Not applied by Dialed'}</p>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">{profile.description}</p>
         <button type="button" onClick={() => showPreview(profile.id)} disabled={busy} className={`${buttonClass} mt-3`}><Search className="h-3.5 w-3.5" />Preview {profile.game}</button>
         <details data-technical-detail className="mt-3 text-[11px] leading-relaxed text-slate-400"><summary className="cursor-pointer text-slate-300">Sources and settings file</summary><p className="mt-2">{profile.evidence}</p><p className="mt-2">{profile.fileHint}</p><p className="mt-2">Only settings already in the file are changed. If the file looks unfamiliar, Dialed stops.</p><div className="mt-2 flex flex-wrap gap-3"><a href={profile.sourceUrl} onClick={(event) => { event.preventDefault(); void window.pcOptiNative?.openExternalLink(profile.sourceUrl).catch((error) => setError(String(error))); }} className="text-cyan-300 underline">Publisher guidance</a><a href={profile.pathSourceUrl} onClick={(event) => { event.preventDefault(); void window.pcOptiNative?.openExternalLink(profile.pathSourceUrl).catch((error) => setError(String(error))); }} className="text-cyan-300 underline">Config location</a></div></details>

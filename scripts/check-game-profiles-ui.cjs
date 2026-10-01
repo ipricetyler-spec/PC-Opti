@@ -135,6 +135,10 @@ async function main() {
     await openSection(page, 'Games');
     await page.getByRole('tab', { name: 'Profiles', exact: true }).click();
     const section = page.getByRole('region', { name: 'Game optimization profiles' });
+    // A game detection does not look for gets no install claim either way (found live on 2026-10-01).
+    const arcCard = section.locator('article').filter({ has: page.getByRole('heading', { name: 'ARC Raiders' }) });
+    await arcCard.getByText(/applied by Dialed/i).waitFor();
+    assert.doesNotMatch(await arcCard.innerText(), /listed in Windows/i);
     await section.getByRole('button', { name: 'Preview Fortnite', exact: true }).click();
     await section.getByRole('heading', { name: 'Fortnite — exact changes' }).waitFor();
     assert.equal(await section.locator('tbody tr').count(), 3);

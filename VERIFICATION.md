@@ -619,3 +619,24 @@ SHA-256 E4D9EEC9…E5CE7ABE, run with /S, exit 0. Installed Dialed.exe, app.asar
 the policy/signature match the verified package byte for byte; Dialed.exe signature Valid;
 read-only status of the installed native release: NATIVE_BROKER_READY.
 Not yet verified: anything by running the installed app or on hardware.
+
+## 2026-10-01 — installed build 407b041 exercised on the owner's PC (driven from the admin shell)
+
+Driven through UI Automation, captures by PrintWindow; nothing was left changed.
+- Home "Your setup": power plan read from Windows (Ultimate Performance), network measured,
+  polling "No rate check yet", game profiles "None applied by Dialed".
+- Input devices: Razer Viper V2 Pro (mouse with a macro keyboard channel) now offers the rate check;
+  rows read "Saved 1,000 Hz · Not checked yet". The DualSense was unplugged and setup's real record
+  (verified chain, 2 owned devices) produced "1 device whose original settings setup recorded is
+  not connected right now". The same result came from the service run directly.
+- Game profile on ARC Raiders (game closed): preview showed one change (Shadows), apply set
+  sg.ShadowQuality 1 -> 0, card "Applied by Dialed on 10/1/2026"; undo "Put back 1 setting", the
+  file hash identical to before, card "…, then undone", Home "None applied by Dialed".
+- Restore point + Apply selected (Game Mode on -> off): review showed the restore-point warning;
+  Windows restore points went 1 -> 2; History lists "Create a Windows restore point" as not undone
+  by Dialed; Undo this run put Game Mode back (AutoGameModeEnabled = 1).
+- Found live: ARC Raiders' card said "Not listed in Windows as installed" though it is installed;
+  Dialed has no detection guide for it. Fixed after this install: install status is shown only for
+  games detection looks for (UI check added). Needs the next package to reach the installed app.
+Not exercised (need the owner): a mouse rate change and rate check while moving the mouse, plugging
+a device in between setup visits, recording with a start delay in a running game.

@@ -14,6 +14,7 @@ const checks = [
   'check-theme-contrast.cjs',
   'check-confirmation-ui.cjs',
   'check-recording-ui.cjs',
+  'check-tweak-state-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

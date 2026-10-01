@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TWEAKS, TWEAK_GROUPS, activeChanges, buildTweakCards, changedLabel } from '../src/lib/tweaks';
+import { TWEAKS, TWEAK_GROUPS, activeChanges, buildTweakCards, changedLabel, noLongerInEffect } from '../src/lib/tweaks';
 import type { AuditJournalEntry } from '../src/types';
 
 function entry(id: string, capabilityId: string, overrides: Partial<AuditJournalEntry> = {}): AuditJournalEntry {
@@ -59,4 +59,15 @@ test('cards this build cannot act on are left out', () => {
 
 test('experiments are marked for measuring and everything else is not', () => {
   assert.deepEqual(TWEAKS.filter((tweak) => tweak.measureFirst).map((tweak) => tweak.id).sort(), ['clock-source', 'cpu-minimum-state', 'dynamic-tick', 'global-timer-resolution']);
+});
+
+test('a change Windows set back reads as no longer in effect, and unknown stays unknown', () => {
+  const card = (resultingState: unknown) => ({ definition: TWEAKS[0], state: null, changes: [], undoEntry: { resultingState } as unknown as AuditJournalEntry });
+  const wroteOff = card({ verified: { enabled: false } });
+  assert.equal(noLongerInEffect(wroteOff, { enabled: true }), true);
+  assert.equal(noLongerInEffect(wroteOff, { enabled: false }), false);
+  assert.equal(noLongerInEffect(wroteOff, { enabled: null }), false, 'cannot read now: unknown, not reverted');
+  assert.equal(noLongerInEffect(wroteOff, undefined), false);
+  assert.equal(noLongerInEffect(card(null), { enabled: true }), false, 'nothing verified: unknown');
+  assert.equal(noLongerInEffect({ ...wroteOff, undoEntry: null }, { enabled: true }), false);
 });

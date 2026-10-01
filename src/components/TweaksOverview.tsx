@@ -2,7 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, FlaskConical, RotateCcw } from 'lucide-react';
 import type { AuditJournalEntry } from '../types';
-import { TWEAK_GROUPS, changedLabel, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
+import { TWEAK_GROUPS, changedLabel, noLongerInEffect, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
 
 export interface UserSettingState {
   enabled: boolean | null;
@@ -45,6 +45,8 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
   const { definition, state, undoEntry } = card;
   const unsupported = userSetting?.unsupported ?? null;
   const changed = changedLabel(card);
+  // Windows or another program set it back since Dialed changed it; undo would only be refused.
+  const reverted = noLongerInEffect(card, userSetting);
   const detailsId = `tweak-${definition.id}-details`;
   const [open, setOpen] = useState(false);
   const tone = changed ? 'tweak-card-changed' : definition.measureFirst ? 'tweak-card-experiment' : '';
@@ -62,7 +64,8 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
       {definition.measureFirst && <span className="tweak-badge-measure inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold"><FlaskConical className="h-3 w-3" aria-hidden="true" />Measure it</span>}
     </div>
     <p className="mt-3 text-xs text-slate-300"><span className="text-slate-500">Now: </span><span className="font-mono">{state ?? 'Open to check'}</span></p>
-    {changed && <p className="tweak-changed-label mt-1 text-xs font-semibold">{changed}{definition.requiresRestart ? ' · takes effect after a restart' : ''}</p>}
+    {changed && <p className="tweak-changed-label mt-1 text-xs font-semibold">{changed}{definition.requiresRestart && !reverted ? ' · takes effect after a restart' : ''}</p>}
+    {reverted && <p role="note" className="mt-1 text-xs text-amber-200">No longer in effect: Windows or another program set it back, often after an update. Nothing needs undoing. Set it again below if you still want it.</p>}
     {(definition.requiresAdmin || definition.requiresRestart) && <p className="mt-1 text-[11px] text-slate-500">{[definition.requiresAdmin && 'Needs administrator rights', definition.requiresRestart && 'needs a restart'].filter(Boolean).join(' · ')}</p>}
     <div className="tweak-actions mt-3 flex flex-wrap items-center gap-2">
       {unsupported && <p className="w-full text-xs text-amber-200">{unsupported}</p>}
@@ -74,7 +77,7 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
       {!definition.oneWay && definition.userSettingId && userSetting && userSetting.enabled === null && userSetting.manageable && (['on', 'off'] as const).map((target) => <button key={target} type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, target === 'on')} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : `Turn ${target}`}</button>)}
       {!outside && !definition.oneWay && definition.userSettingId && userSetting && userSetting.enabled !== null && userSetting.manageable && <button type="button" disabled={busy || restoringId !== null} onClick={() => onToggle(card, !userSetting.enabled)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50">{busy ? 'Working…' : userSetting.enabled ? 'Turn off' : 'Turn on'}</button>}
       {definition.userSettingId && userSetting && !userSetting.manageable && !unsupported && <span className="text-xs text-amber-200">Stored in a form Dialed will not overwrite. Change it in Windows Settings.</span>}
-      {undoEntry && <button type="button" disabled={restoringId !== null} onClick={() => onUndo(undoEntry)} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />{restoringId === undoEntry.id ? 'Undoing…' : 'Undo'}</button>}
+      {undoEntry && !reverted && <button type="button" disabled={restoringId !== null} onClick={() => onUndo(undoEntry)} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />{restoringId === undoEntry.id ? 'Undoing…' : 'Undo'}</button>}
       {!undoEntry && card.changes.length > 0 && <button type="button" onClick={onReviewChanges} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />Undo in Restore</button>}
       {onTest && !unsupported && <button type="button" onClick={onTest} className="tweak-badge-measure inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"><FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />Test it</button>}
       <button type="button" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen((value) => !value)} className="ml-auto inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200">Details<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" /></button>

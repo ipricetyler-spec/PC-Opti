@@ -372,6 +372,17 @@ export function batchActionFor(definition: TweakDefinition, state: BatchSettingS
   return { settingId, enable: !state.enabled, label: state.enabled ? 'Turn off' : 'Turn on', from: onOff(state.enabled), to: onOff(!state.enabled) };
 }
 
+/**
+ * A Dialed change that Windows or another program has since reversed: what Dialed verified right
+ * after writing differs from what Windows reports now. Unknown on either side stays unknown (false),
+ * and nothing is ever reapplied automatically; the reader chooses.
+ */
+export function noLongerInEffect(card: TweakCardState, current: { enabled: boolean | null } | undefined): boolean {
+  const state = card.undoEntry?.resultingState;
+  const verified = state && typeof state === 'object' ? (state as { verified?: { enabled?: unknown } }).verified?.enabled : undefined;
+  return typeof verified === 'boolean' && typeof current?.enabled === 'boolean' && verified !== current.enabled;
+}
+
 export function changedLabel(card: TweakCardState): string | null {
   if (!card.changes.length) return null;
   if (card.definition.perItem) return `${card.changes.length} change${card.changes.length === 1 ? '' : 's'} made by Dialed`;

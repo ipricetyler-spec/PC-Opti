@@ -395,6 +395,8 @@ async function main() {
     await section.getByRole('button', { name: 'Check polling rate' }).click();
     await resultPanel.getByLabel('Polling rate result').getByText('About 4,005 reports per second', { exact: true }).waitFor();
     await resultPanel.getByLabel('Polling rate result').getByText('Matches the saved 4000 Hz.', { exact: true }).waitFor();
+    // The device list keeps saved and measured apart, and dates the measurement.
+    await section.getByLabel('Connected input devices').getByText(/Saved 4,000 Hz · Measured about 4,005 reports\/s today/).waitFor();
     assert.doesNotMatch(await resultPanel.getByLabel('Polling rate result').getAttribute('class'), /emerald|green/);
     for (const width of [960, 1280]) {
       await page.setViewportSize({ width, height: 900 });

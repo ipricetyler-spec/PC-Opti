@@ -5,6 +5,7 @@ import type { InputDevice, InputDriverLifecycleAction, InputDriverLifecyclePrevi
 import { TabRow, TabPanel } from './TabRow';
 import { BundledInputStatus } from './BundledInputStatus';
 import { plainLabel } from '../lib/plainLabels';
+import { deviceRateLine, readMeasuredRates, rememberMeasuredRate } from '../lib/measuredRates';
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-40';
 const primary = 'inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-40';
@@ -62,6 +63,7 @@ export function InputDevicesCenter() {
   // Whether the signed native setup can run in this build; it reaches 2–8 kHz on High-Speed devices.
   const [nativeSetupAvailable, setNativeSetupAvailable] = useState(false);
   const [suggestRateCheck, setSuggestRateCheck] = useState(false);
+  const [measuredRates, setMeasuredRates] = useState(() => readMeasuredRates());
   // After setup closes, keyboard focus moves to the check that shows what Windows receives. It never runs it.
   const rateCheckButton = useRef<HTMLButtonElement | null>(null);
   const focusRateCheck = useRef(false);
@@ -285,7 +287,13 @@ export function InputDevicesCenter() {
   function testDevice(purpose: 'RATE' | 'CONTROLS') {
     if (!api || !selected) return;
     setTest(null); setPreview(null); setStatus(''); setSuggestRateCheck(false); setRunningPurpose(purpose);
-    void run(`Testing input for ${selected.name} — ${purpose === 'RATE' ? 'the 8-second polling-rate check is running.' : 'use only this selected device until the 8-second controls check finishes.'}`, async () => setTest(await api.testInputDevice(selected.id, purpose)));
+    void run(`Testing input for ${selected.name} — ${purpose === 'RATE' ? 'the 8-second polling-rate check is running.' : 'use only this selected device until the 8-second controls check finishes.'}`, async () => {
+      const result = await api.testInputDevice(selected.id, purpose);
+      setTest(result);
+      // Only a rate check with an actual reading is remembered; controls checks say nothing about rate.
+      const observed = result?.deliveryAssessment?.observedHz;
+      if (purpose === 'RATE' && typeof observed === 'number' && observed > 0) setMeasuredRates(rememberMeasuredRate(selected.id, observed));
+    });
   }
   function reconcile(historyId: string) {
     if (!api?.reconcileInputChange) return;
@@ -323,6 +331,7 @@ export function InputDevicesCenter() {
         {inventory.devices.map((device) => <button type="button" key={device.id} disabled={setupOpen || !!busy} onClick={() => { setSelectedId(device.id); setStatus(''); setError(''); }} aria-pressed={device.id === selectedId} className={`w-full min-w-0 rounded-xl border p-3 text-left transition-colors disabled:opacity-50 ${device.id === selectedId ? 'border-cyan-400/50 bg-cyan-400/10 ring-1 ring-cyan-400/20' : 'border-slate-800 bg-slate-950/40 hover:border-slate-600'}`}>
           <span className="flex min-w-0 items-start justify-between gap-2"><span className="flex min-w-0 items-start gap-2"><DeviceIcon device={device} /><span className="min-w-0 text-sm font-semibold text-white">{device.name}</span></span>{device.id === selectedId ? <span className="shrink-0 rounded-full bg-cyan-400 px-2 py-0.5 text-[11px] font-black text-slate-950">SELECTED</span> : null}</span>
           <span className="mt-2 block text-[11px] text-slate-400">{device.portLabel ? `${device.portLabel} · ` : ''}{device.speed} USB{device.problem !== 0 ? ' · Windows needs attention' : ''}</span>
+          <span className="mt-1 block text-[11px] text-slate-300">{deviceRateLine(device, measuredRates[device.id])}</span>
           <span data-technical-detail className="mt-1 block text-[11px] text-slate-500">{device.portNumber ? `Windows port ${device.portNumber} · ` : ''}{device.filterActive ? 'HIDUSBF filter present' : 'Standard device configuration'}</span>
         </button>)}
         <p className="pt-2 text-[11px] text-slate-500">{inventory.devices.length} connected<span data-technical-detail> · Local scan {new Date(inventory.scannedAt).toLocaleTimeString()}</span></p>

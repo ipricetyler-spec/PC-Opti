@@ -219,6 +219,13 @@ test('speed-specific interval mapping and exact signed patch tiers gate High-Spe
   const unfiltered = (await harness({ speed: 2, value: 1, filtered: false }).service.scan()).devices[0];
   assert.equal(unfiltered.configuredHz, null);
   assert.equal(unfiltered.inactiveHz, 8000);
+  assert.equal(unfiltered.rateUnreadable, false);
+  // Filter attached but the value cannot be read: unknown, never the Windows default (Codex review R6).
+  const unreadable = (await harness({ interval: { key: 'Driver', kind: 'DWord', value: null, readable: false, ambiguous: false } }).service.scan()).devices[0];
+  assert.equal(unreadable.configuredHz, null);
+  assert.equal(unreadable.rateUnreadable, true);
+  const noOverride = (await harness({ interval: { key: 'Driver', kind: 'DWord', value: null, readable: true, ambiguous: false } }).service.scan()).devices[0];
+  assert.equal(noOverride.rateUnreadable, false, 'no value set is the Windows default');
   assert.equal(device.maxSupportedHz, 1000);
   assert.deepEqual(device.rates, [1000]);
   await assert.rejects(oneKilohertz.service.preview(device.id, 8000), /installed driver tier/);

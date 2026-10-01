@@ -51,6 +51,9 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
   const [startDelay, setStartDelay] = useState<0 | 5 | 10>(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const cancelCountdown = useRef(false);
+  // Leaving Measure or stopping the test removes this recorder; a pending countdown must not
+  // start a recording nobody can see or cancel.
+  useEffect(() => () => { cancelCountdown.current = true; }, []);
   const [selectedCaptures, setSelectedCaptures] = useState<string[]>([]);
   const [showAllRecordings, setShowAllRecordings] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -103,6 +106,8 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
 
   const start = async () => {
     if (!window.pcOptiNative || !selectedTarget || busy || captureState.active || tool?.status !== 'AVAILABLE') return;
+    // A fresh attempt; closing the recorder from here on sets it again and stops this attempt.
+    cancelCountdown.current = false;
     setBusy(true);
     setError(null);
     setStatus(null);
@@ -128,7 +133,6 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     }
     approvedRecording = approvalKey;
     if (startDelay > 0) {
-      cancelCountdown.current = false;
       for (let left = startDelay; left > 0; left -= 1) {
         setCountdown(left);
         await wait(1000);
@@ -136,6 +140,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       }
       setCountdown(null);
     }
+    if (cancelCountdown.current) { setBusy(false); return; }
     try {
       await window.pcOptiNative.startPresentMonCapture(preview.token);
       await refreshState();

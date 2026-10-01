@@ -100,6 +100,11 @@ function signed(value: number): string {
  * Conservative on purpose: the change has to exceed the full range the runs already
  * showed, not just their typical spread.
  */
+/** A 1% low that can be compared: only summaries that record the current definition. */
+export function comparableLowFps(summary: { onePercentLowFps: number; lowMethod?: string } | null | undefined): number | null {
+  return summary && summary.lowMethod === 'slowest-1-percent-mean' && Number.isFinite(summary.onePercentLowFps) ? summary.onePercentLowFps : null;
+}
+
 export function effectVsNoise(before: Run[], after: Run[]): EffectCheck {
   const baseline = summaries(before);
   const candidate = summaries(after);
@@ -109,28 +114,31 @@ export function effectVsNoise(before: Run[], after: Run[]): EffectCheck {
     return { verdict: 'NOT_ENOUGH_RUNS', averageFpsChangePercent: null, onePercentLowChangePercent: null, noisePercent: null, text: `Take at least ${RECOMMENDED_RUNS} counted runs on each side to see whether a difference is bigger than normal variation.` };
   }
   const fpsChange = percentChange(mean(baseline.map((item) => item.averageFps)), mean(candidate.map((item) => item.averageFps)));
-  const lowChange = percentChange(mean(baseline.map((item) => item.onePercentLowFps)), mean(candidate.map((item) => item.onePercentLowFps)));
+  const lows = [...baseline, ...candidate].map(comparableLowFps);
+  const lowChange = lows.every((value) => value !== null) ? percentChange(mean(baseline.map((item) => comparableLowFps(item) as number)), mean(candidate.map((item) => comparableLowFps(item) as number))) : null;
+  const lowText = lowChange === null ? '1% lows are not compared: some runs were saved by an older version of Dialed that worked them out differently.' : `1% lows moved ${signed(lowChange)}.`;
   const noise = Math.max(beforeNoise.rangePercent, afterNoise.rangePercent);
   const beyond = Math.abs(fpsChange) > noise;
   const text = beyond
-    ? `Average FPS moved ${signed(fpsChange)}, more than your runs varied on their own (up to ${noise}%). 1% lows moved ${signed(lowChange)}.`
-    : `Average FPS moved ${signed(fpsChange)}, which is within how much your runs varied on their own (up to ${noise}%). Treat it as no measurable difference. 1% lows moved ${signed(lowChange)}.`;
+    ? `Average FPS moved ${signed(fpsChange)}, more than your runs varied on their own (up to ${noise}%). ${lowText}`
+    : `Average FPS moved ${signed(fpsChange)}, which is within how much your runs varied on their own (up to ${noise}%). Treat it as no measurable difference. ${lowText}`;
   return { verdict: beyond ? 'BEYOND_NOISE' : 'WITHIN_NOISE', averageFpsChangePercent: fpsChange, onePercentLowChangePercent: lowChange, noisePercent: noise, text };
 }
 
 // --- Undo and re-measure (A-B-A) -------------------------------------------------------
 
 export interface AbaCheck {
-  verdict: 'CONFIRMED' | 'DID_NOT_RETURN' | 'NOT_ENOUGH_RUNS';
+  verdict: 'SUPPORTS' | 'NO_DIFFERENCE' | 'DID_NOT_RETURN' | 'NOT_ENOUGH_RUNS';
   text: string;
 }
 
 /**
- * After the setting is put back, results should return to the baseline. If they do, the
- * difference followed the setting; if they stay where the "after" runs were, something
- * else changed during the test — heat, a background task, a game update.
+ * After the setting is put back, results should return to the baseline. A return supports the
+ * difference coming from the setting but does not prove it; with no measurable difference to
+ * begin with there is nothing to support. Staying away from the baseline means something else
+ * changed during the test — heat, a background task, a game update.
  */
-export function abaCheck(before: Run[], check: Run[]): AbaCheck {
+export function abaCheck(before: Run[], after: Run[], check: Run[]): AbaCheck {
   const baseline = summaries(before);
   const returned = summaries(check);
   const noise = noiseFloor(before);
@@ -141,8 +149,12 @@ export function abaCheck(before: Run[], check: Run[]): AbaCheck {
   // Allow a little more than the baseline's own range, so a clean return is not
   // rejected for being at the edge of normal variation.
   const allowed = Math.max(noise.rangePercent * 1.5, 1);
+  const effect = effectVsNoise(before, after);
+  if (Math.abs(change) <= allowed && effect.verdict !== 'BEYOND_NOISE') {
+    return { verdict: 'NO_DIFFERENCE', text: `With the setting put back, average FPS was within ${signed(change)} of your baseline. The change itself made no measurable difference, so there is nothing for this check to support.` };
+  }
   return Math.abs(change) <= allowed
-    ? { verdict: 'CONFIRMED', text: `With the setting put back, average FPS came back to within ${signed(change)} of your baseline, so the difference followed the setting.` }
+    ? { verdict: 'SUPPORTS', text: `With the setting put back, average FPS came back to within ${signed(change)} of your baseline. That supports the difference coming from the setting, though it does not prove it.` }
     : { verdict: 'DID_NOT_RETURN', text: `With the setting put back, average FPS stayed ${signed(change)} away from your baseline. Something besides the setting changed during the test, so do not rely on this result.` };
 }
 

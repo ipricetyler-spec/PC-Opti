@@ -49,13 +49,20 @@ test('a change is only called a difference when it beats normal variation', () =
   assert.equal(effectVsNoise(before, [{ captureId: 'x', frameSummary: null, telemetry: null }, run('e', 220), run('f', 221)]).verdict, 'NOT_ENOUGH_RUNS');
 });
 
-test('undo-and-remeasure confirms only when results return to the baseline', () => {
+test('undo-and-remeasure supports a real difference only when results return to the baseline', () => {
   const before = [run('a', 198), run('b', 200), run('c', 202)];
-  assert.equal(abaCheck(before, [run('k1', 201), run('k2', 199)]).verdict, 'CONFIRMED');
-  const drifted = abaCheck(before, [run('k1', 219), run('k2', 221)]);
+  const changed = [run('d', 219), run('e', 220), run('f', 221)];
+  const supports = abaCheck(before, changed, [run('k1', 201), run('k2', 199)]);
+  assert.equal(supports.verdict, 'SUPPORTS');
+  assert.match(supports.text, /does not prove it/);
+  const drifted = abaCheck(before, changed, [run('k1', 219), run('k2', 221)]);
   assert.equal(drifted.verdict, 'DID_NOT_RETURN');
   assert.match(drifted.text, /do not rely on this result/);
-  assert.equal(abaCheck(before, [run('k1', 200)]).verdict, 'NOT_ENOUGH_RUNS');
+  assert.equal(abaCheck(before, changed, [run('k1', 200)]).verdict, 'NOT_ENOUGH_RUNS');
+  // Codex review R7: with no difference at all, a return to baseline proves nothing.
+  const same = abaCheck(before, [run('d', 199), run('e', 200), run('f', 201)], [run('k1', 200), run('k2', 200)]);
+  assert.equal(same.verdict, 'NO_DIFFERENCE');
+  assert.doesNotMatch(same.text, /followed the setting|supports the difference/);
 });
 
 test('a frame cap is reported when most runs sit at one rate', () => {

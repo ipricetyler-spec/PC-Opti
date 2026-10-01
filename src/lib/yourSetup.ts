@@ -35,7 +35,8 @@ export function yourSetupLines(input: {
   lines.push(input.appliedProfiles === null
     ? { key: 'games', label: 'Game profiles', value: 'Could not read game backups', source: 'Could not read' }
     : input.appliedProfiles.length
-      ? { key: 'games', label: 'Game profiles', value: input.appliedProfiles.map((item) => `${item.game} (${day(item.at, now)})`).join(', '), source: 'Recorded by Dialed' }
+      // Dialed's record, not a fresh read of the game's file: the game or another tool may have changed it since.
+      ? { key: 'games', label: 'Game profiles', value: `Applied and not undone: ${input.appliedProfiles.map((item) => `${item.game} (${day(item.at, now)})`).join(', ')}`, source: 'Recorded by Dialed' }
       : { key: 'games', label: 'Game profiles', value: 'None applied by Dialed', source: 'Recorded by Dialed' });
   lines.push(input.lastNetwork
     ? { key: 'network', label: 'Network', value: input.lastNetwork.line, source: 'Measured' }

@@ -27,7 +27,9 @@ function averageOfSlowest(sorted: number[], fraction: number) {
 // the slowest 1% of frames; a stutter is a frame longer than twice the median.
 export function computeFrameTimeStats(samples: number[], unit = 'ms'): FrameTimeStats | null {
   if (!/^ms$/i.test(unit)) return null;
-  const valid = samples.filter((value) => Number.isFinite(value) && value > 0 && value < 10_000);
+  // Every frame the parser admitted counts, including long pauses: dropping them made a run with a
+  // ten-second freeze read as smooth, and the graph already showed them.
+  const valid = samples.filter((value) => Number.isFinite(value) && value > 0);
   if (valid.length < 20) return null;
   const sorted = [...valid].sort((left, right) => left - right);
   const total = valid.reduce((sum, value) => sum + value, 0);

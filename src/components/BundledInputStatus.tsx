@@ -41,7 +41,7 @@ export function BundledInputStatus({ device, busy = false, setupOpen = false, on
   return <section aria-label="Bundled HIDUSBF setup" className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0"><p className="text-xs text-slate-400">Selected device</p><h3 className="mt-1 text-lg font-semibold text-white">{device.name}</h3><p className="mt-1 text-xs text-slate-400">{device.speed} USB{device.portLabel ? ` · ${device.portLabel}` : ''}</p></div>
-      <div><p className="text-xs text-slate-400">Saved rate</p><p className="mt-1 text-2xl font-bold text-white">{device.configuredHz === null ? 'Default / unknown' : `${device.configuredHz} Hz`}</p></div>
+      <div><p className="text-xs text-slate-400">Saved rate</p><p className="mt-1 text-2xl font-bold text-white">{device.configuredHz !== null ? `${device.configuredHz} Hz` : device.rateUnreadable ? 'Could not be read' : 'Windows default'}</p></div>
       {device.configuredHz === null && device.inactiveHz ? <p role="note" className="basis-full text-xs text-amber-100">A {device.inactiveHz} Hz rate was set earlier but is not in effect: the HIDUSBF driver is no longer attached to this device, often after a Windows or driver update. Set the rate again to use it.</p> : null}
     </div>
     {device.speed === 'Low-Speed' && <p className="mt-3 text-xs text-slate-300">Low-Speed USB is not supported by this rate-change workflow. You can still check key, button or movement activity below.</p>}

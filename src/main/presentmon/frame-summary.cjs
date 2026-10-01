@@ -19,6 +19,15 @@ function percentile(sorted, fraction) {
   return sorted[index];
 }
 
+// "1% low" everywhere in Dialed: the FPS equivalent of the average of the slowest 1% of frames,
+// the same definition the detailed statistics use (src/lib/frameTimeStats.ts).
+const LOW_METHOD = 'slowest-1-percent-mean';
+function averageOfSlowest(sorted, fraction) {
+  const count = Math.max(1, Math.floor(sorted.length * fraction));
+  const slowest = sorted.slice(sorted.length - count);
+  return slowest.reduce((sum, value) => sum + value, 0) / slowest.length;
+}
+
 function round(value, places = 2) {
   const factor = 10 ** places;
   return Math.round(value * factor) / factor;
@@ -48,8 +57,10 @@ function summarizeFrames(application, samples) {
     frames: frames.length,
     // Frames divided by elapsed time, which is what "average FPS" means.
     averageFps: round(1000 / meanMs),
-    // The FPS of the slowest 1% of frames.
-    onePercentLowFps: round(1000 / p99Ms),
+    // The FPS equivalent of the average of the slowest 1% of frames. Summaries saved before
+    // 2026-10-01 used 1000 / p99 instead and carry no lowMethod, so they are never compared.
+    onePercentLowFps: round(1000 / averageOfSlowest(sorted, 0.01)),
+    lowMethod: LOW_METHOD,
     medianFrameMs: round(medianMs, 3),
     p99FrameMs: round(p99Ms, 3),
     // Width of the middle 90% of frame times relative to the median: lower is steadier.
@@ -75,7 +86,8 @@ function isFrameSummary(value) {
     && typeof value.capLikely === 'boolean'
     && (value.capFps === null || (Number.isInteger(value.capFps) && value.capFps > 0))
     // Optional: summaries saved before long frames were counted do not have it.
-    && (value.longFrames === undefined || (Number.isInteger(value.longFrames) && value.longFrames >= 0));
+    && (value.longFrames === undefined || (Number.isInteger(value.longFrames) && value.longFrames >= 0))
+    && (value.lowMethod === undefined || value.lowMethod === LOW_METHOD);
 }
 
 module.exports = { CAP_SHARE, CAP_TOLERANCE, isFrameSummary, summarizeCapture, summarizeFrames };

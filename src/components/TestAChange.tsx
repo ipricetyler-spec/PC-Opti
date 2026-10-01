@@ -7,7 +7,7 @@ import { useConfirm } from './ConfirmContext';
 import { NativePresentMonCapture } from './NativePresentMonCapture';
 import { SESSION_KEY, parseSessions, sameCaptureGroup, sessionCaptureIds, sessionPairIssue, type ExperimentSession } from '../lib/experimentSessions';
 import { linkRuns, partitionRuns, sessionLimitReached, vendorFor } from '../lib/displayExperiment';
-import { abaCheck, capWarning, conditionFlags, effectVsNoise, runProgress, RECOMMENDED_RUNS } from '../lib/experimentRigor';
+import { abaCheck, capWarning, comparableLowFps, conditionFlags, effectVsNoise, runProgress, RECOMMENDED_RUNS } from '../lib/experimentRigor';
 import {
   CHANGE_TESTS_KEY, STEP_LABELS, VISIBLE_STEPS, activeTests, awaitingRestart, newChangeTest, parseChangeTests, saveChangeTests, sessionForChange, visibleStepIndex,
   testStep, upsertChangeTest, withBootSeen, type ChangeTest, type ChangeTestSource,
@@ -76,11 +76,13 @@ function roughDifference(before: PresentMonCaptureEntry[], after: PresentMonCapt
 
 function SideSummary({ label, runs }: { label: string; runs: PresentMonCaptureEntry[] }) {
   const fps = average(runs.map((run) => run.frameSummary?.averageFps).filter((value): value is number => typeof value === 'number'));
-  const low = average(runs.map((run) => run.frameSummary?.onePercentLowFps).filter((value): value is number => typeof value === 'number'));
+  const lows = runs.map((run) => comparableLowFps(run.frameSummary));
+  // One run saved by an older version, which worked the 1% low out differently, leaves it unknown.
+  const low = lows.every((value) => value !== null) ? average(lows as number[]) : null;
   return <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3">
     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
     <p className="mt-1 text-lg font-bold text-slate-100">{fps === null ? '—' : `${Math.round(fps)} FPS`}</p>
-    <p className="text-xs text-slate-400">{low === null ? 'No runs' : `1% low ${Math.round(low)} FPS · ${runs.length} run${runs.length === 1 ? '' : 's'}`}</p>
+    <p className="text-xs text-slate-400">{!runs.length ? 'No runs' : `${low === null ? '1% low not comparable' : `1% low ${Math.round(low)} FPS`} · ${runs.length} run${runs.length === 1 ? '' : 's'}`}</p>
   </div>;
 }
 
@@ -88,7 +90,7 @@ function RunList({ runs, flags }: { runs: PresentMonCaptureEntry[]; flags: Map<s
   if (!runs.length) return null;
   return <ul className="mt-2 space-y-1 text-xs text-slate-400">
     {runs.map((run, index) => <li key={run.captureId}>Run {index + 1} · {new Date(run.startedAt).toLocaleTimeString()} · {run.durationSeconds} s
-      {run.frameSummary && <> · <span className="text-slate-200">{Math.round(run.frameSummary.averageFps)} FPS</span>, 1% low {Math.round(run.frameSummary.onePercentLowFps)}{run.frameSummary.capLikely ? ' · looks capped' : ''}{run.frameSummary.longFrames ? ` · ${run.frameSummary.longFrames} long frame${run.frameSummary.longFrames === 1 ? '' : 's'} (hitches)` : ''}</>}
+      {run.frameSummary && <> · <span className="text-slate-200">{Math.round(run.frameSummary.averageFps)} FPS</span>, {comparableLowFps(run.frameSummary) === null ? `slowest 1% ≥ ${Math.round(run.frameSummary.p99FrameMs)} ms` : `1% low ${Math.round(run.frameSummary.onePercentLowFps)}`}{run.frameSummary.capLikely ? ' · looks capped' : ''}{run.frameSummary.longFrames ? ` · ${run.frameSummary.longFrames} long frame${run.frameSummary.longFrames === 1 ? '' : 's'} (hitches)` : ''}</>}
       {flags.get(run.captureId)?.map((note) => <span key={note} className="block text-amber-200">Different conditions: {note}.</span>)}
     </li>)}
   </ul>;
@@ -496,7 +498,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
   const counted = step === 'BEFORE' ? before.length : after.length;
   const effect = effectVsNoise(before, after);
   const cap = capWarning([...before, ...after]);
-  const aba = abaCheck(before, check);
+  const aba = abaCheck(before, after, check);
   const recorder = <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/30 p-3"><NativePresentMonCapture compact preferTarget={test.game} onImportPreview={onImportPreview} onStateChange={onRecorderState} /></div>;
   const notCounted = partition?.notCounted.filter((item) => item.reason !== 'Warm-up run — set aside so the game, shaders and clocks settle first') ?? [];
   const decisionText = { KEEP: 'You kept the change.', REVIEW_RESTORE: 'You undid the change.', INCONCLUSIVE: 'Closed without a decision.', UNDECIDED: '' };
@@ -565,7 +567,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
         {!decided && test.change && <div className="mt-4 rounded-lg border border-dashed border-slate-600 p-3 text-xs leading-relaxed text-slate-300">
           <p className="font-semibold text-slate-200">Optional: double-check by putting it back</p>
           {!test.revertDeclaredAt ? <>
-            <p className="mt-1 text-slate-400">If the numbers return to your before results once the setting is back, the difference really came from this setting, not from heat or a background task.</p>
+            <p className="mt-1 text-slate-400">If the numbers return to your before results once the setting is back, that supports the difference coming from this setting rather than from heat or a background task.</p>
             {test.source.kind === 'TWEAK' && test.source.restartRequired
               ? <p className="mt-1 text-slate-500">Skipped for this tweak, because putting it back needs another restart.</p>
               : <button type="button" className={`${BUTTON} mt-2 inline-flex items-center gap-1.5`} disabled={busy} onClick={() => void putBackToCheck()}><RotateCcw className="h-4 w-4" />{test.source.kind === 'TWEAK' ? 'Put it back and measure again' : 'I have put it back — measure again'}</button>}
@@ -573,7 +575,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
             <p className="mt-1 text-slate-400">Put back {new Date(test.revertDeclaredAt).toLocaleTimeString()}. {runProgress('check', check.length, Boolean(partition?.warmups.check), true).label}</p>
             {recorder}
             <RunList runs={check} flags={flags} />
-            <p className={`mt-2 ${aba.verdict === 'CONFIRMED' ? 'text-emerald-200' : aba.verdict === 'DID_NOT_RETURN' ? 'text-amber-200' : 'text-slate-400'}`}>{aba.text}</p>
+            <p className={`mt-2 ${aba.verdict === 'SUPPORTS' ? 'text-emerald-200' : aba.verdict === 'DID_NOT_RETURN' ? 'text-amber-200' : 'text-slate-400'}`}>{aba.text}</p>
           </>}
         </div>}
 

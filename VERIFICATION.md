@@ -569,3 +569,24 @@ passes), suggestion counter (tweaks test + restore-point UI check). After each: 
 lint and UI fixtures all passed; final counts 853/853 and 138/138. The policy corpus test failed
 once mid-run (Smart App Control family, AGENTS.md) and passed alone and on the full rerun.
 Not verified: any of it in an installed build or on hardware.
+
+## 2026-10-01 — Codex requirements audit of c1d85b4: all seven findings reproduced and fixed
+
+Each was checked in the code before changing anything.
+- R1 Clipchamp removal had no way to preserve local projects: removed from the removal list
+  (Solitaire kept: its local data is game statistics; owner may choose otherwise).
+- R2 "1% low" meant 1000/p99 in run summaries but the slowest-1% mean in details: one definition
+  now; summaries record lowMethod and older ones are never compared (shown as p99 instead).
+- R3 detailed statistics dropped frames >= 10 s: every parser-admitted frame now counts.
+- R4 a start countdown outlived its test or page and still recorded: cancelled on close and
+  rechecked before starting; recording check covers stop-during-countdown and immediate start after
+  a cancelled countdown.
+- R5 undone game profiles still counted as current: Home lists only profiles not undone ("Applied
+  and not undone", recorded by Dialed); cards say "then undone" and re-read after undo; an unreadable
+  record says so. The game-profiles fixture now returns the real handler's backup shape.
+- R6 an unreadable rate with the filter attached read "Windows default": now "could not be read".
+- R7 the put-it-back check claimed causation with no difference: NO_DIFFERENCE when there was none;
+  a return now "supports" rather than proves.
+Codex's one failing test (key custody ACL) fails only without SeSecurityPrivilege in its sandbox;
+it passes in the admin shell. Checks, one at a time: npm test 853/853, test:ts 141/141, lint,
+build, UI fixtures — all pass. Not verified in an installed build or on hardware.

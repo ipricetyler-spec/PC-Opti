@@ -75,9 +75,9 @@ test('optional app eligibility requires the exact reviewed publisher-derived pac
     packageFamilyName: 'Clipchamp.Clipchamp_yxz26nhyzhsrt',
     publisher: 'CN=Clipchamp Pty Ltd',
   });
+  // Not offered: its local projects are the reader's own work and cannot be preserved first.
   const clipchampInventory = await optionalApps.listOptionalAppCandidates({ runPowerShell: listAdapter([clipchamp]) });
-  assert.equal(clipchampInventory.items.length, 1);
-  assert.equal(clipchampInventory.items[0].id, 'clipchamp');
+  assert.equal(clipchampInventory.items.length, 0);
 });
 
 test('optional app inventory accepts valid Windows bundle separators but still rejects unsafe identities', async () => {

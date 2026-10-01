@@ -8,6 +8,8 @@ const now = new Date('2026-10-01T12:00:00Z');
 test('a device row keeps saved and measured apart, and a measurement always has its date', () => {
   assert.equal(deviceRateLine({ configuredHz: 4000 }, undefined, now), 'Saved 4,000 Hz · Not checked yet');
   assert.equal(deviceRateLine({ configuredHz: null }, undefined, now), 'Saved: Windows default · Not checked yet');
+  // A filter whose rate value cannot be read is unknown, never the Windows default (Codex review R6).
+  assert.equal(deviceRateLine({ configuredHz: null, rateUnreadable: true }, undefined, now), 'Saved rate could not be read · Not checked yet');
   assert.equal(deviceRateLine({ configuredHz: null, inactiveHz: 8000 }, undefined, now), '8,000 Hz set earlier, not in effect · Not checked yet');
   const today = deviceRateLine({ configuredHz: 8000 }, { reportsPerSecond: 8007, at: '2026-10-01T09:00:00Z' }, now);
   assert.equal(today, 'Saved 8,000 Hz · Measured about 8,007 reports/s today');

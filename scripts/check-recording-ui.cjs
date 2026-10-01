@@ -71,6 +71,22 @@ async function main() {
     // Left to finish, the countdown starts the recording.
     await startButton.click();
     await page.waitForFunction(() => window.__recording.starts === 3, null, { timeout: 15000 });
+    // After a canceled countdown, an immediate recording still starts.
+    await page.getByLabel('Start').selectOption('5');
+    await startButton.click();
+    await page.getByText(/Recording starts in \d s/).waitFor();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByLabel('Start').selectOption('0');
+    await startButton.click();
+    await page.waitForFunction(() => window.__recording.starts === 4);
+    // Stopping the test during a countdown records nothing (Codex review R4).
+    await page.getByLabel('Start').selectOption('5');
+    await startButton.click();
+    await page.getByText(/Recording starts in \d s/).waitFor();
+    await page.getByRole('button', { name: 'Stop this test' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Stop test' }).click();
+    await page.waitForTimeout(6500);
+    assert.equal(await page.evaluate(() => window.__recording.starts), 4, 'A countdown outlived its test and started a recording.');
     assert.deepEqual(errors, []);
     console.log('Recording checks passed: one confirmation per recording, delay with cancel.');
   } finally { await browser.close(); }

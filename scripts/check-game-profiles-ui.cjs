@@ -51,7 +51,12 @@ async function main() {
     await context.exposeBinding('__gameFixture', async (_source, method, id, mode) => {
       calls.push(method);
       if (method === 'list') return profiles.listGameProfiles();
-      if (method === 'backups') return configs.listGameConfigBackups(userData);
+      // Same shape as the real handler (electron/main.cjs, list-game-config-backups): profile backups say whether they were undone.
+      if (method === 'backups') return configs.listGameConfigBackups(userData).map((backup) => {
+        let record = null;
+        try { record = profiles.readProfileRecord(userData, backup.backupId); } catch { record = null; }
+        return { ...backup, profileUndo: record ? { available: !record.undone, game: record.profile.game, keys: record.changes.map((change) => change.key) } : null };
+      });
       if (method === 'preview') {
         if (mode === 'running') throw new Error('Close the game before preview, apply or restore. No file was changed.');
         const pending = store.issue(await profiles.previewGameProfile(id, roots, closed));
@@ -165,6 +170,8 @@ async function main() {
     await page.getByRole('dialog').getByRole('button', { name: 'Undo settings', exact: true }).click();
     await page.getByRole('status').filter({ hasText: /Put back 3 settings and checked the file/ }).waitFor();
     assert.equal(fs.readFileSync(source, 'utf8'), original.replace('sg.TextureQuality=3', 'sg.TextureQuality=1'), 'profile keys undone; the game\'s own change kept');
+    // An undone profile is history, not current setup (Codex review R5).
+    await section.getByText(/Applied by Dialed on .*, then undone/).first().waitFor();
     fs.writeFileSync(source, original);
     await section.getByRole('button', { name: 'Preview Rocket League', exact: true }).click();
     // Rocket League lives in Documents, which Controlled folder access protects.

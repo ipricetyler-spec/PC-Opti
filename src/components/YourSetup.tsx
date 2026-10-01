@@ -22,7 +22,8 @@ export function YourSetup({ onOpen }: { onOpen: (section: SetupSection) => void 
         if (!live) return;
         const latest = new Map<string, { game: string; at: string }>();
         for (const backup of Array.isArray(value) ? value : []) {
-          if (!backup.profileUndo) continue;
+          // Only profiles that have not been undone; an undone one is history, not current setup.
+          if (backup.profileUndo?.available !== true) continue;
           const seen = latest.get(backup.gameId);
           if (!seen || backup.createdAt > seen.at) latest.set(backup.gameId, { game: backup.profileUndo.game, at: backup.createdAt });
         }

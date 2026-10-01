@@ -283,6 +283,9 @@ function buildDevices(inventory, saved = { ports: {} }) {
       // removes the filter but can leave the value behind, which is then not in effect.
       configuredHz: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf') ? rateForInterval(node.speed, node.interval?.value) : null,
       inactiveHz: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf') ? null : rateForInterval(node.speed, node.interval?.value),
+      // With the filter attached, an unreadable, ambiguous or unrecognized value is unknown, not the Windows default.
+      rateUnreadable: node.lowerFilters.some((v) => v.toLowerCase() === 'hidusbf') && (!node.interval?.readable || node.interval.ambiguous
+        || (node.interval.value !== null && node.interval.value !== undefined && rateForInterval(node.speed, node.interval.value) === null)),
       maxSupportedHz: rates.length ? rates.at(-1) : null,
       canApply: !reason && inventory.elevated, eligibilityReason: reason || (!inventory.elevated ? 'This session lacks administrator access. The packaged Dialed app requests it at launch; read-only checks remain available in this session.' : null),
       rates, canTest: node.present && testKinds.length > 0, testKinds,

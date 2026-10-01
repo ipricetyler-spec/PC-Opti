@@ -667,6 +667,8 @@ export interface FrameSummary {
   capLikely: boolean;
   capFps: number | null;
   /** Frames at least 2.5x the median frame time; absent in summaries saved before 2026-10-01. */
+  /** How onePercentLowFps was computed; absent (1000 / p99) in summaries saved before 2026-10-01. */
+  lowMethod?: 'slowest-1-percent-mean';
   longFrames?: number;
 }
 

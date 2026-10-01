@@ -40,8 +40,9 @@ export function latestMeasuredRate(store: Store): MeasuredRate | null {
 }
 
 /** One short line for a device row: what is saved, and what was last measured and when. */
-export function deviceRateLine(device: { configuredHz: number | null; inactiveHz?: number | null }, measured: MeasuredRate | undefined, now = new Date()): string {
+export function deviceRateLine(device: { configuredHz: number | null; inactiveHz?: number | null; rateUnreadable?: boolean }, measured: MeasuredRate | undefined, now = new Date()): string {
   const saved = device.configuredHz !== null ? `Saved ${device.configuredHz.toLocaleString()} Hz`
+    : device.rateUnreadable ? 'Saved rate could not be read'
     : device.inactiveHz ? `${device.inactiveHz.toLocaleString()} Hz set earlier, not in effect`
     : 'Saved: Windows default';
   if (!measured) return `${saved} · Not checked yet`;

@@ -11,7 +11,7 @@ test('Your setup labels every value by where it came from and keeps unknown as u
   });
   assert.deepEqual(known.map((line) => line.source), ['Read from Windows', 'Measured', 'Recorded by Dialed', 'Measured']);
   assert.match(known[1].value, /DualSense Edge: about 8,007 reports\/s, today/);
-  assert.match(known[2].value, /^VALORANT \(/);
+  assert.match(known[2].value, /^Applied and not undone: VALORANT \(/);
 
   const unknown = yourSetupLines({ powerPlan: null, lastRate: null, appliedProfiles: null, lastNetwork: undefined, now });
   assert.deepEqual(unknown.map((line) => line.source), ['Could not read', 'Not checked yet', 'Could not read', 'Could not read']);

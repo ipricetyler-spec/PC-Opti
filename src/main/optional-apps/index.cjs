@@ -5,14 +5,9 @@ const { windowsPowerShellArguments, windowsPowerShellEnvironment, windowsPowerSh
 const POWERSHELL_TIMEOUT_MS = 20000;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
+// Clipchamp was removed from this list on 2026-10-01: its local projects are the reader's own work,
+// and Dialed has no reliable way to preserve them first. Removal must never cost personal content.
 const OPTIONAL_APP_DEFINITIONS = Object.freeze([
-  {
-    id: 'clipchamp',
-    packageNames: ['Clipchamp.Clipchamp'],
-    publisherId: 'yxz26nhyzhsrt',
-    title: 'Clipchamp',
-    consequence: 'Removes the Clipchamp editor for the current Windows account. Local Clipchamp projects or app-only data may be lost.',
-  },
   {
     id: 'feedback-hub',
     packageNames: ['Microsoft.WindowsFeedbackHub'],

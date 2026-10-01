@@ -1,4 +1,5 @@
 import { ErrorText } from './ErrorText';
+import { consentSignature, hasRememberedConsent, rememberConsent, savedTestLine } from '../lib/networkTestMemory';
 import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, History, LoaderCircle, Play, Search, Signal, ShieldAlert, SlidersHorizontal, Square, Wifi, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -151,6 +152,9 @@ export function NetworkQualityLab({ snapshot, onOpenScan }: NetworkQualityLabPro
   }, [probeRunning]);
 
   const probeEndpoint = probeEndpoints.find((entry) => entry.mode === probeMode) || null;
+  // Consent is remembered for exactly what is disclosed; a different server or limit asks again.
+  const consentKey = consentSignature(probeEndpoint);
+  useEffect(() => { setProbeConsent(hasRememberedConsent(consentKey)); }, [consentKey]);
 
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -321,7 +325,7 @@ export function NetworkQualityLab({ snapshot, onOpenScan }: NetworkQualityLabPro
         </div>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">{probeEndpoints.map((entry) => <button key={entry.mode} type="button" aria-pressed={probeMode === entry.mode} disabled={probeRunning} onClick={() => { setProbeMode(entry.mode); setProbeConsent(false); }} className={`rounded-lg border p-3 text-left text-xs ${probeMode === entry.mode ? 'border-cyan-400/50 bg-cyan-500/10 text-cyan-100' : 'border-slate-700 bg-slate-950/40 text-slate-300'}`}><span className="font-semibold">{entry.title}</span><span className="mt-1 block text-[11px] text-slate-400">Up to {(entry.maximumTotalBytes / (1024 * 1024)).toFixed(1)} MiB · {entry.maximumParallelConnections} connection{entry.maximumParallelConnections === 1 ? '' : 's'} · {entry.maximumDurationSeconds}s limit</span></button>)}</div>
-      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-700 bg-slate-950/40 p-3 text-xs leading-relaxed text-slate-300"><input type="checkbox" checked={probeConsent} onChange={(event) => setProbeConsent(event.target.checked)} disabled={probeRunning} className="mt-0.5 h-4 w-4 accent-cyan-400" /><span>I understand that this run contacts <strong className="text-slate-100">speed.cloudflare.com</strong>, transfers at most <strong className="text-slate-100">{probeEndpoint ? (probeEndpoint.maximumTotalBytes / (1024 * 1024)).toFixed(1) : '—'} MiB</strong>, may use up to {probeEndpoint?.maximumParallelConnections ?? '—'} connection(s), and exposes my public IP and ordinary HTTPS metadata to that service.</span></label>
+      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-700 bg-slate-950/40 p-3 text-xs leading-relaxed text-slate-300"><input type="checkbox" checked={probeConsent} onChange={(event) => { setProbeConsent(event.target.checked); rememberConsent(consentKey, event.target.checked); }} disabled={probeRunning} className="mt-0.5 h-4 w-4 accent-cyan-400" /><span>I understand that this run contacts <strong className="text-slate-100">speed.cloudflare.com</strong>, transfers at most <strong className="text-slate-100">{probeEndpoint ? (probeEndpoint.maximumTotalBytes / (1024 * 1024)).toFixed(1) : '—'} MiB</strong>, may use up to {probeEndpoint?.maximumParallelConnections ?? '—'} connection(s), and exposes my public IP and ordinary HTTPS metadata to that service.</span></label>
       <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/20 bg-amber-950/10 p-3 text-xs leading-relaxed text-amber-100/80"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><span>A short sample, not your plan's rated speed or a game-server ping. Dialed never changes network settings.<span className="mt-1 block text-amber-100/60">Tests only run when you start them.</span></span></div>
       {probeRunning ? <div role="status" aria-live="polite" className="mt-3 flex items-start gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3 text-xs text-cyan-100"><LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /><div className="w-full"><p className="font-semibold">{probeMode === 'full' ? 'Full speed test' : 'Quick check'} · {probeElapsedSeconds}s elapsed · step {probeProgress?.completedSteps ?? 0}/{probeProgress?.totalSteps ?? 6}</p><p className="mt-1 text-slate-300">{probeProgress?.message || 'Starting…'}</p><div className="mt-2 h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full bg-cyan-300" style={{ width: `${Math.min(100, ((probeProgress?.completedSteps ?? 0) / (probeProgress?.totalSteps || 6)) * 100)}%` }} /></div></div></div> : null}
       {probeError ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={probeError} /></p> : null}
@@ -370,6 +374,7 @@ export function NetworkQualityLab({ snapshot, onOpenScan }: NetworkQualityLabPro
       </div>
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><History className="h-4 w-4 text-cyan-300" /><h3 className="text-sm font-semibold text-slate-100">Saved tests</h3></div><p className="text-[11px] text-slate-500">Latest {probeHistory.entries.length} of 20 retained</p></div>
+        {probeHistory.status === 'READY' && probeHistory.entries.length > 0 ? <ul aria-label="Recent saved tests" className="mt-3 space-y-1 text-xs text-slate-300">{probeHistory.entries.slice(0, 5).map((entry) => <li key={entry.id}>{savedTestLine(entry)}</li>)}</ul> : null}
         <SavedNetworkComparison history={probeHistory} />
         {probeHistory.status === 'CORRUPT' ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200">Saved tests could not be read, and new results are not saved until that file is moved or deleted (Details shows where it is). <ErrorText text={probeHistory.error} /></p> : graphData.length > 0 ? <div className="mt-4 h-64" aria-label="Network quality history chart">
           <ResponsiveContainer width="100%" height="100%">

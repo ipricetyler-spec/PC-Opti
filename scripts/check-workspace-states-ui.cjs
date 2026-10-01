@@ -145,6 +145,10 @@ async function main() {
     await layout('Scan explicit fixture failure');
     await navigate('Measure');
     await page.getByRole('tab', { name: 'Network', exact: true }).click();
+    // Saved tests read as short dated lines; consent starts unticked in a fresh profile.
+    await page.getByRole('list', { name: 'Recent saved tests' }).waitFor();
+    assert.equal(await page.getByRole('list', { name: 'Recent saved tests' }).getByRole('listitem').count(), 2);
+    assert.equal(await page.getByRole('checkbox', { name: /I understand that this run contacts/ }).isChecked(), false);
     await page.getByRole('combobox', { name: /^Before/ }).selectOption('network-fixture-0');
     await page.getByRole('combobox', { name: /^After/ }).selectOption('network-fixture-1');
     for (const phase of ['Before','After']) {

@@ -532,3 +532,27 @@ outside this project, with the owner's permission; nothing from it entered this 
   change; batch results keep success, skipped, failed and needs-review apart. No change needed.
 
 Checks, one at a time: npm test 852/852, test:ts 129/129, lint, build, UI fixtures all pass.
+
+## 2026-10-01 — remaining reviewer work (step 2 of the owner's order)
+
+Done: Tweaks tabs stay on one row at 960/1024 in both themes (measured); Instrument cautions use
+orange so they no longer look like amber-accent buttons; Readiness labels ("Not saved yet", "None
+found", "None yet") and a plain copied summary; the policy filter bar shows only above five
+policies; Home titles line up; boot-setting undo names the value it restores; "Undo this run"
+survives a restart (entry ids only; undo still re-reads history); setup window: no bare review
+button without an action, the status no longer repeats step 2, plain "limit of this version"
+wording, "Check the saved change", a Close setup button once verified (Dialed then focuses Check
+polling rate without running it), and a line to keep a second mouse/keyboard connected; the
+candidate gate refuses a schema 1 policy or a scope that differs from release:native's; protected
+folders written with environment variables count; restore right after acceptance and long
+confirmations at 960x650 now have tests.
+
+Checked and left as is: Controlled folder access unreadable (Defender replaced) and Modern Standby
+unreadable show no notice — correct; BitLocker on Home reads OFF on the owner's Home PC, so the
+"always unknown" concern did not reproduce. Not done: bold current step in setup's progress line
+(a plain label cannot bold part of itself); WinRE restore instructions for the boot export (idea).
+Needs the owner: whether build 26200 still honours OverlayTestMode=5 (verifying needs a temporary
+setting change and a restart).
+
+Checks, one at a time: npm test 852/852, test:ts 130/130, lint, build, UI fixtures (incl. contrast
+and the new confirmation check), native fixture — all pass.

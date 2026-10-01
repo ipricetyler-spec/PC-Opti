@@ -16,7 +16,7 @@ build snapshots under `output/` and fails for reasons unrelated to your change:
 
 ```
 npm test         # Node suite, .cjs tests   — expect 852/852
-npm run test:ts  # bun, TypeScript tests    — expect 129/129
+npm run test:ts  # bun, TypeScript tests    — expect 130/130
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build
 ```

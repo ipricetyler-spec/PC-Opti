@@ -166,6 +166,12 @@ if (nativeReleaseConfigured) {
   // The policy pins the signed bytes, so the packaged helpers are checked against it directly.
   const policy = verifyPolicy(fs.readFileSync(path.join(nativeRoot, 'release-policy.json')), fs.readFileSync(path.join(nativeRoot, 'release-policy.sig')), publicKey);
   assert.equal(policy.Purpose, 'ACCEPTED_RELEASE', 'The package carries a validation policy, not a release policy.');
+  // A release ships exactly the scope release:native signs; a wider or older scope is refused.
+  assert.equal(policy.SchemaVersion, 2, 'The package carries a per-device (schema 1) policy, not the general release policy.');
+  const { RELEASE_SCOPE } = require('./prepare-native-release.cjs');
+  for (const [field, expected] of Object.entries(RELEASE_SCOPE)) {
+    assert.deepEqual([].concat(policy[field]).sort(), [].concat(expected).sort(), `The signed policy's ${field} differs from the release scope in prepare-native-release.cjs.`);
+  }
   const daysLeft = (Date.parse(policy.ExpiresAt) - Date.now()) / (24 * 60 * 60 * 1000);
   assert.ok(daysLeft >= NATIVE_POLICY_MINIMUM_DAYS, `The native release policy expires in ${Math.floor(daysLeft)} days. Run npm run release:native to sign a new one.`);
   assert.equal(hashFile(nativeExecutables[0]), policy.BrokerSha256, 'Packaged broker differs from the signed release policy.');

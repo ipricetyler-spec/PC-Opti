@@ -43,7 +43,7 @@ namespace Dialed.HidusbfHelper {
           } else message = "This device has no recorded compatible attachment. Review driver setup; the shared installation will be preserved.";
           if (!device.Present || !device.Authorized || !observed.SecurityAccepted || history != "CURRENT") action = null;
           if (history != "CURRENT") message = history == "PENDING" ? "Finish the saved operation before requesting another change." : "Check the saved operation before making a new request.";
-          else if (!device.Authorized) message = "Rate changes for this device are not enabled in this build. This is a driver-policy restriction, not a finding that the device cannot be tuned.";
+          else if (!device.Authorized) message = "This version of Dialed doesn't change this device's rate. That's a limit of this version, not of your device.";
           else if (!observed.SecurityAccepted) message = "Rate changes are not enabled for this Windows configuration by this build's driver policy.";
           var options = new[] { 125, 250, 500, 1000, 2000, 4000, 8000 }.Select(hz => {
             if (device.Speed != "FULL" && device.Speed != "HIGH") return new SetupRateOption(hz, false, "USB speed is unsupported or unknown.");

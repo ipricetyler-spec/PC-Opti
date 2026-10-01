@@ -62,6 +62,9 @@ export function InputDevicesCenter() {
   // Whether the signed native setup can run in this build; it reaches 2–8 kHz on High-Speed devices.
   const [nativeSetupAvailable, setNativeSetupAvailable] = useState(false);
   const [suggestRateCheck, setSuggestRateCheck] = useState(false);
+  // After setup closes, keyboard focus moves to the check that shows what Windows receives. It never runs it.
+  const rateCheckButton = useRef<HTMLButtonElement | null>(null);
+  const focusRateCheck = useRef(false);
   const [runningPurpose, setRunningPurpose] = useState<'RATE' | 'CONTROLS'>('CONTROLS');
   const [advanced, setAdvanced] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -109,10 +112,15 @@ export function InputDevicesCenter() {
   const driverInstallAction: InputDriverLifecycleAction = driverLifecycle?.status === 'READY_FOR_PREFLIGHT' || driverLifecycle?.status === 'REMOVED' || driverLifecycle?.status === 'NOT_APPLIED' ? 'INSTALL' : 'ATTACH';
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; void window.pcOptiNative?.cancelInputTest?.().catch(() => {}); }; }, []);
+  useEffect(() => {
+    if (!focusRateCheck.current || setupOpen || busy || !rateCheckButton.current || rateCheckButton.current.disabled) return;
+    focusRateCheck.current = false;
+    rateCheckButton.current.focus();
+  });
   useEffect(() => api?.onBundledInputSetupClosed?.(() => {
     setSetupOpen(false); setTest(null); setPreview(null); setTierPreview(null); setDriverPreview(null);
     // Closing setup proves nothing about delivery; point to the check that does, without running it.
-    setSuggestRateCheck(true);
+    setSuggestRateCheck(true); focusRateCheck.current = true;
     refreshAfterSetup.current = true;
     // Complete an in-flight read/test first, then scan. Never let its older result
     // win the refresh race or count closing setup as successful verification.
@@ -350,7 +358,7 @@ export function InputDevicesCenter() {
                 <p className="flex items-center gap-2 text-xs font-semibold text-white"><Gauge className="h-4 w-4 text-cyan-300" />Polling rate</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-300">{rateInstruction(selectedTestKinds)}</p>
                 {suggestRateCheck && rateCheckable(selectedTestKinds) && !test ? <p role="status" className="mt-2 text-xs text-cyan-100">Setup closed. Check the polling rate to see what Windows receives now.</p> : null}
-                <button type="button" disabled={setupOpen || !!busy || !selected.canTest || !rateCheckable(selectedTestKinds) || !api?.testInputDevice} className={`${primary} mt-3`} onClick={() => testDevice('RATE')}><Gauge className="h-4 w-4" />Check polling rate</button>
+                <button ref={rateCheckButton} type="button" disabled={setupOpen || !!busy || !selected.canTest || !rateCheckable(selectedTestKinds) || !api?.testInputDevice} className={`${primary} mt-3`} onClick={() => testDevice('RATE')}><Gauge className="h-4 w-4" />Check polling rate</button>
               </div>
               <div aria-label="Controls check" className="rounded-lg border border-slate-700 p-3">
                 <p className="flex items-center gap-2 text-xs font-semibold text-white"><Activity className="h-4 w-4 text-cyan-300" />Buttons, sticks and keys</p>

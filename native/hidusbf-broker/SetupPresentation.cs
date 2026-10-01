@@ -44,7 +44,7 @@ static class SetupPresentation {
     "RECONNECT_WAITING_FOR_DEVICE" => "Review complete  →  Setting saved  →  Device disconnected  →  Reconnect to verify",
     "CONFIGURATION_VERIFIED" when result.ActivationEvidence == "DEVICE_RECONNECT" => "Review complete  →  Setting saved  →  Reconnected  →  Verified",
     "CONFIGURATION_VERIFIED" when result.ActivationEvidence == "WINDOWS_RESTART" => "Review complete  →  Setting saved  →  Windows restarted  →  Verified",
-    "RESTART_REQUIRED" => "Review complete  →  Setting saved  →  Windows restart required  →  Check saved operation",
+    "RESTART_REQUIRED" => "Review complete  →  Setting saved  →  Windows restart required  →  Check the saved change",
     "ALREADY_CONFIGURED" => "Setting already saved · No change or reconnect requested",
     _ => "Review  →  Save setting  →  Reconnect device if requested  →  Verify"
   };
@@ -76,10 +76,10 @@ static class SetupPresentation {
     "What differs from the saved record:\n" + string.Join("\n", (differences ?? Array.Empty<string>()).Select(x => "•  " + x)) + "\n\n" +
     "Keep current settings saves this state as the new starting point. Nothing on your devices changes, and the recorded originals are kept, so restoring them is still possible.\n\n" +
     "Only keep these if you, or software you trust, made these changes. If you are unsure, cancel and leave setup paused.";
-  public static string ReconcileLabel(bool inventoryChanged) => inventoryChanged ? "Refresh USB inventory" : "Check saved operation";
+  public static string ReconcileLabel(bool inventoryChanged) => inventoryChanged ? "Refresh USB inventory" : "Check the saved change";
   public static bool IsReconnectPending(string status) => status == "RECONNECT_REQUIRED" || status == "RECONNECT_WAITING_FOR_DEVICE";
   public static string FailureText(string message) => message?.StartsWith("BOOT_IDENTITY_RECONCILE_REQUIRED:", StringComparison.Ordinal) == true
-    ? "Choose Check saved operation to update how Dialed recognizes a Windows restart. This only updates the completed recovery record; device settings and recorded originals stay unchanged.\r\nDetails: " + message
+    ? "Choose Check the saved change to update how Dialed recognizes a Windows restart. This only updates the completed recovery record; device settings and recorded originals stay unchanged.\r\nDetails: " + message
     : message?.StartsWith("BOOT_HISTORY_REVIEW_REQUIRED:", StringComparison.Ordinal) == true
     ? "Dialed cannot safely verify this recovery record's Windows restart evidence. Keep the history file intact; do not delete or reset it. No device settings were changed by this request. Setup actions are paused for this session.\r\nDetails: " + message
     : message?.StartsWith("BOOT_SESSION_UNAVAILABLE:", StringComparison.Ordinal) == true
@@ -105,9 +105,9 @@ static class SetupPresentation {
     if (message == "Patching acknowledgement/security required." || message == "Patching requires explicit acknowledgement and an already compatible security configuration.")
       return "This plan needs HIDUSBF's patching mode, which cannot run while Memory Integrity is on. Keep your security settings unchanged unless you have decided otherwise; Dialed will not change them, and its Input devices page explains the trade-off.";
     if (message.StartsWith("RECONNECT_MONITOR_UNAVAILABLE:", StringComparison.Ordinal))
-      return "The saved rate change is still pending. Close and reopen setup, then choose Check saved operation before unplugging the device. Do not apply the rate again.";
+      return "The saved rate change is still pending. Close and reopen setup, then choose Check the saved change before unplugging the device. Do not apply the rate again.";
     if (message.StartsWith("RECONNECT_UNSTABLE:", StringComparison.Ordinal))
-      return "The device changed while Dialed was checking it. Leave it connected and choose Check saved operation. Do not apply the rate again.";
+      return "The device changed while Dialed was checking it. Leave it connected and choose Check the saved change. Do not apply the rate again.";
     return "Setup could not complete this request. Review Technical details before trying again.";
   }
   public static string Review(SetupAction action, string deviceName, int? rate, string variant, bool restartRequired, bool reconnectRequired = false) {
@@ -121,6 +121,8 @@ static class SetupPresentation {
     return $"Action: {action.Label}\nDevice: {(action.UsesDevice ? deviceName : "shared driver")}{rateLine}\nDriver mode: {mode}\n\n" +
       action.Description + "\n\n" + (action.UsesDevice ? "This includes every part of the device, such as a built-in headset jack or touchpad.\n" : "") +
       restart + "\nA setting does not prove USB delivery or latency.\n\n" +
+      // A device that stops responding after the change must not leave the reader with no way to restore it.
+      (action.UsesRate ? "If this is your only mouse or keyboard, keep another one connected: if this device stops responding afterwards, you can open setup with it and restore the original settings.\n\n" : "") +
       (action.Code == "ADOPT" ? "Record these current settings?" : "Apply this change?");
   }
   public static string ResultText(string status, string action = null, string deviceName = null) => status switch {
@@ -131,9 +133,9 @@ static class SetupPresentation {
     "INVENTORY_REFRESHED" => "Saved settings are up to date with your current USB connections. Nothing on your devices changed, and recorded originals and shared driver ownership are unchanged. Choose a rate to continue; no restart is requested.",
     "CONFIGURATION_VERIFIED" when action == "ADOPT" => "Current settings recorded. You can now preview a polling-rate change. Recording settings did not change the driver or device configuration and requires no restart.",
     "CONFIGURATION_VERIFIED" => "Saved settings checked: they match this PC. Nothing was changed, and no restart is needed.",
-    "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check saved operation. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
+    "RESTART_REQUIRED" => "The saved change requires a manual Windows restart. When ready, restart Windows, then choose Check the saved change. Dialed will not restart Windows automatically. A setting does not prove delivered rate.",
     "BASELINE_ACCEPTED" => "Current settings kept as the new starting point. Nothing on your devices changed, and the recorded originals are kept, so restoring them is still possible. You can choose a rate again.",
-    "NOT_APPLIED" => "The saved operation was not applied. Review a new preview before requesting another change.",
-    _ => "Setup could not tell how this ended (status " + status + "). Choose Check saved operation before trying again."
+    "NOT_APPLIED" => "The saved change was not applied. Review a new preview before requesting another change.",
+    _ => "Setup could not tell how this ended (status " + status + "). Choose Check the saved change before trying again."
   };
 }

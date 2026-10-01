@@ -132,7 +132,7 @@ static class BootSessionChecks {
       Refuse(() => BootSessionIdentity.Decode(RegistryValueKind.DWord, 275, xml, "FIXTURE"), "BOOT_SESSION_UNAVAILABLE:");
     Refuse(() => BootSessionIdentity.Decode(RegistryValueKind.String, "275", eventXml, "FIXTURE"));
     Refuse(() => BootSessionIdentity.Decode(RegistryValueKind.DWord, null, eventXml, "FIXTURE"));
-    Check(SetupPresentation.FailureSummary("BOOT_IDENTITY_RECONCILE_REQUIRED: fixture").Contains("Check saved operation"), "binding guidance names the real button");
+    Check(SetupPresentation.FailureSummary("BOOT_IDENTITY_RECONCILE_REQUIRED: fixture").Contains("Check the saved change"), "binding guidance names the real button");
     Check(SetupPresentation.IsHistoryRefusal("BOOT_HISTORY_REVIEW_REQUIRED: fixture"), "unsafe legacy history pauses setup");
     Check(SetupPresentation.ResultText("BOOT_IDENTITY_RECORDED").Contains("No restart is requested"), "journal binding never implies a restart");
     Console.WriteLine("closed-boot-session-pass:" + checks);

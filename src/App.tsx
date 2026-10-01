@@ -120,6 +120,19 @@ function scanTimeLabel(timestamp: string, now = new Date()) {
     ? at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : at.toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 }
+const LAST_TWEAK_RUN_KEY = 'dialed-last-tweak-run';
+function readLastTweakRun(): { results: BatchResult[]; entryIds: string[] } | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LAST_TWEAK_RUN_KEY) || 'null');
+    if (!parsed || !Array.isArray(parsed.entryIds) || !Array.isArray(parsed.results) || parsed.entryIds.length > 64 || parsed.results.length > 64) return null;
+    const entryIds = parsed.entryIds.filter((id: unknown): id is string => typeof id === 'string' && id.length <= 128);
+    const results = parsed.results.filter((item: unknown): item is BatchResult => Boolean(item) && typeof (item as BatchResult).title === 'string' && typeof (item as BatchResult).ok === 'boolean' && typeof (item as BatchResult).message === 'string');
+    return entryIds.length ? { results, entryIds } : null;
+  } catch { return null; }
+}
+function writeLastTweakRun(run: { results: BatchResult[]; entryIds: string[] } | null) {
+  try { if (run) localStorage.setItem(LAST_TWEAK_RUN_KEY, JSON.stringify(run)); else localStorage.removeItem(LAST_TWEAK_RUN_KEY); } catch { /* per-user convenience only */ }
+}
 async function readBootNotice(): Promise<string | null> {
   try { return (await window.pcOptiNative?.readBootNotice?.()) ?? null; } catch { return null; }
 }
@@ -980,9 +993,13 @@ export default function App() {
   // each journaled and undoable on its own; "Undo this run" reverses them together.
   const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set());
   const [batchRunning, setBatchRunning] = useState(false);
-  const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null);
+  // The last applied run survives a restart, so "Undo this run" is still offered. Only the entry
+  // ids are kept; undo re-reads the history and offers only entries that can still be undone.
+  const savedRun = useMemo(() => readLastTweakRun(), []);
+  const [batchResults, setBatchResults] = useState<BatchResult[] | null>(savedRun?.results ?? null);
   const [batchResultsVerb, setBatchResultsVerb] = useState<'applied' | 'undone'>('applied');
-  const [batchEntryIds, setBatchEntryIds] = useState<string[]>([]);
+  const [batchEntryIds, setBatchEntryIds] = useState<string[]>(savedRun?.entryIds ?? []);
+  useEffect(() => { writeLastTweakRun(batchResultsVerb === 'applied' && batchEntryIds.length && batchResults ? { results: batchResults, entryIds: batchEntryIds } : null); }, [batchResults, batchResultsVerb, batchEntryIds]);
   const batchActions = useMemo(() => {
     const actions: Record<string, NonNullable<ReturnType<typeof batchActionFor>>> = {};
     for (const card of tweakCards) {

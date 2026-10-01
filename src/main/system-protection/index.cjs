@@ -54,7 +54,9 @@ const within = (file, folder) => {
 // Public ones) by default, plus any folder added in Windows Security. Dialed itself writes the file.
 function controlledFolderNotice(state, filePaths, { defaultFolders = [], writer = process.execPath } = {}) {
   if (!state || state.mode !== 1) return null;
-  const folders = [...defaultFolders, ...state.folders].filter(Boolean);
+  // Windows Security accepts folders written with environment variables, such as %USERPROFILE%\Saved Games.
+  const expand = (folder) => folder.replace(/%([^%]+)%/g, (whole, name) => process.env[name] ?? whole);
+  const folders = [...defaultFolders, ...state.folders].filter(Boolean).map(expand);
   const protectedFile = filePaths.some((file) => folders.some((folder) => within(file, folder)));
   const allowed = state.allowed.some((app) => path.resolve(app).toLowerCase() === path.resolve(writer).toLowerCase());
   if (!protectedFile || allowed) return null;

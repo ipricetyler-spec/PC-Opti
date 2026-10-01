@@ -49,6 +49,13 @@ test('every supported rollback kind discloses its real target', () => {
   }
 });
 
+test('a boot setting restore names the value it goes back to', () => {
+  const tick = describeRollbackTarget(entry('restore-boot-timing-setting', { actionId: 'timing:disable-dynamic-tick', state: { usePlatformClock: null, disableDynamicTick: null } }));
+  assert.match(tick.join('\n'), /set back to: not set \(the Windows default\)/);
+  const clock = describeRollbackTarget(entry('restore-boot-timing-setting', { actionId: 'timing:restore-automatic-clock-source', state: { usePlatformClock: 'YES', disableDynamicTick: null } }));
+  assert.match(clock.join('\n'), /set back to: Yes/);
+});
+
 test('a policy restore says plainly when the setting will be removed rather than set', () => {
   const lines = describeRollbackTarget(entry('restore-consumer-features-policy', {
     valueName: 'DisableWindowsConsumerFeatures', valueExists: false,

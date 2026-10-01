@@ -38,8 +38,8 @@ static class SetupPresentationChecks {
     Check(rateReview.Contains("every part of the device") && rateReview.Contains("does not prove USB delivery"), "complete target and evidence scope retained");
     string recorded = SetupPresentation.ResultText("CONFIGURATION_VERIFIED", "ADOPT");
     Check(recorded.Contains("Current settings recorded") && recorded.Contains("requires no restart"), "adopt success has accurate instructions");
-    Check(!recorded.Contains("Check saved operation"), "no reconciliation demanded after adoption");
-    Check(SetupPresentation.ResultText("RESTART_REQUIRED").Contains("Check saved operation"), "pending restart directs to correctly named control");
+    Check(!recorded.Contains("Check the saved change"), "no reconciliation demanded after adoption");
+    Check(SetupPresentation.ResultText("RESTART_REQUIRED").Contains("Check the saved change"), "pending restart directs to correctly named control");
     Check(!SetupPresentation.ResultText("CONFIGURATION_VERIFIED").Contains("restart Windows"), "verified generic result does not demand restart");
     Check(SetupPresentation.ResultText("NOT_APPLIED").Contains("was not applied"), "not-applied status preserved");
     Check(SetupPresentation.ResultText("UNKNOWN").Contains("could not tell how this ended (status UNKNOWN)"), "unknown result not reported as success");

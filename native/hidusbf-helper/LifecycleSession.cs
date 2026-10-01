@@ -103,14 +103,14 @@ namespace Dialed.HidusbfHelper {
       assertPeer();
       // A saved change still running its own check is not drift: naming it NEEDS_REVIEW offered
       // "Review what changed", which then refused it.
-      if (record.Pending != null && !record.NeedsReview) throw new InvalidOperationException("PENDING_OPERATION: a saved change is waiting. Choose Check saved operation to finish it.");
+      if (record.Pending != null && !record.NeedsReview) throw new InvalidOperationException("PENDING_OPERATION: a saved change is waiting. Choose Check the saved change to finish it.");
       if (record.NeedsReview) throw new InvalidOperationException("NEEDS_REVIEW: reconcile the saved operation.");
       var state = machine.Observe();
       BootSessionIdentity.RequireValid(state.BootId);
       if (BootSessionIdentity.IsLegacy(record.Expected?.BootId)) {
         previews.Clear();
         Require(SameExceptBoot(record.Expected, state), "BOOT_HISTORY_REVIEW_REQUIRED: saved configuration changed before the Windows session identity could be recorded. Preserve the journal.");
-        throw new InvalidOperationException("BOOT_IDENTITY_RECONCILE_REQUIRED: choose Check saved operation to record the current Windows session identity. No device settings will change.");
+        throw new InvalidOperationException("BOOT_IDENTITY_RECONCILE_REQUIRED: choose Check the saved change to record the current Windows session identity. No device settings will change.");
       }
       if (record.Expected != null && Digest(record.Expected) != Digest(state)) {
         if (BootOnlyChange(record.Expected, state)) throw new InvalidOperationException("BOOT_RECONCILE_REQUIRED: reconcile the unchanged state after Windows restart.");
@@ -334,7 +334,7 @@ namespace Dialed.HidusbfHelper {
       // A full, proven Windows restart remains an optional recovery route.
       assertPeer(); var confirmed = Copy(machine.Observe());
       if (Digest(state) != Digest(confirmed) || progress != reconnectWatch?.Read())
-        throw new InvalidOperationException("RECONNECT_UNSTABLE: device state changed during verification; leave it connected and choose Check saved operation.");
+        throw new InvalidOperationException("RECONNECT_UNSTABLE: device state changed during verification; leave it connected and choose Check the saved change.");
       if (Digest(state) != Digest(expected)) {
         if (Digest(state) == Digest(pending.Before with { BootId = state.BootId })) {
           Save(record with { Expected = state, Pending = null, NeedsReview = false }); CloseReconnectWatch();
@@ -361,11 +361,11 @@ namespace Dialed.HidusbfHelper {
         // older session identity) is not the reader's to accept: that path checks more.
         if (!record.NeedsReview)
           Require(!SameExceptBoot(record.Expected, state) && !BootSessionIdentity.IsLegacy(record.Expected.BootId) &&
-            !InventoryReconciliation.CanRefresh(record, state, machine.PlatformFor), "NOTHING_TO_REVIEW: setup can update this record itself. Choose Check saved operation.");
+            !InventoryReconciliation.CanRefresh(record, state, machine.PlatformFor), "NOTHING_TO_REVIEW: setup can update this record itself. Choose Check the saved change.");
         return new DriftResolution(record.Expected, DriverChangedOutside(record.Expected, state, record.Ownership), null, null);
       }
       // A saved change is resolved by its own check; it comes here only once that check gave up.
-      Require(record.NeedsReview, "PENDING_OPERATION: a saved change is waiting. Choose Check saved operation to finish it.");
+      Require(record.NeedsReview, "PENDING_OPERATION: a saved change is waiting. Choose Check the saved change to finish it.");
       var pending = record.Pending;
       string outcome = PendingOutcome(pending, state);
       var ownership = outcome == "APPLIED" ? pending.Plan.Ownership : outcome == "NOT_APPLIED" ? record.Ownership : KeepAllOriginals(record.Ownership, pending.Plan.Ownership);

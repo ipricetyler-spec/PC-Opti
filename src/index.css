@@ -432,6 +432,26 @@ pre {
   letter-spacing: 0.08em;
 }
 :root[data-theme='instrument'] .tab-item { text-transform: uppercase; font-size: 0.75rem; }
+/* Instrument's accent is amber, so amber cautions looked like ordinary buttons. Cautions take
+   Tailwind's orange here; every other theme keeps amber. */
+:root[data-theme='instrument'] {
+  --color-amber-100: oklch(95.4% 0.038 75.164);
+  --color-amber-200: oklch(90.1% 0.076 70.697);
+  --color-amber-300: oklch(83.7% 0.128 66.29);
+  --color-amber-400: oklch(75% 0.183 55.934);
+  --color-amber-500: oklch(70.5% 0.213 47.604);
+  --color-amber-950: oklch(26.6% 0.079 36.259);
+}
+/* Wide uppercase monospace labels wrapped Tweaks' eight tabs onto two rows near the 960px minimum. */
+@media (max-width: 1100px) {
+  :root .tab-item { font-size: 0.8125rem; }
+  :root [role='tablist'] { column-gap: 0.875rem; }
+  :root[data-theme='instrument'] .tab-item { letter-spacing: 0; font-size: 0.6875rem; }
+}
+@media (max-width: 1000px) {
+  :root:not([data-theme='instrument']) .tab-item { font-size: 0.75rem; }
+  :root [role='tablist'] { column-gap: 0.75rem; }
+}
 :root[data-theme='instrument'] .nav-item { border-radius: 0 !important; }
 :root[data-theme='instrument'] .nav-item-selected { background-color: transparent; }
 :root[data-theme='instrument'] h2 { letter-spacing: -0.02em; }

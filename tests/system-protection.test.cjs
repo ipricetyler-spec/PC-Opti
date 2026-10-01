@@ -29,6 +29,13 @@ test('Controlled folder access warns only for a blocked write into a protected f
   // Outside protected folders, allowed, audit-only, off or unreadable: nothing to say.
   assert.equal(protection.controlledFolderNotice(state, [path.resolve('C:/Users/fixture/AppData/Local/VALORANT/x.ini')], options), null);
   assert.equal(protection.controlledFolderNotice({ ...state, allowed: [writer.toUpperCase()] }, [inDocuments], options), null);
+  // A protected folder written with an environment variable still counts.
+  const previous = process.env.DIALED_FIXTURE_HOME; process.env.DIALED_FIXTURE_HOME = path.resolve('C:/Users/fixture');
+  try {
+    const saved = path.resolve('C:/Users/fixture/Saved Games/Game/settings.ini');
+    assert.equal(protection.controlledFolderNotice(state, [saved], options), null);
+    assert.match(protection.controlledFolderNotice({ ...state, folders: ['%DIALED_FIXTURE_HOME%\\Saved Games'] }, [saved], options), /protected folder/);
+  } finally { if (previous === undefined) delete process.env.DIALED_FIXTURE_HOME; else process.env.DIALED_FIXTURE_HOME = previous; }
   assert.equal(protection.controlledFolderNotice({ ...state, mode: 2 }, [inDocuments], options), null);
   assert.equal(protection.controlledFolderNotice({ ...state, mode: 0 }, [inDocuments], options), null);
   assert.equal(protection.controlledFolderNotice(null, [inDocuments], options), null);

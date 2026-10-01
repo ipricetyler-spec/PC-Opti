@@ -54,9 +54,9 @@ static class SetupStateChecks {
     foreach (var blocked in new[] { clean with { MemoryIntegrity = true }, clean with { SecurityAccepted = false }, clean with { Devices = new[] { clean.Devices[0] with { Authorized = false } } }, clean with { Devices = new[] { clean.Devices[0] with { Speed = "LOW" } } } })
       Check(Read(blocked).Devices[0].Rates.All(x => !x.Available), "security, policy and unsupported speeds do not offer a rate");
     var unauthorized = Read(clean with { Devices = new[] { clean.Devices[0] with { Authorized = false } } }).Devices[0];
-    Check(unauthorized.RecommendedAction == null && unauthorized.Message.Contains("driver-policy restriction"), "policy-blocked selection explains the build restriction");
-    Check(unauthorized.Message.Contains("not a finding that the device cannot be tuned"), "policy refusal is not presented as hardware incompatibility");
-    Check(SetupPresentation.RateHelp(unauthorized).Contains("driver-policy restriction"), "empty rate list retains its policy explanation");
+    Check(unauthorized.RecommendedAction == null && unauthorized.Message.Contains("limit of this version"), "policy-blocked selection explains the build restriction");
+    Check(unauthorized.Message.Contains("not of your device"), "policy refusal is not presented as hardware incompatibility");
+    Check(SetupPresentation.RateHelp(unauthorized).Contains("limit of this version"), "empty rate list retains its policy explanation");
     var plan = LifecycleSession.Plan(state, install with { Action = "APPLY", RequestedHz = 1000 }, adoption.Ownership);
     var pending = new PendingOperation(new string('a',64), state, plan, true);
     var savedPending = Read(plan.After, record with { Expected = null, Pending = pending }, false);

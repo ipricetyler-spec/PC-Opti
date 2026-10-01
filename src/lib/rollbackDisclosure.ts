@@ -122,7 +122,11 @@ export function describeRollbackTarget(entry: AuditJournalEntry): string[] {
       : actionId.includes('dynamic-tick')
         ? 'Dynamic tick'
         : actionId;
-    return [`Windows boot setting: ${plainName}`, 'Takes effect after a restart.'];
+    // The value recorded before the change, so this summary names it like every other kind.
+    const state = (preAction.state && typeof preAction.state === 'object' ? preAction.state : {}) as Record<string, unknown>;
+    const before = actionId.includes('clock-source') ? state.usePlatformClock : actionId.includes('dynamic-tick') ? state.disableDynamicTick : undefined;
+    const target = before === 'YES' ? 'Yes' : before === 'NO' ? 'No' : before === null ? 'not set (the Windows default)' : null;
+    return [`Windows boot setting: ${plainName}`, ...(target ? [`It will be set back to: ${target}`] : []), 'Takes effect after a restart.'];
   }
 
   return [];

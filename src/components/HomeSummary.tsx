@@ -142,7 +142,7 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
       {items.length ? <ul className="mt-3 divide-y divide-slate-800">
         {items.map((item) => <li key={item.key} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className={`flex items-center gap-1.5 text-sm font-semibold ${item.urgent ? 'text-amber-200' : 'text-slate-100'}`}>{item.urgent && <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />}{item.title}</p>
+            <p className={`flex items-center gap-1.5 text-sm font-semibold ${item.urgent ? 'text-amber-200' : 'text-slate-100'}`}>{item.urgent ? <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" /> : <span className="h-4 w-4 shrink-0" aria-hidden="true" />}{item.title}</p>
             <p className="mt-0.5 text-xs text-slate-400">{item.detail}</p>
           </div>
           <button type="button" onClick={() => onNavigate(item.target)} className="shrink-0 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200">{item.action}</button>

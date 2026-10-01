@@ -69,7 +69,7 @@ sealed class SetupWindow : SetupView {
       if (client?.IsUsable == true) await Reconcile();
       else {
         reconnectTimer.Stop(); UpdateActions();
-        SetStatus("Setup session ended. Reopen setup and choose Check saved operation to resume the pending reconnect check. Do not apply the rate again.");
+        SetStatus("Setup session ended. Reopen setup and choose Check the saved change to resume the pending reconnect check. Do not apply the rate again.");
       }
     };
     FormClosed += (_, _) => { reconnectTimer.Stop(); reconnectTimer.Dispose(); lifetime.Cancel(); client?.Dispose(); peer?.Dispose(); pipe?.Dispose(); hostProcess?.Dispose(); lifetime.Dispose(); };
@@ -85,7 +85,7 @@ sealed class SetupWindow : SetupView {
     reviewDrift.Visible = driftReviewAvailable;
     reviewDrift.Enabled = client?.IsUsable == true && !busy;
     // Only the step the status asks for is offered; a disabled rate review beside it misled.
-    preview.Visible = !driftReviewAvailable && !inventoryChanged;
+    preview.Visible = actions.SelectedItem is SetupAction && !driftReviewAvailable && !inventoryChanged;
     FitContent();
   }
   void UpdateDetails() {
@@ -144,8 +144,8 @@ sealed class SetupWindow : SetupView {
       }
       if (setup.Pending != null) {
         reconnectPending = true; // Lock new requests, but do not resume/append automatically.
-        progress.Text = "Saved operation pending · Check saved operation to resume";
-        SetStatus("A saved operation for " + SetupPresentation.DeviceLabel(setup.Pending.DeviceName) + " needs to finish. Choose Check saved operation before reconnecting. Do not apply the rate again.");
+        progress.Text = "Saved operation pending · Check the saved change to resume";
+        SetStatus("A saved change for " + SetupPresentation.DeviceLabel(setup.Pending.DeviceName) + " needs to finish. Choose Check the saved change before reconnecting. Do not apply the rate again.");
         UpdateActions();
       }
     } catch (System.ComponentModel.Win32Exception error) when (error.NativeErrorCode == 1223) { SetStatus("The Windows administrator prompt was canceled. No change was requested. Close this window and reopen setup from Dialed when ready."); }
@@ -168,13 +168,14 @@ sealed class SetupWindow : SetupView {
     selectionUnavailable = chosen == null && (setup.Pending?.DeviceId != null || selectedId != null || selectionHint != null);
     refreshing = false;
     UpdateSelection();
-    if (string.IsNullOrEmpty(lastResult.Text) && inventoryChanged) SetStatus("The saved configuration needs a check. Choose Check saved operation before a new change.");
+    if (string.IsNullOrEmpty(lastResult.Text) && inventoryChanged) SetStatus("The saved configuration needs a check. Choose Check the saved change before a new change.");
   }
   SetupDeviceState SelectedSetup => setup?.Devices.SingleOrDefault(x => x.DeviceId == (devices.SelectedItem as DeviceChoice)?.Device.Id);
   void PresentNewRequest() {
     if (setup?.Pending != null || reconnectPending) return;
     progress.Text = SetupPresentation.Progress(null);
-    SetStatus(SelectedSetup?.Message ?? SelectionMessage);
+    // Step 2 shows the device's own message; the status names the next step, so nothing is said twice.
+    SetStatus(SelectedSetup?.RecommendedAction != null ? "Ready. Choose a rate below and review it. Nothing changes until you confirm." : SelectedSetup?.Message ?? SelectionMessage);
   }
   string SelectionMessage => selectionUnavailable
     ? "The selected device is unavailable in setup. Check its connection or choose a device explicitly; no other device was selected for you."
@@ -197,7 +198,7 @@ sealed class SetupWindow : SetupView {
     else if (rates.Items.Count > 0) rates.SelectedIndex = 0;
     savedRate.Text = "Saved rate: " + (selected?.SavedHz is int hz ? hz + " Hz" : "Windows default") +
       (setup?.Pending != null ? " · a saved change is waiting to finish" : "");
-    installation.Text = selected?.Message ?? SelectionMessage;
+    installation.Text = selected != null && selected.RecommendedAction == null ? "No rate to choose for this device. Setup status above says why." : selected?.Message ?? SelectionMessage;
     rateHelp.Text = SetupPresentation.RateHelp(selected);
     if (!maintenance.Checked) SelectSuggestedAction();
     refreshing = false;

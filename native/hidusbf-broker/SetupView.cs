@@ -27,11 +27,13 @@ class SetupView : SetupFrame {
   protected readonly ComboBox rates = Picker("Requested polling rate in Hz");
   protected readonly CheckBox patching = new() { Text = "I have read the HIDUSBF requirement above.", AutoSize = true };
   protected readonly Button preview = MakeButton("Review selected action", true);
-  protected readonly Button reconcile = MakeButton("Check saved operation");
+  protected readonly Button reconcile = MakeButton("Check the saved change");
   // Shown only when the saved record is latched for review because something outside setup changed.
   // Shown only when it is the next step, so it is the main button.
   protected readonly Button reviewDrift = MakeButton("Review what changed", true);
   readonly Label reviewNote = Paragraph("Nothing changes until you confirm the review.");
+  // Offered once a rate change is verified; the status line tells the reader to close setup next.
+  protected readonly Button closeSetup = MakeButton("Close setup", true);
   protected readonly Label actionDescription = Paragraph("");
   protected readonly Label installation = Paragraph("");
   protected readonly Label savedRate = Paragraph("Saved rate: checking…");
@@ -45,7 +47,7 @@ class SetupView : SetupFrame {
   protected readonly Label sessionNote = Paragraph("");
   protected readonly TextBox details = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Height = 150, AccessibleName = "Technical details", TabStop = true };
   readonly Label requirement = Paragraph("Some HIDUSBF modes patch the Windows USB driver and cannot run with Memory Integrity enabled. Dialed checks compatibility; keep your security settings unchanged.");
-  readonly Label reconcileHelp = Paragraph("After a requested Windows restart, check the saved operation here. If setup reports changed USB connections, this button refreshes the saved inventory first.");
+  readonly Label reconcileHelp = Paragraph("After a requested Windows restart, check the saved change here. If setup reports changed USB connections, this button refreshes the saved inventory first.");
   // One button per available rate; the hidden rates list stays the single source of the choice.
   readonly FlowLayoutPanel rateRow = new() { AutoSize = true, WrapContents = true, Dock = DockStyle.Top };
   string rateSignature = "";
@@ -92,6 +94,7 @@ class SetupView : SetupFrame {
     Add(Heading("3   Review and confirm"));
     Add(reviewNote);
     Add(preview);
+    Add(closeSetup); closeSetup.Visible = false; closeSetup.Click += (_, _) => Close();
     Add(reconcile); reconcileHelp.ForeColor = Muted; Add(reconcileHelp);
     Add(reviewDrift); reviewDrift.Visible = false;
     Add(maintenance);
@@ -163,6 +166,13 @@ class SetupView : SetupFrame {
     actionDescription.Visible = actionDescription.Text.Length > 0;
     preview.Text = action?.Code == "ADOPT" ? "Review recording" : action?.Code == "APPLY" ? "Review rate change" : "Review selected action";
     preview.Enabled = canPreview && !reconnectPending; reconcile.Enabled = enabled;
+    // With no action to review there is nothing to press; a bare "Review selected action" misled.
+    preview.Visible = action != null;
+    // Step 2 already shows the device's message; the rate help repeated it word for word.
+    if (installation.Text.Length > 0 && rateHelp.Text.Contains(installation.Text)) {
+      rateHelp.Text = rateHelp.Text.Replace(installation.Text, "").Trim();
+      rateHelp.Visible = rateHelp.Visible && rateHelp.Text.Length > 0;
+    }
     // While a saved rate waits for the reconnect, nothing invites a new review.
     reviewNote.Visible = !reconnectPending;
     if (reconnectPending) installation.Text = "Rate saved. Waiting for the device to reconnect.";
@@ -173,7 +183,7 @@ class SetupView : SetupFrame {
     reconcile.Visible = inventoryChanged || reconnectPending || savedOperationWaiting || maintenance.Checked;
     reconcileHelp.Visible = reconcile.Visible;
     reconcileHelp.Text = reconnectPending
-      ? "Watching the device automatically. If setup closes, reopen it and choose Check saved operation before a fresh unplug/reconnect."
+      ? "Watching the device automatically. If setup closes, reopen it and choose Check the saved change before a fresh unplug/reconnect."
       : inventoryChanged
       ? "Check the current USB connections and refresh the saved inventory. Recorded originals stay intact; device settings are unchanged. Then review your action again."
       : "Use to resume a saved change, after a requested Windows restart, or when setup asks you to refresh USB inventory.";
@@ -204,6 +214,7 @@ class SetupView : SetupFrame {
     status.Text = message; lastResult.Visible = lastCompletion != null && message != lastCompletion; FitContent();
   }
   protected void RememberResult(string message) {
+    closeSetup.Visible = true;
     lastCompletion = message; lastResult.Text = "Last completed change\r\n" + message.Split('\r')[0];
     lastResult.Visible = status.Text != message; FitContent();
   }

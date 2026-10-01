@@ -228,11 +228,13 @@ export function ReadinessCenter({
     {
       label: 'Snapshot',
       status: driftError ? 'WARN' : driftReport?.baseline ? 'PASS' : 'UNKNOWN',
+      emptyLabel: 'Not saved yet',
       detail: readinessSignals.drift,
       recommendation: driftReport?.baseline ? 'Check what changed since your snapshot before changing more.' : 'Save a snapshot so Dialed can spot changes later.',
     },
     {
       label: 'Performance tests',
+      emptyLabel: 'None yet',
       status: benchmarkCounts.total > 0 && benchmarkEvidence.comparisons.every((item) => item.classification === 'MEASURED_DIFFERENCE') ? 'PASS' : benchmarkCounts.total > 0 ? 'WARN' : 'UNKNOWN',
       detail: `${benchmarkCounts.measured} measured · ${benchmarkCounts.incomplete} incomplete · ${benchmarkCounts.inconclusive + benchmarkCounts.highVariance} unstable`,
       recommendation: benchmarkCounts.incomplete > 0 ? 'Finish the tests that are missing runs.' : 'Results apply to this PC and game only.',
@@ -254,6 +256,7 @@ export function ReadinessCenter({
     {
       label: 'Boot timing',
       status: timingSummary.actionable > 0 ? 'WARN' : timingSummary.total > 0 ? 'PASS' : 'UNKNOWN',
+      emptyLabel: 'None found',
       detail: `${timingSummary.total} experiments (${timingSummary.actionable} actionable · ${timingSummary.configurable} configurable)`,
       recommendation: timingSummary.actionable > 0
         ? 'Try one timing change at a time, and measure after restarting.'
@@ -268,17 +271,16 @@ export function ReadinessCenter({
 
   const passportText = useMemo(() => {
     const lines = [
-      'Dialed Readiness Passport',
+      'Dialed readiness summary',
       `Generated: ${new Date().toLocaleString()}`,
-      `Scan evidence: ${snapshot ? `${snapshot.metrics.os.caption} (${snapshot.metrics.os.build})` : 'Not captured'}`,
-      `Scan age: ${snapshot ? new Date(snapshot.timestamp).toLocaleString() : 'N/A'}`,
-      `Recommendations: ${recommendationCounts.total} total · optional ${recommendationCounts.optional} · review ${recommendationCounts.review} · guidance-only ${recommendationCounts.guidanceOnly}`,
-      `History: ${historyCounts.total} records · ${historyCounts.success} success · ${historyCounts.failed} failed · ${historyCounts.needsReview} needs review · ${historyCounts.unresolved} unresolved`,
-      `Rollback-capable records: ${historyCounts.rollbackAvailable}`,
-      `Recovery state: ${historyRecovery ? `${historyRecovery.kind} (${historyRecovery.pendingCount ?? 'n/a'} pending)` : 'no pending recovery'}`,
-      `Benchmarks: ${benchmarkEvidence.comparisons.length} comparisons · measurable ${benchmarkCounts.measured} · incomplete ${benchmarkCounts.incomplete}`,
-      `Drift: ${driftReport?.baseline ? 'baseline saved' : 'baseline not saved'} · drift errors: ${driftError ? 'present' : 'none'}`,
-      `Windows timing controls: ${timingSummary.total} (${timingSummary.actionable} actionable · ${timingSummary.researchOnly} research-only)`,
+      `Scan: ${snapshot ? `${snapshot.metrics.os.caption} (build ${snapshot.metrics.os.build}), ${new Date(snapshot.timestamp).toLocaleString()}` : 'not scanned yet'}`,
+      `Suggestions: ${recommendationCounts.total} (${recommendationCounts.optional} optional, ${recommendationCounts.review} need your decision, ${recommendationCounts.guidanceOnly} advice only)`,
+      `Changes recorded: ${historyCounts.total} (${historyCounts.success} finished, ${historyCounts.failed} failed, ${historyCounts.needsReview} need review, ${historyCounts.unresolved} not finished)`,
+      `Can be undone: ${historyCounts.rollbackAvailable}`,
+      `Unfinished changes to check: ${historyRecovery ? historyRecovery.pendingCount ?? 'yes' : 'none'}`,
+      `Performance tests: ${benchmarkEvidence.comparisons.length} compared (${benchmarkCounts.measured} showed a real difference, ${benchmarkCounts.incomplete} unfinished)`,
+      `Outside changes: ${driftReport?.baseline ? 'snapshot saved' : 'no snapshot saved'}${driftError ? '; the last comparison failed' : ''}`,
+      `Boot timing settings: ${timingSummary.total} (${timingSummary.actionable} can be changed, ${timingSummary.researchOnly} information only)`,
       'No action was taken automatically. Values were read on this PC and stay on this PC.',
     ];
     return lines.join('\n');
@@ -367,7 +369,7 @@ export function ReadinessCenter({
 
     {!compact && <>
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <ReadinessMetric title="Scan" value={snapshot ? 'done' : 'not yet'} detail={readinessSignals.scanFreshness} tone={snapshot ? 'ok' : 'warn'} />
+      <ReadinessMetric title="Scan" value={snapshot ? 'Done' : 'Not yet'} detail={readinessSignals.scanFreshness} tone={snapshot ? 'ok' : 'warn'} />
       <ReadinessMetric title="Suggestions" value={`${recommendationCounts.total}`} detail={readinessSignals.recommendations} tone={recommendationCounts.review > 0 ? 'warn' : 'ok'} />
       <ReadinessMetric title="Changes recorded" value={`${historyCounts.total}`} detail={readinessSignals.history} tone={historyCounts.needsReview > 0 ? 'warn' : 'ok'} />
       <ReadinessMetric title="Can be undone" value={`${historyCounts.rollbackAvailable}`} detail={`${historyCounts.success} success · ${historyCounts.failed} failed · ${historyCounts.pending} pending`} tone={historyCounts.failed > 0 ? 'warn' : 'ok'} />

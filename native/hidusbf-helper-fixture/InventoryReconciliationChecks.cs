@@ -167,7 +167,7 @@ static class InventoryReconciliationChecks {
       Check(!InventoryReconciliation.CanRefresh(blocked, next), "pending/review classification refuses");
       using var log = new JournalLog(new MemoryStream()); Seed(log, blocked);
       var machine = new MemoryMachine { State = next }; var session = new LifecycleSession(log, machine, () => { });
-      // A saved change still running its own check is named as such, so setup offers Check saved operation, not a review.
+      // A saved change still running its own check is named as such, so setup offers Check the saved change, not a review.
       Refuse(() => session.Preview(apply), blocked.Pending != null ? "PENDING_OPERATION" : "NEEDS_REVIEW"); Refuse(() => session.Reconcile(), "NEEDS_REVIEW");
       Check(Read(log).NeedsReview && LifecycleSession.Digest(Read(log).Expected) == LifecycleSession.Digest(baseline) && machine.Executions == 0, "pending/review keeps original expectation");
       Check(LifecycleSession.Digest(Read(log).Pending) == LifecycleSession.Digest(blocked.Pending), "pending evidence retained");
@@ -376,7 +376,7 @@ static class InventoryReconciliationChecks {
       Check(text.Contains("Refresh USB inventory") && text.Contains("original settings stay intact"), "actionable preservation message");
     }
     Check(!SetupPresentation.IsInventoryRefusal("NEEDS_REVIEW: changed driver") && !SetupPresentation.IsInventoryRefusal(null), "other refusals not relabeled");
-    Check(SetupPresentation.ReconcileLabel(true) == "Refresh USB inventory" && SetupPresentation.ReconcileLabel(false) == "Check saved operation", "button matches requested recovery action");
+    Check(SetupPresentation.ReconcileLabel(true) == "Refresh USB inventory" && SetupPresentation.ReconcileLabel(false) == "Check the saved change", "button matches requested recovery action");
     foreach (bool enabled in new[] { false, true }) foreach (bool changed in new[] { false, true }) foreach (bool selected in new[] { false, true })
       Check(SetupPresentation.CanPreview(enabled, changed, selected ? SetupPresentation.Actions[0] : null) == (enabled && !changed && selected), "preview pauses until inventory refresh");
     string result = SetupPresentation.ResultText("INVENTORY_REFRESHED");

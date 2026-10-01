@@ -32,7 +32,7 @@ sealed class SetupAppearanceFixture : SetupView {
           if (viewport.HorizontalScroll.Visible) throw new Exception("Unexpected horizontal scroll: " + scenario);
           if (scenario == "rate" && (!view.preview.Enabled || !view.rates.Items.Cast<int>().SequenceEqual(new[] {1000,2000,4000,8000}))) throw new Exception("Rate controls unavailable.");
           if (scenario == "reconnect" && (view.preview.Enabled || view.devices.Enabled || view.rates.Enabled)) throw new Exception("Pending controls are unlocked.");
-          if (scenario == "policy-blocked" && (view.preview.Enabled || view.rates.Items.Count != 0 || view.devices.SelectedIndex != 1 || !view.status.Text.Contains("driver-policy restriction"))) throw new Exception("Policy restriction is not visible on the selected device.");
+          if (scenario == "policy-blocked" && (view.preview.Enabled || view.rates.Items.Count != 0 || view.devices.SelectedIndex != 1 || !view.status.Text.Contains("limit of this version"))) throw new Exception("Policy restriction is not visible on the selected device.");
           if (scenario == "complete") {
             if (!view.status.Text.Contains("Device reconnect verified")) throw new Exception("Completed context disappeared.");
             view.SetStatus("A new request needs review. The last completed change remains below.");
@@ -107,11 +107,11 @@ sealed class SetupAppearanceFixture : SetupView {
     if (scenario == "policy-blocked") {
       devices.SelectedIndex = 1;
       savedRate.Text = "Saved rate: 1000 Hz";
-      installation.Text = "Rate changes for this device are not enabled in this build. This is a driver-policy restriction, not a finding that the device cannot be tuned.";
+      installation.Text = "No rate to choose for this device. Setup status above says why.";
       rates.Items.Clear(); actions.SelectedIndex = 0;
-      rateHelp.Text = "No rate is available to review yet.\r\n" + installation.Text;
+      rateHelp.Text = "";
       PresentAction(null, true, false, false, false);
-      SetStatus(installation.Text);
+      SetStatus("This version of Dialed doesn't change this device's rate. That's a limit of this version, not of your device.");
     }
     preview.Click += (_, _) => {
       var action = (SetupAction)actions.SelectedItem;

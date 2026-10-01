@@ -371,7 +371,7 @@ export function NetworkQualityLab({ snapshot, onOpenScan }: NetworkQualityLabPro
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><History className="h-4 w-4 text-cyan-300" /><h3 className="text-sm font-semibold text-slate-100">Saved tests</h3></div><p className="text-[11px] text-slate-500">Latest {probeHistory.entries.length} of 20 retained</p></div>
         <SavedNetworkComparison history={probeHistory} />
-        {probeHistory.status === 'CORRUPT' ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={`Saved tests could not be read. ${probeHistory.error ?? ""}`} /></p> : graphData.length > 0 ? <div className="mt-4 h-64" aria-label="Network quality history chart">
+        {probeHistory.status === 'CORRUPT' ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200">Saved tests could not be read, and new results are not saved until that file is moved or deleted (Details shows where it is). <ErrorText text={probeHistory.error} /></p> : graphData.length > 0 ? <div className="mt-4 h-64" aria-label="Network quality history chart">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={graphData} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
               <CartesianGrid stroke="var(--app-border-strong)" strokeDasharray="3 3" />

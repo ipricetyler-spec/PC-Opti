@@ -85,7 +85,11 @@ export function ReadinessCenter({
     if (running === 0) {
       return {
         status: 'WARN' as OutcomeStatus,
-        detail: `${antiCheat.value.length} anti-cheat ${antiCheat.value.length === 1 ? 'program is' : 'programs are'} installed; none was running during the scan.`,
+        // Only an explicitly stopped service supports "not running"; a driver found without its
+        // service leaves the state unknown.
+        detail: antiCheat.value.every((item) => item.state.toLowerCase() === 'stopped')
+          ? `${antiCheat.value.length} anti-cheat ${antiCheat.value.length === 1 ? 'program is' : 'programs are'} installed; none was running during the scan.`
+          : `${antiCheat.value.length} anti-cheat ${antiCheat.value.length === 1 ? 'program was' : 'programs were'} found; Dialed could not tell whether ${antiCheat.value.length === 1 ? 'it was' : 'they were'} running.`,
         installedOnly: true,
       };
     }

@@ -88,7 +88,7 @@ function RunList({ runs, flags }: { runs: PresentMonCaptureEntry[]; flags: Map<s
   if (!runs.length) return null;
   return <ul className="mt-2 space-y-1 text-xs text-slate-400">
     {runs.map((run, index) => <li key={run.captureId}>Run {index + 1} · {new Date(run.startedAt).toLocaleTimeString()} · {run.durationSeconds} s
-      {run.frameSummary && <> · <span className="text-slate-200">{Math.round(run.frameSummary.averageFps)} FPS</span>, 1% low {Math.round(run.frameSummary.onePercentLowFps)}{run.frameSummary.capLikely ? ' · looks capped' : ''}</>}
+      {run.frameSummary && <> · <span className="text-slate-200">{Math.round(run.frameSummary.averageFps)} FPS</span>, 1% low {Math.round(run.frameSummary.onePercentLowFps)}{run.frameSummary.capLikely ? ' · looks capped' : ''}{run.frameSummary.longFrames ? ` · ${run.frameSummary.longFrames} long frame${run.frameSummary.longFrames === 1 ? '' : 's'} (hitches)` : ''}</>}
       {flags.get(run.captureId)?.map((note) => <span key={note} className="block text-amber-200">Different conditions: {note}.</span>)}
     </li>)}
   </ul>;

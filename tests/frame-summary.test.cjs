@@ -31,3 +31,14 @@ test('saved summaries are validated before being shown', () => {
   assert.equal(isFrameSummary({ application: 'x', frames: -1 }), false);
   assert.equal(isFrameSummary(null), true);
 });
+
+test('hitches the percentile spread and cap check cannot see are counted, not filtered out', () => {
+  // 999 frames at 10 ms plus 11 half-second hitches: every frame stays in the summary.
+  const frames = Array.from({ length: 1010 }, (_, index) => index % 92 === 45 ? 500 : 10);
+  const summary = summarizeFrames('game.exe', frames);
+  assert.equal(summary.frames, 1010);
+  assert.equal(summary.longFrames, 11);
+  assert.equal(summary.p99FrameMs, 500);
+  assert.equal(summary.averageFps, 65.2);
+  assert.equal(summarizeFrames('game.exe', Array(100).fill(10)).longFrames, 0);
+});

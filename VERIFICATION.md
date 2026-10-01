@@ -506,3 +506,29 @@ rate check on a mouse with a keyboard interface; plugging a device in between se
 refresh, not latch); "Review what changed" on a real latched record with the owned device unplugged;
 the BitLocker and Modern Standby notices on PCs where they apply. MPO on build 26200 (whether
 `OverlayTestMode=5` is still honoured) is unverified.
+
+## 2026-10-01 — Codex whole-app review and TunedPC comparison rerun, checked against the code
+
+Codex reviewed a mid-edit tree (HEAD e3e1a3e). Its TunedPC code inspection happened in Codex only,
+outside this project, with the owner's permission; nothing from it entered this repository.
+
+- A1 (acceptance promises an undo that fails) and A2 (plugging a device in defeats refresh): real;
+  already fixed in 2234f07 with fixture coverage of Codex's exact cases.
+- A3 (unknown anti-cheat state shown as "none was running"): real, introduced by 2234f07's own
+  wording; fixed — only explicitly stopped services support "not running".
+- A4 (confirmation clips the notice at 960x650): real; the dialog body now scrolls and the warning
+  sits above the change list. Headless probe at 960x650 with 40 changes, both themes and both
+  densities: warning visible without scrolling, notice reachable.
+- A5 (corrupt network history shows a raw parser error): real; plain message, file location under
+  Details, JSON parse errors recognized app-wide. The damaged file is still never rewritten.
+- Test failures: two were stale tests already fixed in 2234f07; the key-custody ACL test fails only
+  without administrator rights (Codex sandbox) and passes here. check-bundled-setup-ui.cjs was stale
+  (not wired into npm scripts); fixed and run: 7 cases PASS, 0 native launches.
+- From C1 (frame filtering): Dialed keeps every frame (Codex's synthetic run reproduces exactly:
+  65.2 FPS, 1% low 2, p99 500 ms), but the cap check and spread ignored the hitches; summaries now
+  count long frames (>= 2.5x median) and each run shows them.
+- C2-C5 checked on Dialed's side: no security-weakening writes anywhere; cleanup is fixed cache/temp
+  roots only; app removal is an allowlist with no OneDrive; a failed restore point stops a policy
+  change; batch results keep success, skipped, failed and needs-review apart. No change needed.
+
+Checks, one at a time: npm test 852/852, test:ts 129/129, lint, build, UI fixtures all pass.

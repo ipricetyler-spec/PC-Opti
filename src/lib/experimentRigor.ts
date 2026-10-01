@@ -156,7 +156,7 @@ export function capWarning(runs: Run[]): { capFps: number; text: string } | null
   const capFps = Math.round(median(capped.map((item) => item.capFps as number)));
   return {
     capFps,
-    text: `Most runs held steady at about ${capFps} FPS, which looks like a frame cap, V-Sync or the monitor's refresh rate. Average FPS cannot rise past a cap, so judge this change by 1% lows and frame-time consistency, or lift the cap for both before and after runs.`,
+    text: `Most runs sat at about ${capFps} FPS, which looks like a frame cap, V-Sync or the monitor's refresh rate. Average FPS cannot rise past a cap, so judge this change by 1% lows and frame-time consistency, or lift the cap for both before and after runs.`,
   };
 }
 

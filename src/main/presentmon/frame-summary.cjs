@@ -10,6 +10,8 @@
 const CAP_TOLERANCE = 0.03;
 const CAP_SHARE = 0.8;
 const MIN_FRAMES = 30;
+// A frame at least this many times the usual frame time is a visible hitch.
+const LONG_FRAME_FACTOR = 2.5;
 
 function percentile(sorted, fraction) {
   if (!sorted.length) return null;
@@ -38,6 +40,9 @@ function summarizeFrames(application, samples) {
   const p95Ms = percentile(sorted, 0.95);
   const nearMedian = frames.filter((value) => Math.abs(value - medianMs) <= medianMs * CAP_TOLERANCE).length / frames.length;
   const capLikely = nearMedian >= CAP_SHARE;
+  // Stutters: the spread and the cap check both ignore the slowest few percent, so a run with
+  // a handful of half-second hitches can otherwise read as capped and perfectly even.
+  const longFrames = frames.filter((value) => value >= medianMs * LONG_FRAME_FACTOR).length;
   return {
     application: String(application).slice(0, 120),
     frames: frames.length,
@@ -51,6 +56,7 @@ function summarizeFrames(application, samples) {
     spreadPercent: round(((p95Ms - p5Ms) / medianMs) * 100),
     capLikely,
     capFps: capLikely ? Math.round(1000 / medianMs) : null,
+    longFrames,
   };
 }
 
@@ -67,7 +73,9 @@ function isFrameSummary(value) {
   return typeof value.application === 'string' && value.application.length <= 120
     && numbers.every((key) => typeof value[key] === 'number' && Number.isFinite(value[key]) && value[key] >= 0)
     && typeof value.capLikely === 'boolean'
-    && (value.capFps === null || (Number.isInteger(value.capFps) && value.capFps > 0));
+    && (value.capFps === null || (Number.isInteger(value.capFps) && value.capFps > 0))
+    // Optional: summaries saved before long frames were counted do not have it.
+    && (value.longFrames === undefined || (Number.isInteger(value.longFrames) && value.longFrames >= 0));
 }
 
 module.exports = { CAP_SHARE, CAP_TOLERANCE, isFrameSummary, summarizeCapture, summarizeFrames };

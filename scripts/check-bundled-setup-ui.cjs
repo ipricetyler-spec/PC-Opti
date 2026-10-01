@@ -65,7 +65,8 @@ window.__selectDevice('a'.repeat(64), 'Fixture input');`);
       assert.equal(await launch.isEnabled(), available, name);
       const text = await section.innerText();
       assert.match(text, /Saved rate/);
-      assert.match(text, /Reconnect status/);
+      // Reconnect status appears only while setup is open; this page has not opened it.
+      assert.doesNotMatch(text, /Reconnect status/);
       assert.equal(await section.getByText('Driver setup and compatibility details', { exact: true }).evaluate(el => el.parentElement.open), false);
       if (available) {
         assert.match(text, /Setup is ready to review this device/);

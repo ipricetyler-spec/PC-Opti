@@ -389,7 +389,8 @@ function readNetworkQualityHistory(userDataPath, fileSystem = fs) {
     const legacy = parsed?.schemaVersion === LEGACY_HISTORY_SCHEMA_VERSION;
     if (!parsed || (!legacy && parsed.schemaVersion !== NETWORK_HISTORY_SCHEMA_VERSION) || !Array.isArray(parsed.entries) || parsed.entries.length > MAX_HISTORY_ENTRIES) throw new Error('The local network history schema is not valid.');
     return { status: 'READY', entries: parsed.entries.map((entry, index) => normalizeHistoryEntry(entry, index, legacy || entry?.methodVersion === 'legacy-v1')) };
-  } catch (error) { return { status: 'CORRUPT', entries: [], error: error instanceof Error ? error.message : 'The local network history could not be read.' }; }
+  // The file is never rewritten or deleted here; its location goes with the error so the reader can move it aside.
+  } catch (error) { return { status: 'CORRUPT', entries: [], error: `${error instanceof Error ? error.message : 'The local network history could not be read.'} (file: ${target})` }; }
 }
 
 function writeNetworkQualityHistory(userDataPath, entries, fileSystem = fs) {

@@ -91,12 +91,13 @@ export function ActionPreviewDialog({ request, onCancel, onConfirm }: ActionPrev
         <button type="button" onClick={onCancel} aria-label="Cancel and close preview" className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:text-white"><X className="h-4 w-4" /></button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden p-5">
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60">
+      {/* The body scrolls so a long change list never hides the warning or the notice (960x650 minimum). */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        {request.warning ? <p id="action-preview-warning" role="note" className="mb-3 flex gap-2 whitespace-pre-line rounded-lg border border-amber-500/40 bg-amber-950/25 p-3 text-xs font-semibold leading-relaxed text-amber-100"><AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><span>{request.warning}</span></p> : null}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60">
           <p className="border-b border-slate-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{request.detailsLabel}</p>
           <pre tabIndex={0} aria-label={request.detailsLabel} className="max-h-[min(45vh,24rem)] min-h-24 overflow-auto whitespace-pre-wrap p-4 font-mono text-[11px] leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{request.details}</pre>
         </div>
-        {request.warning ? <p id="action-preview-warning" role="note" className="mt-3 flex gap-2 whitespace-pre-line rounded-lg border border-amber-500/40 bg-amber-950/25 p-3 text-xs font-semibold leading-relaxed text-amber-100"><AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><span>{request.warning}</span></p> : null}
         <p id="action-preview-notice" className={`mt-3 whitespace-pre-line text-xs leading-relaxed ${danger ? 'text-rose-200' : 'text-amber-100'}`}>{request.notice}</p>
       </div>
 

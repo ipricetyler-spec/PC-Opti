@@ -666,6 +666,8 @@ export interface FrameSummary {
   spreadPercent: number;
   capLikely: boolean;
   capFps: number | null;
+  /** Frames at least 2.5x the median frame time; absent in summaries saved before 2026-10-01. */
+  longFrames?: number;
 }
 
 export interface PresentMonCaptureEntry {

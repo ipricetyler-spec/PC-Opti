@@ -11,9 +11,11 @@ export interface FriendlyError {
 }
 
 // Signs that text came straight from Windows, PowerShell or Node rather than from Dialed.
-const RAW = /(At line:\d|CategoryInfo|FullyQualifiedErrorId|\w+Exception\b|\bE(NOENT|ACCES|PERM|BUSY|NOSPC|TIMEDOUT|CONNREFUSED|CONNRESET|NOTFOUND)\b|\{[0-9a-f-]{20,}\}|\bat [\w.<>]+ \(|0x[0-9a-f]{6,}|HRESULT|\blstat\b|\berrno\b|StorageWMI|CimException|^[A-Z][\w-]+ : )/i;
+const RAW = /(At line:\d|CategoryInfo|FullyQualifiedErrorId|\w+Exception\b|\bE(NOENT|ACCES|PERM|BUSY|NOSPC|TIMEDOUT|CONNREFUSED|CONNRESET|NOTFOUND)\b|\{[0-9a-f-]{20,}\}|\bat [\w.<>]+ \(|0x[0-9a-f]{6,}|HRESULT|\blstat\b|\berrno\b|StorageWMI|CimException|in JSON at position|Unexpected (token|end of JSON)|is not valid JSON|^[A-Z][\w-]+ : )/i;
 
 const RULES: Array<[RegExp, string]> = [
+  [/in JSON at position|Unexpected (token|end of JSON)|is not valid JSON/i,
+    'A file Dialed saved earlier is damaged, so it could not be read. Dialed left it exactly as it was.'],
   [/requires elevation/i,
     'Windows refused this because Dialed was not running as administrator. Reopen Dialed as administrator and try again.'],
   // Dialed normally runs as administrator, so a refusal usually means something is guarding

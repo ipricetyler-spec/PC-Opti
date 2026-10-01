@@ -260,6 +260,8 @@ static class InventoryReconciliationChecks {
       Check(!saved.NeedsReview && saved.Pending == null && LifecycleSession.Digest(saved.Expected) == LifecycleSession.Digest(drifted), "review cleared and baseline is the reviewed state");
       Check(LifecycleSession.Digest(saved.Ownership) == LifecycleSession.Digest(latched.Ownership), "recorded originals are kept");
       Check(session.Preview(apply).Plan.BeforeDigest == LifecycleSession.Digest(drifted), "setup works again after acceptance");
+      // Every next step the acceptance message promises must work at once, including restoring originals.
+      Check(session.Preview(apply with { Action = "DETACH", RequestedHz = null }).Plan != null, "restoring originals works right after acceptance");
       Refuse(() => session.ReviewDrift(), "NOTHING_TO_REVIEW");
     }
     foreach (var (name, state, code) in new[] {
@@ -308,6 +310,7 @@ static class InventoryReconciliationChecks {
       var kept = outcome == "UNCLEAR" ? new LifecycleOwnership(record.Ownership.ServiceOwned, new Dictionary<string, SavedDevice>(withNewPlan.Ownership.Devices) { [target.Id] = record.Ownership.Devices[target.Id] }) : expectedOwnership;
       Check(LifecycleSession.Digest(saved.Ownership.Devices.OrderBy(x => x.Key, StringComparer.Ordinal).ToArray()) == LifecycleSession.Digest(kept.Devices.OrderBy(x => x.Key, StringComparer.Ordinal).ToArray()) &&
         saved.Ownership.ServiceOwned == kept.ServiceOwned, "originals follow the outcome: " + outcome);
+      Check(session.Preview(apply with { Action = "DETACH", RequestedHz = null }).Plan != null, "restoring originals works right after resolving: " + outcome);
     }
     using (var log = new JournalLog(new MemoryStream())) {
       Seed(log, record);

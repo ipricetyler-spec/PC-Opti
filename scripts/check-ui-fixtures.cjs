@@ -12,6 +12,7 @@ const checks = [
   'check-bios-ui.cjs',
   'check-workspace-states-ui.cjs',
   'check-theme-contrast.cjs',
+  'check-confirmation-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

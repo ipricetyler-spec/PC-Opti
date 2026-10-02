@@ -192,7 +192,10 @@ findings are listed in the review queue.
 
 - **Two input checks.** "Check polling rate" leads with the measured reports per second against the
   saved rate: a controller is left untouched (it reports every interval), a mouse is moved in
-  steady circles (it reports only while moving), and keyboards get no rate check. "Check controls"
+  quick, large circles (it reports only while moving), and keyboards get no rate check. A mouse's
+  rate is the upper quartile of 100 ms windows of unbroken movement, not the average over all
+  movement: every slowdown leaves empty polling slots, and the average read a 1 kHz mouse as about
+  915/s on the owner's PC. The average is still shown beside it. "Check controls"
   keeps the button, stick and key counts. The rate is what Windows received, never latency.
 - **Setup updates its own saved record on opening** after a restart or USB change, because doing so
   changes no device setting. A saved change still waiting, or a record under review, still waits

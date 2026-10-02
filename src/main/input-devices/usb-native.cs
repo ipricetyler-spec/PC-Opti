@@ -484,7 +484,7 @@ namespace Dialed.Input {
       if(rateCheck) {
         var rate="Polling-rate check: eight seconds.\r\n";
         if(controller) rate+="Leave the controller untouched. It reports continuously on its own.\r\n";
-        if(mouse) rate+="Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves.\r\n";
+        if(mouse) rate+="Move the mouse quickly in large, continuous circles for the whole check. A mouse only reports while it moves.\r\n";
         if(keyboard) rate+="Keyboards only report when keys change, so their rate is not measured.\r\n";
         return rate+"Keep this window focused. Click Cancel check or close this window to cancel.";
       }

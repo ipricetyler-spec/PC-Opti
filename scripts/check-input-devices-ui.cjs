@@ -328,7 +328,7 @@ async function main() {
     assert.equal(await section.getByRole('button', { name: 'Recheck saved change' }).count(), 0);
 
     await section.getByText('SELECTED', { exact: true }).waitFor();
-    await section.getByText(/Move the mouse in steady, continuous circles/).first().waitFor();
+    await section.getByText(/Move the mouse quickly in large, continuous circles/).first().waitFor();
     await section.getByRole('button', { name: 'Check polling rate' }).click();
     await section.getByLabel('Polling rate result').getByText('No rate measured', { exact: true }).waitFor();
     await section.getByLabel('Polling rate result').getByText(/Not enough sustained Windows messages|No supported saved request|Not enough continuous movement/).waitFor();

@@ -669,3 +669,18 @@ Driven live (UI Automation, nothing changed except a read-only device scan):
 - Home "Your setup" shows the measured Razer rate (about 915 reports/s, today).
 Not exercised (need the owner): a mouse rate change and rate check while moving the mouse, plugging
 a device in between setup visits, recording with a start delay in a running game.
+## 2026-10-01 — the mouse rate check no longer reads low from slowdowns
+
+Owner asked whether the rate check was accurate; Home showed the Razer (saved 1,000 Hz) at about
+915/s. Cause, from the code: the mouse figure was the average over every gap of 20 ms or less, and a
+mouse sends nothing in a polling slot where it had no movement, so each slowdown or turn in a circle
+pulled the average down. Now the rate is the upper quartile of 100 ms windows of unbroken movement
+(at least five windows), with the old average shown beside it; a quartile, not the maximum, so a
+backlog Windows delivers at once does not inflate it. Controllers are unchanged. The instructions
+now say to move the mouse quickly in large circles (usb-native.cs changed; pin updated with
+sync-input-source-pin --write after reviewing the one-line diff).
+Tests: a simulated 1 kHz hand-circled trace (average under 900) reads 1000 and consistent; a
+30-message backlog does not raise it; a true 500 Hz mouse still reads below a 1 kHz request.
+Checks, one at a time: npm test 857/857, test:ts 142/142, lint, UI fixtures — all pass.
+Not verified: the owner's Razer re-measured with the new calculation (needs a package and a
+person moving the mouse).

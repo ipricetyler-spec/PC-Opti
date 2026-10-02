@@ -30,8 +30,8 @@ function rateCheckable(kinds: InputDevice['testKinds']) {
 }
 function rateInstruction(kinds: InputDevice['testKinds']) {
   if (kinds.includes('GAMEPAD') || kinds.includes('JOYSTICK')) return 'Leave the controller still. Most controllers report on their own; if the check says too few reports arrived, run it again while slowly moving a stick.';
-  if (kinds.includes('MOUSE') && kinds.includes('KEYBOARD')) return 'Move the mouse in steady, continuous circles for the whole check. Its keyboard channel (often used for macro buttons) is ignored. A keyboard with a built-in pointer cannot be measured this way.';
-  if (kinds.includes('MOUSE')) return 'Move the mouse in steady, continuous circles for the whole check. A mouse only reports while it moves, so pauses read lower.';
+  if (kinds.includes('MOUSE') && kinds.includes('KEYBOARD')) return 'Move the mouse quickly in large, continuous circles for the whole check. Its keyboard channel (often used for macro buttons) is ignored. A keyboard with a built-in pointer cannot be measured this way.';
+  if (kinds.includes('MOUSE')) return 'Move the mouse quickly in large, continuous circles for the whole check. A mouse only reports while it moves, so its rate is read from the stretches of fast, steady movement.';
   return 'Keyboards only report when keys change, so their polling rate cannot be measured by listening to them.';
 }
 function rateVerdict(test: InputTest) {

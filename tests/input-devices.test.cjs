@@ -693,6 +693,35 @@ test('continuous under-delivering mouse is below request and pauses remain exclu
   assert.equal(input.assessObservedDelivery(mixed,4000).status,'BELOW_REQUEST_OBSERVED');
 });
 
+test('a 1 kHz mouse circled by hand reads its rate from steady movement, not the average over slowdowns', () => {
+  // Eight seconds of circles: fast stretches fill every 1 ms slot; each turn leaves empty slots
+  // (2-3 ms gaps), the way a real mouse with nothing to send skips a poll.
+  const timesMs = [];
+  for (let t = 0; t < 8000; ) {
+    timesMs.push(t);
+    const inTurn = (t % 400) >= 300;
+    t += inTurn ? (t % 3 === 0 ? 3 : 2) : 1;
+  }
+  const channel = { kind: 'MOUSE', timesMs, motionTimesMs: timesMs, activity: activityFixture({ movement: 500 }) };
+  const [summary] = input.summarizeTiming({ channels: [channel] }, 1000);
+  assert.ok(summary.motionAverageHz < 900, `average over all movement reads low: ${summary.motionAverageHz}`);
+  assert.equal(summary.motionHz, 1000);
+  const result = input.assessObservedDelivery([summary], 1000);
+  assert.equal(result.status, 'CONSISTENT_WITH_REQUEST');
+  assert.match(result.message, /during steady movement \(about \d+\/s averaged over all movement/);
+
+  // A backlog Windows delivers at once lands in one window and does not decide the rate.
+  const burst = Array.from({ length: 1000 }, (_, i) => i);
+  for (let i = 0; i < 30; i++) burst.push(1000 + i * 0.01);
+  for (let t = 1001; t < 2000; t++) burst.push(t);
+  burst.sort((a, b) => a - b);
+  assert.equal(input.summarizeTiming({ channels: [{ ...channel, timesMs: burst, motionTimesMs: burst }] }, 1000)[0].motionHz, 1000);
+
+  // A mouse that really polls at 500 Hz still reads below a 1 kHz request.
+  const slow = Array.from({ length: 2001 }, (_, i) => i * 2);
+  assert.equal(input.assessObservedDelivery(input.summarizeTiming({ channels: [{ ...channel, timesMs: slow, motionTimesMs: slow }] }, 1000), 1000).status, 'BELOW_REQUEST_OBSERVED');
+});
+
 test('keyboard aggregate schema excludes timestamps and sparse/silent activity stays inconclusive', () => {
   const keyboard={kind:'KEYBOARD',messageCount:20,spanMs:1500,activity:activityFixture({keys:10})};
   const result=input.summarizeTiming({channels:[keyboard]},1000);

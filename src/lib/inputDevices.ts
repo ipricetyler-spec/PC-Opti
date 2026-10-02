@@ -69,7 +69,7 @@ export interface InputTest {
     requestedHz: number | null; observedHz: number | null; message: string;
     channelAssessments?: Array<{ channel: number; kind: string; status: string; observedHz: number | null; message: string }>;
   };
-  channels: { channel: number; kind: 'MOUSE' | 'KEYBOARD' | 'JOYSTICK' | 'GAMEPAD' | 'INPUT'; samples: number; activeDurationMs: number; eventHz: number | null; hidReports?: number | null; reportHz?: number | null; motionSpanMs?: number; motionHz?: number | null; medianGapMs: number | null; p95GapMs: number | null }[];
+  channels: { channel: number; kind: 'MOUSE' | 'KEYBOARD' | 'JOYSTICK' | 'GAMEPAD' | 'INPUT'; samples: number; activeDurationMs: number; eventHz: number | null; hidReports?: number | null; reportHz?: number | null; motionSpanMs?: number; motionHz?: number | null; motionAverageHz?: number | null; medianGapMs: number | null; p95GapMs: number | null }[];
 }
 export interface InputTierPreview {
   token: string; action: 'ENABLE' | 'RESTORE'; targetDeviceId: string; targetName: string;

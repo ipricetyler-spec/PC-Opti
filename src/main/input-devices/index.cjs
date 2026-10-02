@@ -13,7 +13,7 @@ const PATCHING_1K_SHA256 = '81f649b34978fe9f74ce5c7c04ba24d5238faec6c70018f14da9
 const PATCHING_2K_4K_SHA256 = 'e2c9fc626bb92d2219fbef3458014c198a3c90c563f948c9a433826e64d77e90';
 const PATCHING_4K_8K_SHA256 = 'db73a8c259e16a0d02f138650497c1bdec81add66d928f3cf3ff39fad4eb421b';
 const PATCHING_SHA256 = PATCHING_1K_SHA256;
-const NATIVE_INPUT_SOURCE_SHA256 = '249e3ff075b6e77e1c01602a03dd3c48859d16ad74c60e7fd8a75e0e91440bff';
+const NATIVE_INPUT_SOURCE_SHA256 = 'e9f13bf76cd59f0753930142e182d11a1e5913e617bbbb5cec332e124869384e';
 const MAX_NATIVE_INPUT_SOURCE_BYTES = 64 * 1024;
 const FULL_SPEED_RATES = Object.freeze([125, 250, 500, 1000]);
 const HIGH_SPEED_RATES = Object.freeze([1000, 2000, 4000, 8000]);
@@ -463,6 +463,29 @@ function tierScopeDigest(inventory) {
     filteredDevices: filteredScopeSnapshot(inventory),
   });
 }
+// A mouse sends a report only when it has movement to send, so every slowdown or turn leaves
+// empty polling slots and an average over all movement reads below the polling rate (a 1 kHz
+// mouse circled by hand measured about 915/s). The rate is taken instead from 100 ms windows of
+// unbroken movement, using the upper quartile so the stretches where the mouse moved fast enough
+// to fill every slot decide it; a quartile rather than the maximum keeps a backlog of messages
+// that Windows delivered at once from inflating it.
+function steadyMotionHz(motion) {
+  const windows = [];
+  let start = 0;
+  while (start < motion.length) {
+    let last = start;
+    while (last + 1 < motion.length && motion[last + 1] - motion[last] <= 20 && motion[last + 1] < motion[start] + 100) last++;
+    if (last + 1 >= motion.length) break; // the check ended before this window closed
+    // Movement paused inside the window, so it is not a stretch of steady movement.
+    if (motion[last + 1] - motion[last] > 20) { start = last + 1; continue; }
+    windows.push(last - start + 1);
+    start = last + 1;
+  }
+  if (windows.length < 5) return null;
+  windows.sort((a, b) => a - b);
+  return windows[Math.floor(windows.length * 0.75)] * 10;
+}
+
 function summarizeTiming(raw, requestedHz = null) {
   if (!raw || !Array.isArray(raw.channels) || raw.channels.length > 32) throw new Error('Invalid input timing result.');
   let count = 0;
@@ -486,13 +509,15 @@ function summarizeTiming(raw, requestedHz = null) {
       const gap = motion[i] - motion[i - 1];
       if (gap >= 0 && gap <= 20) { motionSpanMs += gap; motionIntervals++; }
     }
+    const motionAverageHz = motionSpanMs >= 500 && channel.activity?.movement > 0 ? Math.round(motionIntervals * 1000 / motionSpanMs) : null;
+    const steadyHz = motionAverageHz === null ? null : steadyMotionHz(motion);
     let hidReports = null, reportHz = null;
     if (channel.hidReports !== undefined || channel.firstHidReports !== undefined) {
       if (!Number.isInteger(channel.hidReports) || channel.hidReports < 0 || channel.hidReports > 100000 || !Number.isInteger(channel.firstHidReports) || channel.firstHidReports < 0 || channel.firstHidReports > 256 || channel.firstHidReports > channel.hidReports) throw new Error('Invalid HID report count.');
       hidReports = channel.activity?.reportErrors ? null : channel.hidReports;
       if (duration > 0 && times.length >= 30 && hidReports > 0 && !channel.activity?.reportErrors) reportHz = Math.round((hidReports - channel.firstHidReports) * 1000 / duration);
     }
-    return { channel: index + 1, kind, samples: times.length, activeDurationMs: duration, eventHz: duration > 0 && times.length >= 30 ? Math.round((times.length - 1) * 1000 / duration) : null, hidReports, reportHz, motionSpanMs, motionHz: motionSpanMs >= 500 && channel.activity?.movement > 0 ? Math.round(motionIntervals * 1000 / motionSpanMs) : null, decodeErrors: channel.activity?.errors || 0, medianGapMs: gaps.length ? gaps[Math.floor(gaps.length / 2)] : null, p95GapMs: gaps.length ? gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * 0.95))] : null };
+    return { channel: index + 1, kind, samples: times.length, activeDurationMs: duration, eventHz: duration > 0 && times.length >= 30 ? Math.round((times.length - 1) * 1000 / duration) : null, hidReports, reportHz, motionSpanMs, motionHz: steadyHz ?? motionAverageHz, motionAverageHz, decodeErrors: channel.activity?.errors || 0, medianGapMs: gaps.length ? gaps[Math.floor(gaps.length / 2)] : null, p95GapMs: gaps.length ? gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * 0.95))] : null };
   });
 }
 
@@ -534,7 +559,9 @@ function assessObservedDelivery(channels, requestedHz) {
     const ratio = observedHz / requestedHz;
     const status = ratio >= 0.9 && ratio <= 1.15 ? 'CONSISTENT_WITH_REQUEST' : ratio < 0.9 ? 'BELOW_REQUEST_OBSERVED' : 'INCONCLUSIVE';
     const comparison = status === 'CONSISTENT_WITH_REQUEST' ? `for the ${requestedHz} Hz saved request` : status === 'BELOW_REQUEST_OBSERVED' ? `below the ${requestedHz} Hz saved request during this check` : `above the comparison range for the ${requestedHz} Hz saved request`;
-    return { ...base, status, observedHz, message: `About ${observedHz} ${unit} ${comparison}.` };
+    const average = item.kind === 'MOUSE' && Number.isFinite(item.motionAverageHz) && item.motionAverageHz !== observedHz
+      ? ` during steady movement (about ${item.motionAverageHz}/s averaged over all movement, which includes slowdowns)` : '';
+    return { ...base, status, observedHz, message: `About ${observedHz} ${unit}${average} ${comparison}.` };
   });
   const measured = channelAssessments.filter(item => item.observedHz !== null).sort((a, b) => b.observedHz - a.observedHz);
   const best = measured.find(item => item.status === 'BELOW_REQUEST_OBSERVED') || measured[0];

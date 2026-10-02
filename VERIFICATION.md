@@ -637,7 +637,7 @@ Driven through UI Automation, captures by PrintWindow; nothing was left changed.
   by Dialed; Undo this run put Game Mode back (AutoGameModeEnabled = 1).
 - Found live: ARC Raiders' card said "Not listed in Windows as installed" though it is installed;
   Dialed has no detection guide for it. Fixed after this install: install status is shown only for
-  games detection looks for (UI check added). Needs the next package to reach the installed app.
+  games detection looks for (UI check added). Installed in the build of ce08548 (entry below).
 Not exercised (need the owner): a mouse rate change and rate check while moving the mouse, plugging
 a device in between setup visits, recording with a start delay in a running game.
 
@@ -648,5 +648,24 @@ Wireless Controller isn't connected. Setup recorded its original settings. Plug 
 same USB port before you restore them or change its rate." Without a readable name it says "A device
 whose original settings setup recorded…". Checked read-only against the owner's real record (names
 read: DualSense Edge Wireless Controller, Razer Viper V2 Pro; the DualSense is unplugged, so it is
-the one named). Checks: npm test 856/856, test:ts 142/142, lint, UI fixtures — all pass. Not yet in
-the installed build (installed = 407b041).
+the one named). Checks: npm test 856/856, test:ts 142/142, lint, UI fixtures — all pass. Installed
+in the build of ce08548 (entry below).
+## 2026-10-01 — the signed build of ce08548 is installed and both pending fixes checked live
+
+Same order as before: the key folder had no extra entries; npm run release:native (helpers built,
+Azure-signed, policy signed; broker 771a3c8c…, helper 7f29f5ed…; policy expires 2027-11-01);
+npm run build; sbom (392 components); license:inventory (525 records); electron-builder --win nsis
+(installer, uninstaller and elevate.exe signed and verified); candidate:verify →
+SIGNED_INSTALLER_CANDIDATE. Installer SHA-256 482E241E…5BEC9677. The running Dialed was closed, the
+installer run with /S, exit 0. All 96 packaged files match the installed ones byte for byte;
+Dialed.exe signature Valid.
+Driven live (UI Automation, nothing changed except a read-only device scan):
+- Input devices, after a scan with the DualSense unplugged: "DualSense Edge Wireless Controller isn't
+  connected. Setup recorded its original settings. Plug it back into the same USB port before you
+  restore them or change its rate."
+- Games → Profiles: the ARC Raiders card reads "Applied by Dialed on 10/1/2026, then undone" with no
+  install claim; Fortnite and Rocket League still say "Not listed in Windows as installed", VALORANT
+  "Listed in Windows as installed".
+- Home "Your setup" shows the measured Razer rate (about 915 reports/s, today).
+Not exercised (need the owner): a mouse rate change and rate check while moving the mouse, plugging
+a device in between setup visits, recording with a start delay in a running game.

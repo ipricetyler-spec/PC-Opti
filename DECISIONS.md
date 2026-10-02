@@ -282,3 +282,13 @@ notice; none blocks the change or touches a security setting.
 - **The restore point is opt-in**, recorded, not undone by Dialed, stops the batch if unconfirmed,
   and is never presented as a file backup or an exact undo.
 - **The suggestion counter only selects**; Apply selected still reviews every change.
+## 2026-10-01 — game guide sources and shape
+
+- **Sources:** the game's maker, a GPU maker, or a publication that tested or observed it, named on
+  every row. No community wikis, forums or "best settings" sites; never PCGamingWiki (owner). A row
+  that is Dialed's own judgement says "Dialed".
+- **Shape:** one line per setting (value, what it helps, why). Costs and test steps on request.
+  Dialed's boundaries for each game (files it will not write, protections it will not weaken) stay in
+  the guide.
+- **Coverage:** a game is added only when its maker or testers publish more than the basics; Siege X
+  and Dota 2 wait for that.

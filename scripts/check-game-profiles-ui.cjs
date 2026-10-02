@@ -126,7 +126,9 @@ async function main() {
         openExternalLink: async () => ({ opened: true }),
         listPowerPlans: async () => { throw new Error('Fixture does not read power plans.'); },
       };
-    }, { capabilities: listCapabilities('public'), guides: listGameSettingsGuides() });
+    // ARC Raiders is left out of the guides here so its card stands for a game detection does not
+    // look for: such a card must make no install claim either way.
+    }, { capabilities: listCapabilities('public'), guides: listGameSettingsGuides().filter((guide) => guide.id !== 'arc-raiders-pc-performance-review') });
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));

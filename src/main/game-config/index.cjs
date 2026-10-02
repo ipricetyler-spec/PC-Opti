@@ -84,6 +84,27 @@ const GAME_DISCOVERY_DEFINITIONS = Object.freeze([
     aliases: Object.freeze([/^call of duty$/i, /^call of duty(?:®)?:?\s*black ops 7$/i]),
     configHints: Object.freeze([]),
   }),
+  // Steam and the Epic launcher register these under the game's own name (ARC Raiders read on the
+  // owner's PC as "ARC Raiders", publisher Embark Studios; its settings file is the one the ARC
+  // Raiders profile edits, present on that PC).
+  Object.freeze({
+    guideId: 'arc-raiders-pc-performance-review',
+    game: 'ARC Raiders',
+    aliases: Object.freeze([/^arc raiders$/i]),
+    configHints: Object.freeze([['LOCALAPPDATA', 'PioneerGame', 'Saved', 'Config', 'WindowsClient', 'GameUserSettings.ini']]),
+  }),
+  Object.freeze({
+    guideId: 'marvel-rivals-pc-performance-review',
+    game: 'Marvel Rivals',
+    aliases: Object.freeze([/^marvel rivals$/i]),
+    configHints: Object.freeze([]),
+  }),
+  Object.freeze({
+    guideId: 'pubg-battlegrounds-pc-performance-review',
+    game: 'PUBG: BATTLEGROUNDS',
+    aliases: Object.freeze([/^pubg:?\s*battlegrounds$/i, /^playerunknown'?s battlegrounds$/i]),
+    configHints: Object.freeze([]),
+  }),
 ]);
 
 function parseJsonArray(text) {

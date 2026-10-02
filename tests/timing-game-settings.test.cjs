@@ -321,42 +321,73 @@ test('game guidance catalog is deeply immutable, clone-safe, source-linked, and 
   assert.equal(Object.isFrozen(catalog[0].settings[0]), true);
 
   const first = gameSettings.listGameSettingsGuides();
-  first[0].settings[0].recommendation = 'mutated fixture';
+  first[0].settings[0].value = 'mutated fixture';
   const second = gameSettings.listGameSettingsGuides();
-  assert.notEqual(second[0].settings[0].recommendation, 'mutated fixture');
-  assert.ok(second.length >= 5);
+  assert.notEqual(second[0].settings[0].value, 'mutated fixture');
+  assert.ok(second.length >= 12);
   assert.equal(new Set(second.map((guide) => guide.id)).size, second.length);
   assert.equal(new Set(second.map((guide) => guide.game)).size, second.length);
-  const allowedFirstPartyHosts = new Set(['www.epicgames.com', 'help.ea.com', 'help.steampowered.com', 'playvalorant.com', 'support.riotgames.com', 'us.support.blizzard.com', 'www.callofduty.com', 'support.activision.com', 'www.nvidia.com']);
+  // Game makers, GPU makers and publications that tested or observed something. No community wikis
+  // (owner's rule, 2026-10-01).
+  const allowedHosts = new Set(['store.epicgames.com', 'www.epicgames.com', 'help.ea.com', 'help.steampowered.com', 'blog.counter-strike.net', 'playvalorant.com',
+    'support.riotgames.com', 'eu.support.blizzard.com', 'us.support.blizzard.com', 'www.callofduty.com', 'www.marvelrivals.com', 'pubg.com',
+    'www.nvidia.com', 'www.techspot.com', 'www.pcgameshardware.de', 'www.pcgamer.com', 'www.tomshardware.com']);
   for (const guide of second) {
     assert.equal(guide.automation, 'GUIDANCE_ONLY');
-    assert.ok(guide.settings.length >= 3);
-    for (const setting of guide.settings) {
-      assert.ok(setting.recommendation);
-      assert.ok(setting.rationale);
-      assert.ok(setting.tradeoff);
-      assert.ok(setting.verification);
-    }
+    assert.ok(guide.settings.length >= 3, guide.game);
+    assert.ok(guide.summary && guide.howToTest && Array.isArray(guide.boundaries), guide.game);
     assert.ok(guide.sources.length > 0);
-    assert.ok(guide.sources.every((source) => {
+    for (const source of guide.sources) {
       const url = new URL(source.url);
-      return url.protocol === 'https:' && allowedFirstPartyHosts.has(url.hostname);
-    }));
+      assert.equal(url.protocol, 'https:');
+      assert.ok(allowedHosts.has(url.hostname), `${guide.game}: ${url.hostname}`);
+      assert.doesNotMatch(url.hostname, /pcgamingwiki|fandom|reddit/i);
+      assert.ok(gameSettings.SOURCE_KINDS.includes(source.kind), source.title);
+    }
+    for (const setting of guide.settings) {
+      assert.ok(setting.label && setting.value && setting.why, `${guide.game}: ${setting.id}`);
+      assert.ok(gameSettings.HELPS.includes(setting.helps), `${guide.game}: ${setting.id}`);
+      // Every row is credited: to a listed source, or (null) to Dialed itself.
+      assert.ok(setting.source === null || guide.sources[setting.source], `${guide.game}: ${setting.id} source`);
+      if (setting.detailSource !== undefined) assert.ok(guide.sources[setting.detailSource], `${guide.game}: ${setting.id} detail source`);
+      // One line, not a paragraph: the owner's complaint about the old guides.
+      assert.ok(setting.why.length <= 140, `${guide.game}: ${setting.id} reason is ${setting.why.length} characters`);
+      assert.doesNotMatch(`${setting.value} ${setting.why} ${setting.detail || ''}`, /\b(guarantee|will (raise|increase|boost) (your )?fps)\b/i);
+    }
   }
-  assert.equal(second.find((guide) => guide.game === 'Fortnite').settings.length, 5);
-  for (const game of ['Rocket League', 'League of Legends', 'Overwatch 2']) assert.ok(second.some((guide) => guide.game === game));
+  for (const game of ['Fortnite', 'Rocket League', 'League of Legends', 'Overwatch 2', 'ARC Raiders', 'Marvel Rivals', 'PUBG: BATTLEGROUNDS']) assert.ok(second.some((guide) => guide.game === game), game);
+});
+
+test('every game guide is one install detection looks for, so a guide never brings a false install claim', () => {
+  // The Profiles cards give an install status to every guide id; a guide without detection would
+  // say "Not listed in Windows as installed" for a game that is (found live on ARC Raiders).
+  const { GAME_DISCOVERY_DEFINITIONS } = require('../src/main/game-config/index.cjs');
+  const detected = new Set(GAME_DISCOVERY_DEFINITIONS.map((definition) => definition.guideId));
+  for (const guide of gameSettings.listGameSettingsGuides()) assert.ok(detected.has(guide.id), guide.id);
+  // The ids are kept: saved backups and profile records refer to them.
+  for (const id of ['fortnite-pc-performance-review', 'counter-strike-2-display-review', 'call-of-duty-black-ops-7-performance-review', 'arc-raiders-pc-performance-review']) {
+    assert.ok(gameSettings.listGameSettingsGuides().some((guide) => guide.id === id), id);
+  }
 });
 
 test('Black Ops 7 guidance stays manual, version-scoped and refuses copied templates or universal caps', () => {
   const guide = gameSettings.listGameSettingsGuides().find((item) => item.game === 'Call of Duty: Black Ops 7');
   assert.ok(guide);
   assert.equal(guide.automation, 'GUIDANCE_ONLY');
-  assert.match(guide.applicability, /does not copy template files/i);
-  assert.match(guide.applicability, /does not .*write versioned cod25 files/i);
-  assert.match(guide.settings.find((item) => item.id === 'cap-sync-latency').recommendation, /instead of treating Off, 300 or 600 FPS as universal/i);
-  assert.match(guide.settings.find((item) => item.id === 'input-audio-boundary').recommendation, /do not copy another player’s sensitivity, polling rate or audio mix/i);
+  assert.match(guide.boundaries.join(' '), /does not copy template files/i);
+  assert.match(guide.boundaries.join(' '), /does not write versioned cod25 files/i);
+  assert.match(guide.settings.find((item) => item.id === 'cap-sync-latency').why, /instead of treating Off, 300 or 600 FPS as universal/i);
+  assert.match(guide.settings.find((item) => item.id === 'input-audio-boundary').why, /do not copy another player’s sensitivity, polling rate or audio mix/i);
 });
 
+test('guides never tell a reader to weaken security, even where the maker suggests it', () => {
+  const text = JSON.stringify(gameSettings.listGameSettingsGuides());
+  assert.doesNotMatch(text, /(disable|turn off) (your )?(antivirus|defender|firewall|secure boot|memory integrity)/i);
+  const rivals = gameSettings.listGameSettingsGuides().find((item) => item.game === 'Marvel Rivals');
+  assert.match(rivals.boundaries.join(' '), /Dialed does not: leave your protection on/);
+  const cs2 = gameSettings.listGameSettingsGuides().find((item) => item.game === 'Counter-Strike 2');
+  assert.match(cs2.settings.find((item) => item.id === 'anti-lag-2').value, /never a driver-forced Anti-Lag\+/);
+});
 test('normal local UI exposes persisted themes and a real sequential optimization runner', () => {
   const root = path.join(__dirname, '..');
   const themesSource = fs.readFileSync(path.join(root, 'src', 'lib', 'themes.ts'), 'utf8');

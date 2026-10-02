@@ -323,13 +323,21 @@ export interface TimingExperiment {
   unavailableReason: string | null;
 }
 
+export type GameSettingHelps = 'FRAME_RATE' | 'LATENCY' | 'VISIBILITY' | 'SMOOTHNESS' | 'STABILITY' | 'AIM' | 'AWARENESS';
+
 export interface GameSettingRecommendation {
   id: string;
   label: string;
-  recommendation: string;
-  rationale: string;
-  tradeoff: string;
-  verification: string;
+  /** What to set it to, in the game's own words where possible. */
+  value: string;
+  /** One sentence: why, credited to the source. */
+  why: string;
+  helps: GameSettingHelps;
+  /** Index into the guide's sources; null when the row is Dialed's own advice. */
+  source: number | null;
+  /** The cost or caveat, shown on request. */
+  detail?: string;
+  detailSource?: number;
 }
 
 export interface GameSettingsGuide {
@@ -338,12 +346,13 @@ export interface GameSettingsGuide {
   platform: string;
   status: 'VERIFIED_GUIDANCE';
   lastReviewed: string;
-  objective: string;
-  applicability: string;
+  summary: string;
   automation: 'GUIDANCE_ONLY';
-  ongoingTesting: string;
+  howToTest: string;
+  /** What Dialed will not touch for this game. */
+  boundaries: string[];
   settings: GameSettingRecommendation[];
-  sources: Array<{ title: string; url: string }>;
+  sources: Array<{ title: string; url: string; kind: 'GAME_MAKER' | 'GPU_MAKER' | 'TESTED' | 'PRESS' }>;
 }
 
 export interface InstalledGameDiscovery {

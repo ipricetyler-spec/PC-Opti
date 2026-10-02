@@ -684,3 +684,34 @@ Tests: a simulated 1 kHz hand-circled trace (average under 900) reads 1000 and c
 Checks, one at a time: npm test 857/857, test:ts 142/142, lint, UI fixtures — all pass.
 Not verified: the owner's Razer re-measured with the new calculation (needs a package and a
 person moving the mouse).
+## 2026-10-01 — game guides rebuilt: short rows, credited sources, three more games
+
+Owner: the guides were "giant blocks of text and the most basic changes known to gamers". Owner's
+source rule: game makers plus independent testing, credited per row; no PCGamingWiki (stated
+mid-research; nothing from it is used, and the catalog test rejects that host).
+- Each row is now setting, value, what it helps (frame rate, latency, visibility, smoothness,
+  stability, aim, awareness), one reason of at most 140 characters, and who said it. Costs, how to
+  test, Dialed's boundaries and sources are behind one "Show costs, testing and sources" control.
+  Games are closed by default; a "helps with" filter or a search opens the matching ones.
+- Content now comes from the makers' detailed pages where they exist: Epic's 2026 competitive
+  Fortnite article, EA's full Apex table and Battlefield 6 guide, Valve's CS2 video
+  recommendations and Boost Player Contrast, Riot (Multithreaded Rendering requirements; Raw
+  Input Buffer always on since 11.06, so the old toggle advice is gone), Blizzard's Overwatch
+  settings article, Activision's built-in benchmark tool. Measurements are credited: TechSpot
+  (Battlefield 6: High ≈ Overkill, Low ~70% faster than Overkill, DLSS/FSR Quality ~40%), PC Games
+  Hardware (ARC Raiders RTX GI cost, DLSS ghosting in a 2025 preview), NVIDIA (Reflex Boost costs a
+  little frame rate; G-SYNC + V-Sync + Reflex vs uncapped). Every source page was opened and read.
+- Added ARC Raiders, Marvel Rivals and PUBG: BATTLEGROUNDS, each with install detection (a test now
+  requires every guide to have one, so no guide brings back the false "Not listed" claim). Rainbow
+  Six Siege X and Dota 2 were left out: only a 2015 pre-Siege-X guide and community posts exist.
+- Security: Marvel Rivals' own FAQ suggests turning antivirus off; the guide says Dialed does not.
+  CS2 says never to use driver-forced AMD Anti-Lag+ (games treated it as cheating). A test rejects
+  any "disable antivirus / Defender / firewall / Secure Boot / Memory Integrity" text.
+- Existing guide ids are kept (backups and profile records refer to them). The game-profiles UI
+  check now omits ARC Raiders' guide so its card still stands for "a game detection does not look for".
+New UI check scripts/check-game-guides-ui.cjs: closed by default, row content and credit, costs on
+request, filter counts, search, no sideways scroll at 1000 px. Headless screenshots read in both
+themes. Checks, one at a time: npm test 859/859, test:ts 142/142, lint, clean-room parity, UI
+fixtures (13 groups) — all pass.
+Not verified: the installed app (needs a package); whether each game's menu wording still matches
+after its next patch.

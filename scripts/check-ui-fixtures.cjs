@@ -16,6 +16,7 @@ const checks = [
   'check-recording-ui.cjs',
   'check-tweak-state-ui.cjs',
   'check-restore-point-ui.cjs',
+  'check-game-guides-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

@@ -715,3 +715,15 @@ themes. Checks, one at a time: npm test 859/859, test:ts 142/142, lint, clean-ro
 fixtures (13 groups) — all pass.
 Not verified: the installed app (needs a package); whether each game's menu wording still matches
 after its next patch.
+## 2026-10-01 — the signed build of f41b309 is installed (polling-rate fix and new game guides)
+
+Pushed d5460d1 and f41b309 first (owner: "push it, package and install"). Then, one step at a time:
+key folder had no extra entries; npm run release:native (broker 4f594667…, helper 39de5f99…, policy
+expires 2027-11-01); build; sbom (392); license:inventory (525); electron-builder --win nsis (all
+signed and verified); candidate:verify → SIGNED_INSTALLER_CANDIDATE. Installer SHA-256
+AF1F42C9…B32E2219. Running Dialed closed, installer /S exit 0; 96 of 96 files match the package;
+Dialed.exe signature Valid.
+Read live (no changes): Games > Guides shows "Settings worth changing, game by game" with ARC Raiders,
+Marvel Rivals and PUBG; Games > Profiles now says ARC Raiders is "Listed in Windows as installed"
+(it is), from the new detection.
+Not exercised: the Razer re-measure with the new rate calculation (needs the owner moving the mouse).

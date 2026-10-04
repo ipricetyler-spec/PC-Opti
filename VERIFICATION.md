@@ -744,3 +744,14 @@ Checks: npm test 859/859, test:ts 142/142, lint, UI fixtures in all four themes 
 headless screenshots of both gold themes and the icon at 128-16 px read.
 Not verified: the installed app (needs a package); Windows' own rendering of the icon in Explorer
 and the taskbar.
+## 2026-10-04 — the signed build of 01cdfe1 is installed (black-and-gold brand)
+
+First candidate was refused by candidate:verify ("Unexpected ASAR root: node_modules"): `bun add`
+had put @fontsource/montserrat under runtime dependencies, so electron-builder shipped node_modules.
+Moved to devDependencies with package.json otherwise byte-identical to before (bun had also
+reordered it; two tests caught that). Codex sandbox read entry on the key folder removed again (only
+that entry). release:native (broker 622a575d…, policy expires 2027-11-03); build; sbom (393);
+license:inventory (526); electron-builder; candidate:verify → SIGNED_INSTALLER_CANDIDATE. Installer
+SHA-256 8C30767A…85E1BE77, /S exit 0, 96/96 files match, signature Valid.
+Seen live: the new DIALED wordmark in the sidebar and the gold D icon in the title bar. The owner's
+install kept its stored Console theme, as predicted; Console Gold is one click in Settings > Theme.

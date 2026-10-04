@@ -763,3 +763,9 @@ with no migration marker opens as Console Gold once and the marker is set; Conso
 sticks; other stored themes are untouched; storage errors fall back to the default. New UI check
 scripts/check-theme-default-ui.cjs covers all four cases across a reload. npm test 859/859, lint, UI
 fixtures (14 groups) pass. Not yet installed.
+
+## 2026-10-04 — the signed build of 5e4d491 is installed
+
+Pushed, then release:native, build, sbom, license:inventory, electron-builder, candidate:verify ->
+SIGNED_INSTALLER_CANDIDATE. Installer SHA-256 D1B0BE8C...1B89155D, /S exit 0, 96/96 files match, signature
+Valid. Seen live: the owner's install, which had Console stored, now opens in Console Gold.

@@ -45,6 +45,7 @@ function formatPreviewDetails(value: unknown) {
 }
 
 const APP_THEME_STORAGE_KEY = 'pcopti-theme:v1';
+const GOLD_DEFAULT_MIGRATION_KEY = 'pcopti-theme-gold-default:v1';
 const TECHNICAL_DETAILS_STORAGE_KEY = 'dialed-technical-details:v1';
 
 async function readRuntimeProfile() {
@@ -165,7 +166,15 @@ export default function App() {
   const clearTestPrefill = useCallback(() => setTestPrefill(null), []);
   const [verifyView, setVerifyView] = useState<'readiness' | 'drift' | 'history'>('history');
   const [appTheme, setAppTheme] = useState<AppThemeId>(() => {
-    const stored = window.localStorage.getItem(APP_THEME_STORAGE_KEY);
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(APP_THEME_STORAGE_KEY);
+      // Dialed saved the theme on every start, so a stored Console usually meant "never chosen", not
+      // a choice. When black and gold became the default (2026-10-03), move that once; picking
+      // Console again afterwards sticks.
+      if (stored === 'console' && !window.localStorage.getItem(GOLD_DEFAULT_MIGRATION_KEY)) stored = 'console-gold';
+      window.localStorage.setItem(GOLD_DEFAULT_MIGRATION_KEY, '1');
+    } catch { /* storage unavailable: use the default */ }
     return isAppThemeId(stored) ? stored : DEFAULT_APP_THEME;
   });
   const [technicalDetails, setTechnicalDetails] = useState(() => window.localStorage.getItem(TECHNICAL_DETAILS_STORAGE_KEY) === 'shown');

@@ -755,3 +755,11 @@ license:inventory (526); electron-builder; candidate:verify → SIGNED_INSTALLER
 SHA-256 8C30767A…85E1BE77, /S exit 0, 96/96 files match, signature Valid.
 Seen live: the new DIALED wordmark in the sidebar and the gold D icon in the title bar. The owner's
 install kept its stored Console theme, as predicted; Console Gold is one click in Settings > Theme.
+## 2026-10-04 — a Console theme saved before the gold default moves to Console Gold once
+
+Owner: the installed app "still opened in the cyan theme". Cause: Dialed saved the theme on every
+start, so the owner's install had "console" stored without anyone choosing it. Now a stored "console"
+with no migration marker opens as Console Gold once and the marker is set; Console picked afterwards
+sticks; other stored themes are untouched; storage errors fall back to the default. New UI check
+scripts/check-theme-default-ui.cjs covers all four cases across a reload. npm test 859/859, lint, UI
+fixtures (14 groups) pass. Not yet installed.

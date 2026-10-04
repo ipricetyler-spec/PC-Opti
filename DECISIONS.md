@@ -292,3 +292,6 @@ notice; none blocks the change or touches a security setting.
   the guide.
 - **Coverage:** a game is added only when its maker or testers publish more than the basics; Siege X
   and Dota 2 wait for that.
+
+- **2026-10-04: no "Your setup" card on Home.** Test results belong where the test lives, dated; Home keeps only what is
+  current and actionable: suggestions, and how many Dialed changes are in effect or were set back.

@@ -769,3 +769,12 @@ fixtures (14 groups) pass. Not yet installed.
 Pushed, then release:native, build, sbom, license:inventory, electron-builder, candidate:verify ->
 SIGNED_INSTALLER_CANDIDATE. Installer SHA-256 D1B0BE8C...1B89155D, /S exit 0, 96/96 files match, signature
 Valid. Seen live: the owner's install, which had Console stored, now opens in Console Gold.
+## 2026-10-04 — "Your setup" removed from Home; the changes card says what is in effect
+
+Owner asked whether "Your setup" added value. It did not: the power plan is on the Tweaks power card,
+the polling and network lines were old test results presented as setup (one, 915/s, from the old
+calculation), and game profiles usually read "None applied". Removed (component, lib and its test).
+"Changes Dialed made" now reads "N changes in effect, each can be undone", plus "· M set back by
+Windows since" when Windows or another program reversed a Dialed change (the same test the Tweaks
+cards use; Home now reads Windows settings, read-only, when it opens). Test added for the wording.
+npm test 859/859, test:ts 142/142 (one test removed, one added), lint, UI fixtures pass. Not installed.

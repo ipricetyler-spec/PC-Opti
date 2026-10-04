@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { homeItems } from '../src/components/HomeSummary';
+import { changesLine, homeItems } from '../src/components/HomeSummary';
 
 const snapshot = { timestamp: '2026-09-19T12:00:00.000Z' } as never;
 const empty = { records: [], comparisons: [] } as never;
@@ -52,4 +52,12 @@ test('at most three items; no scan asks for one first; a regression is surfaced'
 
 test('nothing to do means an empty list', () => {
   assert.deepEqual(homeItems({ snapshot, history: [entry('SUCCESS')], historyRecovery: null, recommendations: [], benchmarkEvidence: empty }), []);
+});
+
+test('the changes line counts what is still in effect and names what Windows set back', () => {
+  assert.equal(changesLine(0, 0, false), 'Dialed has not changed anything yet.');
+  assert.equal(changesLine(0, 0, true), 'Nothing left to undo.');
+  assert.equal(changesLine(10, 0, true), '10 changes in effect, each can be undone.');
+  assert.equal(changesLine(10, 1, true), '9 changes in effect, each can be undone · 1 set back by Windows since');
+  assert.equal(changesLine(1, 0, true), '1 change in effect, which can be undone.');
 });

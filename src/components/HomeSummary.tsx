@@ -3,8 +3,6 @@ import { ArrowRight, CheckCircle2, Cpu, HardDrive, LoaderCircle, MemoryStick, Mo
 import type { AuditHistoryRecovery, AuditJournalEntry, BenchmarkEvidenceState, LocalRecommendation, SystemScanSnapshot } from '../types';
 import { graphicsAdapters } from '../lib/displaySetup';
 import { TestsOnHome } from './TestsOnHome';
-import { YourSetup } from './YourSetup';
-import type { SetupSection } from '../lib/yourSetup';
 
 type Target = LocalRecommendation['targetPanel'];
 
@@ -87,7 +85,15 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
   return items.slice(0, 3);
 }
 
-export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest, onOpenSetupSection }: {
+/** In effect = recorded and undoable, minus the ones Windows has since set back. */
+export function changesLine(undoable: number, setBack: number, anyHistory: boolean): string {
+  if (!undoable) return anyHistory ? 'Nothing left to undo.' : 'Dialed has not changed anything yet.';
+  const inEffect = Math.max(0, undoable - setBack);
+  const main = `${inEffect} change${inEffect === 1 ? '' : 's'} in effect, ${inEffect === 1 ? 'which' : 'each'} can be undone`;
+  return setBack ? `${main} · ${setBack} set back by Windows since` : `${main}.`;
+}
+
+export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest, setBackCount = 0 }: {
   snapshot: SystemScanSnapshot | null;
   isScanning: boolean;
   scanError: string | null;
@@ -101,8 +107,8 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
   onOpenRestore: () => void;
   onOpenSuggestions: () => void;
   onOpenTest: () => void;
-  /** Opens a section from Your setup; the summary is shown only when this is given. */
-  onOpenSetupSection?: (section: SetupSection) => void;
+  /** Dialed changes that Windows or another program has since set back; their Undo would be refused. */
+  setBackCount?: number;
 }) {
   const items = homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence });
   const suggestionCount = recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length;
@@ -158,12 +164,10 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
     <section className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100"><RotateCcw className="h-4 w-4 text-cyan-300" aria-hidden="true" />Changes Dialed made</h3>
-        <p className="mt-1 text-xs text-slate-400">{undoable ? `${undoable} change${undoable === 1 ? '' : 's'} can be undone.` : history.length ? 'Nothing left to undo.' : 'Dialed has not changed anything yet.'}</p>
+        <p className="mt-1 text-xs text-slate-400">{changesLine(undoable, setBackCount, history.length > 0)}</p>
       </div>
       <button type="button" onClick={onOpenRestore} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200">Open Restore</button>
     </section>
-
-    {onOpenSetupSection ? <YourSetup onOpen={onOpenSetupSection} /> : null}
 
     <TestsOnHome onOpen={onOpenTest} />
   </div>;

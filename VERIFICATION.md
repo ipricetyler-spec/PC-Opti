@@ -727,3 +727,20 @@ Read live (no changes): Games > Guides shows "Settings worth changing, game by g
 Marvel Rivals and PUBG; Games > Profiles now says ARC Raiders is "Listed in Windows as installed"
 (it is), from the new detection.
 Not exercised: the Razer re-measure with the new rate calculation (needs the owner moving the mouse).
+## 2026-10-03 — black-and-gold logo, app icon, two gold themes, Console Gold default
+
+Owner chose the logo after three rounds of mockups: thin, wide-spaced "DIALED" (Montserrat Light,
+bundled via @fontsource/montserrat, latin 300 only) in a metallic gold gradient over a fine rule with
+a diamond; the app icon is a thin gold "D" on black (build/dialed-icon.svg, public/dialed-mark.svg,
+drawn as paths, stroke thickened so it survives 16 px). Logo stays gold in every theme.
+New themes Console Gold and Instrument Gold: own colour blocks; Instrument's layout rules now match
+`data-theme^='instrument'` so Instrument Gold keeps the ruled layout; amber cautions turn orange in
+both gold themes as in Instrument, so they don't read as gold buttons. Console Gold is the default
+when nothing is stored (owner); a stored choice still wins. Found and fixed on the way: the Tweaks
+selection bar's bg-slate-950/95 was never themed and showed navy in every theme. The contrast
+check picked theme buttons by name prefix ("Console" matched "Console Gold"); it now uses the exact
+heading.
+Checks: npm test 859/859, test:ts 142/142, lint, UI fixtures in all four themes incl. contrast;
+headless screenshots of both gold themes and the icon at 128-16 px read.
+Not verified: the installed app (needs a package); Windows' own rendering of the icon in Explorer
+and the taskbar.

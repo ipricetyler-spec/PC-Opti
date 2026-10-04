@@ -134,8 +134,8 @@ test('keyboard focus uses the active theme accent even where controls reset brow
   const source = read('src/index.css');
 
   assert.match(source, /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--app-accent\);[^}]*outline-offset:\s*2px;/s);
-  assert.match(source, /:root,\s*:root\[data-theme='console'\]\s*\{[^}]*--app-accent:/s);
-  for (const theme of ['instrument']) {
+  assert.match(source, /:root,\s*:root\[data-theme='console-gold'\]\s*\{[^}]*--app-accent:/s);
+  for (const theme of ['console', 'instrument', 'instrument-gold']) {
     assert.match(source, new RegExp(`:root\\[data-theme='${theme}'\\]\\s*\\{[^}]*--app-accent:`, 's'));
   }
 });

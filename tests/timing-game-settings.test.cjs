@@ -393,7 +393,7 @@ test('normal local UI exposes persisted themes and a real sequential optimizatio
   const themesSource = fs.readFileSync(path.join(root, 'src', 'lib', 'themes.ts'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src', 'App.tsx'), 'utf8');
   const catalogSource = fs.readFileSync(path.join(root, 'src', 'components', 'OptimizationCatalog.tsx'), 'utf8');
-  for (const theme of ['console', 'instrument']) assert.match(themesSource, new RegExp(`id: '${theme}'`));
+  for (const theme of ['console', 'instrument', 'console-gold', 'instrument-gold']) assert.match(themesSource, new RegExp(`id: '${theme}'`));
   assert.match(appSource, /pcopti-theme:v1/);
   assert.match(appSource, /document\.documentElement\.dataset\.theme = appTheme/);
   assert.match(appSource, /<ThemePicker activeTheme=\{appTheme\}/);

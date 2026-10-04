@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-:root,
 :root[data-theme='console'] {
   /* Dialed's own look, chosen 2026-09-18: flat navy panels, one lime accent for things
      that are on or done, amber for "measure it". No glows or gradients. */
@@ -71,6 +70,80 @@
   --app-sidebar-visual: #15181b;
   --app-surface-visual: #1c2024;
   --app-surface-soft-visual: #16191c;
+  --app-theme-stripe: var(--app-border);
+}
+
+/* The gold themes (2026-10-03, owner): each keeps its parent's layout and type and swaps the
+   colours for black and a warm metallic gold. Gold is the accent; ivory or champagne carries
+   "measure it", since a second gold would not read as a different thing. */
+:root,
+:root[data-theme='console-gold'] {
+  --app-font: 'Space Grotesk Variable', 'Segoe UI', sans-serif;
+  --app-font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+  --app-bg-top: #0a0a0a;
+  --app-bg-mid: #0a0a0a;
+  --app-bg-bottom: #0a0a0a;
+  --app-panel: #151412;
+  --app-header: rgb(10 10 10 / 0.92);
+  --app-accent: #c9a866;
+  --app-accent-soft: #dcc390;
+  --app-accent-rgb: 201 168 102;
+  --app-accent-ink: #0a0a0a;
+  --app-secondary: #e6dcc6;
+  --app-secondary-rgb: 230 220 198;
+  --app-surface: #151412;
+  --app-surface-soft: #100f0e;
+  --app-surface-strong: #1d1b18;
+  --app-control: #1d1b18;
+  --app-border: #2a2621;
+  --app-border-strong: #3b352c;
+  --app-text-strong: #f3efe6;
+  --app-text: #d4cfc4;
+  --app-muted: #a39d90;
+  --app-faint: #918a7d;
+  --app-chart-idle: var(--app-accent);
+  --app-chart-loaded: var(--app-secondary);
+  --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);
+  --app-chart-upload: color-mix(in srgb, var(--app-secondary) 30%, #fbbf24);
+  --app-backdrop: #0a0a0a;
+  --app-sidebar-visual: #0e0d0c;
+  --app-surface-visual: #151412;
+  --app-surface-soft-visual: #100f0e;
+  --app-theme-stripe: var(--app-border);
+}
+
+:root[data-theme='instrument-gold'] {
+  --app-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --app-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --app-bg-top: #0d0d0c;
+  --app-bg-mid: #0d0d0c;
+  --app-bg-bottom: #0d0d0c;
+  --app-panel: #181715;
+  --app-header: rgb(13 13 12 / 0.92);
+  --app-accent: #b8955a;
+  --app-accent-soft: #d2b47a;
+  --app-accent-rgb: 184 149 90;
+  --app-accent-ink: #0d0d0c;
+  --app-secondary: #d8c7a1;
+  --app-secondary-rgb: 216 199 161;
+  --app-surface: #181715;
+  --app-surface-soft: #121110;
+  --app-surface-strong: #201e1b;
+  --app-control: #201e1b;
+  --app-border: #2b2823;
+  --app-border-strong: #3d382f;
+  --app-text-strong: #ece7dc;
+  --app-text: #cdc8bc;
+  --app-muted: #a09a8d;
+  --app-faint: #8f897c;
+  --app-chart-idle: var(--app-accent);
+  --app-chart-loaded: var(--app-secondary);
+  --app-chart-download: color-mix(in srgb, var(--app-accent) 30%, #34d399);
+  --app-chart-upload: color-mix(in srgb, var(--app-secondary) 30%, #fbbf24);
+  --app-backdrop: #0d0d0c;
+  --app-sidebar-visual: #111110;
+  --app-surface-visual: #181715;
+  --app-surface-soft-visual: #121110;
   --app-theme-stripe: var(--app-border);
 }
 
@@ -229,7 +302,8 @@ select option {
 :root .bg-slate-950\/40,
 :root .bg-slate-950\/45,
 :root .bg-slate-950\/50,
-:root .bg-slate-950\/60 { background: var(--app-surface-soft-visual) !important; }
+:root .bg-slate-950\/60,
+:root .bg-slate-950\/95 { background: var(--app-surface-soft-visual) !important; }
 :root .bg-slate-900\/40,
 :root .bg-slate-800,
 :root .bg-slate-700 { background-color: var(--app-surface-strong) !important; }
@@ -263,17 +337,33 @@ pre {
   font-family: var(--app-font-mono);
 }
 
+/* The logo (2026-10-03, owner's pick): thin, wide-spaced capitals in metallic gold over a fine rule
+   with a diamond. It is the brand, so it stays gold in every theme. */
 .wordmark {
-  font-weight: 700;
-  font-size: 1.5rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
   line-height: 1;
-  letter-spacing: -0.04em;
-  color: var(--app-text-strong);
 }
-.wordmark span {
-  color: var(--app-accent);
+.wordmark-text {
+  font-family: 'Montserrat', 'Segoe UI', sans-serif;
+  font-weight: 300;
+  font-size: 1.375rem;
+  /* Letter spacing also trails the last letter; the matching left padding keeps the word centred
+     over the rule. */
+  letter-spacing: 0.42em;
+  padding-left: 0.42em;
+  background: linear-gradient(180deg, #e2c88f 0%, #b08a4a 55%, #8a6a34 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-
+.wordmark-rule {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
 .glass-panel {
   border: 1px solid var(--app-border);
   background: var(--app-surface-visual);
@@ -402,39 +492,40 @@ pre {
 /* Instrument: design A's structure, not only its colours. Settings read as a ruled list
    instead of boxed cards, corners are small and square, labels are small monospace
    capitals. Behaviour and markup are shared with Console. */
-:root[data-theme='instrument'] .rounded-2xl,
-:root[data-theme='instrument'] .rounded-xl,
-:root[data-theme='instrument'] .rounded-lg { border-radius: 6px !important; }
-:root[data-theme='instrument'] .rounded-md { border-radius: 4px !important; }
-:root[data-theme='instrument'] .tweak-grid {
+:root[data-theme^='instrument'] .rounded-2xl,
+:root[data-theme^='instrument'] .rounded-xl,
+:root[data-theme^='instrument'] .rounded-lg { border-radius: 6px !important; }
+:root[data-theme^='instrument'] .rounded-md { border-radius: 4px !important; }
+:root[data-theme^='instrument'] .tweak-grid {
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 0 !important;
   border-top: 1px solid var(--app-border);
 }
-:root[data-theme='instrument'] .tweak-card {
+:root[data-theme^='instrument'] .tweak-card {
   border: 0;
   border-bottom: 1px solid var(--app-border);
   border-radius: 0 !important;
   background: transparent;
   padding: 0.75rem 0.25rem;
 }
-:root[data-theme='instrument'] .tweak-card-experiment { border-bottom-style: dashed; border-bottom-color: var(--app-border-strong); }
-:root[data-theme='instrument'] .tweak-card-changed {
+:root[data-theme^='instrument'] .tweak-card-experiment { border-bottom-style: dashed; border-bottom-color: var(--app-border-strong); }
+:root[data-theme^='instrument'] .tweak-card-changed {
   border: 0;
   border-bottom: 1px solid var(--app-border);
   box-shadow: inset 2px 0 0 var(--app-accent);
   padding-left: 0.875rem;
   background: rgb(var(--app-accent-rgb) / 0.05);
 }
-:root[data-theme='instrument'] .tweak-group-label,
-:root[data-theme='instrument'] .tab-item {
+:root[data-theme^='instrument'] .tweak-group-label,
+:root[data-theme^='instrument'] .tab-item {
   font-family: var(--app-font-mono);
   letter-spacing: 0.08em;
 }
-:root[data-theme='instrument'] .tab-item { text-transform: uppercase; font-size: 0.75rem; }
-/* Instrument's accent is amber, so amber cautions looked like ordinary buttons. Cautions take
-   Tailwind's orange here; every other theme keeps amber. */
-:root[data-theme='instrument'] {
+:root[data-theme^='instrument'] .tab-item { text-transform: uppercase; font-size: 0.75rem; }
+/* Instrument's accent is amber and the gold themes' is gold, so amber cautions looked like ordinary
+   buttons. Cautions take Tailwind's orange in those themes; Console keeps amber. */
+:root[data-theme^='instrument'],
+:root[data-theme='console-gold'] {
   --color-amber-100: oklch(95.4% 0.038 75.164);
   --color-amber-200: oklch(90.1% 0.076 70.697);
   --color-amber-300: oklch(83.7% 0.128 66.29);
@@ -446,31 +537,31 @@ pre {
 @media (max-width: 1100px) {
   :root .tab-item { font-size: 0.8125rem; }
   :root [role='tablist'] { column-gap: 0.875rem; }
-  :root[data-theme='instrument'] .tab-item { letter-spacing: 0; font-size: 0.6875rem; }
+  :root[data-theme^='instrument'] .tab-item { letter-spacing: 0; font-size: 0.6875rem; }
 }
 @media (max-width: 1000px) {
-  :root:not([data-theme='instrument']) .tab-item { font-size: 0.75rem; }
+  :root:not([data-theme^='instrument']) .tab-item { font-size: 0.75rem; }
   :root [role='tablist'] { column-gap: 0.75rem; }
 }
-:root[data-theme='instrument'] .nav-item { border-radius: 0 !important; }
-:root[data-theme='instrument'] .nav-item-selected { background-color: transparent; }
-:root[data-theme='instrument'] h2 { letter-spacing: -0.02em; }
+:root[data-theme^='instrument'] .nav-item { border-radius: 0 !important; }
+:root[data-theme^='instrument'] .nav-item-selected { background-color: transparent; }
+:root[data-theme^='instrument'] h2 { letter-spacing: -0.02em; }
 /* Instrument rows: explanation on the left, actions on the right, like mockup A. */
 @media (min-width: 768px) {
-  :root[data-theme='instrument'] .tweak-card {
+  :root[data-theme^='instrument'] .tweak-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 1.5rem;
     align-items: start;
   }
-  :root[data-theme='instrument'] .tweak-card > * { grid-column: 1; }
-  :root[data-theme='instrument'] .tweak-card > .tweak-actions {
+  :root[data-theme^='instrument'] .tweak-card > * { grid-column: 1; }
+  :root[data-theme^='instrument'] .tweak-card > .tweak-actions {
     grid-column: 2;
     grid-row: 1 / span 4;
     margin-top: 0;
     justify-content: flex-end;
     max-width: 22rem;
   }
-  :root[data-theme='instrument'] .tweak-card > dl { grid-column: 1 / -1; }
-  :root[data-theme='instrument'] .tweak-card .tweak-actions > p { text-align: right; }
+  :root[data-theme^='instrument'] .tweak-card > dl { grid-column: 1 / -1; }
+  :root[data-theme^='instrument'] .tweak-card .tweak-actions > p { text-align: right; }
 }

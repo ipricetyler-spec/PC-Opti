@@ -1,6 +1,6 @@
 const AUDIT = ['SUCCESS','FAILED','PENDING','NEEDS_REVIEW'] as const;
 const OUTCOMES = ['INCONCLUSIVE','HIGH_VARIANCE','REGRESSION','MEASURED_DIFFERENCE','INCOMPLETE','INCOMPARABLE'] as const;
-const THEMES = ['console','instrument'];
+const THEMES = ['console','instrument','console-gold','instrument-gold'];
 function counts(value: unknown, field: string, allowed: readonly string[]) {
   const result: Record<string, number> = Object.fromEntries([...allowed,'UNKNOWN'].map(key => [key,0]));
   if (!Array.isArray(value)) return { availability: 'UNAVAILABLE', counts: result };

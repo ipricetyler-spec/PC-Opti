@@ -62,7 +62,8 @@ async function main() {
     });
     await page.keyboard.press('Tab');
     for (const theme of themes) {
-      await page.getByRole('button', { name: new RegExp(`^${themeNames[themes.indexOf(theme)]}`) }).click();
+      // The exact heading, not a name prefix: "Console" would also match "Console Gold".
+      await page.getByRole('button').filter({ has: page.getByRole('heading', { name: themeNames[themes.indexOf(theme)], exact: true }) }).click();
       await page.waitForFunction(theme => document.documentElement.dataset.theme === theme, theme);
       await page.keyboard.press('Tab');
       await page.evaluate(() => { document.getElementById('contrast-focus').focus(); });

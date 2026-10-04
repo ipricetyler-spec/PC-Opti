@@ -82,7 +82,7 @@ export function Sidebar({ activeTab, availableTabs, onChange, profile, onOpenTwe
   return (
     <aside className="app-sidebar w-full border-b border-slate-800 min-[960px]:min-h-screen min-[960px]:w-52 lg:w-60 min-[960px]:border-b-0 min-[960px]:border-r">
       <div className="px-5 pb-4 pt-6">
-        <h1 className="wordmark" aria-label="Dialed">dialed<span aria-hidden="true">.</span></h1>
+        <h1 className="wordmark" aria-label="Dialed"><span className="wordmark-text" aria-hidden="true">DIALED</span><svg className="wordmark-rule" viewBox="0 0 150 8" aria-hidden="true"><line x1="0" y1="4" x2="66" y2="4" stroke="#b08a4a" strokeWidth="0.8" /><path d="M75 0.5 L78.5 4 L75 7.5 L71.5 4 Z" fill="#c2a060" /><line x1="84" y1="4" x2="150" y2="4" stroke="#b08a4a" strokeWidth="0.8" /></svg></h1>
         <p className="mt-1.5 text-[11px] uppercase tracking-wider text-slate-500">
           {profile === 'owner' ? 'Owner tools' : 'PC tuning, explained'}
         </p>

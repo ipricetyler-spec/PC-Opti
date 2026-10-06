@@ -22,6 +22,7 @@ const {
   userSettingStateMatches,
 } = require('../user-settings/index.cjs');
 const mouse = require('../mouse-acceleration/index.cjs');
+const multimediaScheduler = require('../multimedia-scheduler/index.cjs');
 const powerTweaks = require('../power-tweaks/index.cjs');
 const windowedGames = require('../windowed-games/index.cjs');
 const fullscreen = require('../fullscreen-optimizations/index.cjs');
@@ -76,7 +77,7 @@ const JOURNAL_DELETION_MODES = Object.freeze({
 const KNOWN_CAPABILITY_IDS = new Set(listCapabilities().map((capability) => capability.id));
 const SAFE_JOURNAL_CATEGORIES = new Set(['Targeted maintenance', 'Startup management', 'Dynamic process balancing', 'Safe OS policy', 'Timing experiment', 'Power plan', 'Graphics preference', 'Windows gaming setting']);
 const SAFE_JOURNAL_STATUSES = new Set(['PENDING', 'SUCCESS', 'FAILED', 'NEEDS_REVIEW']);
-const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend']);
+const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend', 'restore-multimedia-scheduler']);
 const SAFE_RECONCILIATION_CLASSES = new Set(['INTENDED_STATE', 'PRE_ACTION_STATE', 'DIVERGED', 'TARGET_CHANGED', 'UNKNOWN', 'UNAVAILABLE']);
 
 // When Dialed runs as administrator the change log lives in an admin-only folder (see
@@ -549,7 +550,9 @@ function normalizedActionFamily(actionId) {
   if (/^retrim-drive:[A-Z]$/i.test(id)) return 'maintenance:retrim-drive';
   if (id === 'clear-temp-files') return 'maintenance:clear-temp-files';
   if (id === 'policy:disable-windows-consumer-features') return id;
-  if (/^settings:(user|machine):(game-mode|background-recording|gpu-scheduling|mpo|global-timer-resolution|mouse-acceleration|block-background-apps|exclude-driver-updates|no-auto-restart|consumer-features)$/.test(id)) return id;
+  if (/^settings:(user|machine):(game-mode|background-recording|gpu-scheduling|mpo|global-timer-resolution|mouse-acceleration|block-background-apps|exclude-driver-updates|no-auto-restart|consumer-features|processor-scheduling)$/.test(id)) return id;
+  if (id === 'settings:machine:multimedia-scheduler') return id;
+  if (id.startsWith('settings:restore-multimedia-scheduler:')) return 'settings:restore-multimedia-scheduler';
   if (id.startsWith('settings:restore-user:')) return 'settings:restore-user';
   if (id === 'power:add-ultimate-plan') return id;
   if (id.startsWith('power:cpu-minimum-state:')) return 'power:cpu-minimum-state';
@@ -1721,6 +1724,19 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
         continue;
       }
 
+      if (entry.actionId === 'settings:machine:multimedia-scheduler') {
+        const actual = await (adapters.readMultimediaScheduler || multimediaScheduler.readMultimediaScheduler)();
+        const intended = multimediaScheduler.defaultsFor(entry.preAction?.values);
+        if (multimediaScheduler.sameValues(actual.values, intended)) {
+          setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The multimedia scheduler values are the Windows defaults after the interruption.', { verified: actual, recoveredAfterInterruption: true }, true);
+        } else if (multimediaScheduler.sameValues(actual.values, entry.preAction?.values)) {
+          setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The previous multimedia scheduler values are still present; the interrupted change did not take effect.', { verified: actual }, false);
+        } else {
+          setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'The multimedia scheduler values differ from both the captured and the default values. Dialed will not overwrite them.', { verified: actual }, false);
+        }
+        continue;
+      }
+
       if (entry.actionId === 'settings:user:mouse-acceleration') {
         const actual = await readMouse();
         const intended = mouse.targetValues(entry.preAction?.intended === 'on' ? 'on' : 'off');
@@ -2149,6 +2165,32 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     });
   }
 
+  if (original.rollback.kind === 'restore-multimedia-scheduler') {
+    const read = adapters.readMultimediaScheduler || multimediaScheduler.readMultimediaScheduler;
+    const write = adapters.writeMultimediaScheduler || multimediaScheduler.writeMultimediaScheduler;
+    multimediaScheduler.assertRestorableValues(original.preAction?.values);
+    const known = multimediaScheduler.VALUES.map((definition) => definition.id);
+    const changed = original.preAction?.changed;
+    if (!Array.isArray(changed) || !changed.length || changed.some((id) => !known.includes(id))) throw new Error('The recorded change is not valid. Restore was refused.');
+    assertCurrentProcessAdministrator('system:multimedia-scheduler', await readElevation(),
+      'Restoring the multimedia scheduler settings requires Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
+    const current = await read();
+    if (!multimediaScheduler.sameValues(current.values, multimediaScheduler.defaultsFor(original.preAction.values), changed)) {
+      throw new Error('The multimedia scheduler settings changed after Dialed set them. Restore was refused to avoid overwriting that change.');
+    }
+    return runRestore(userDataPath, original, {
+      actionId: `settings:restore-multimedia-scheduler:${original.id}`,
+      title: 'Restore multimedia scheduler settings',
+      category: 'Windows setting',
+      restore: async () => {
+        const result = await write(original.preAction.values, changed);
+        const verified = await read();
+        if (!multimediaScheduler.sameValues(verified.values, original.preAction.values, changed)) throw new Error('Windows did not report the exact previous multimedia scheduler values after restore.');
+        return { ...result, output: { verified, restartRequired: true } };
+      },
+    });
+  }
+
   if (original.rollback.kind === 'restore-user-setting') {
     const readSetting = adapters.readUserSetting || readUserSetting;
     // The setting id must be one Dialed manages; its registry location, scope and
@@ -2520,6 +2562,46 @@ async function setCpuMinimumState(userDataPath, adapters = {}) {
   }
 }
 
+// Puts every multimedia scheduler value another tool changed back to its Windows default, and only
+// those; values already at the default are left exactly as they are. Undo restores the exact
+// previous values, and is refused if any of them changed again since.
+async function setMultimediaSchedulerDefaults(userDataPath, adapters = {}) {
+  const read = adapters.readMultimediaScheduler || multimediaScheduler.readMultimediaScheduler;
+  const write = adapters.writeMultimediaScheduler || multimediaScheduler.writeMultimediaScheduler;
+  const readElevation = adapters.isCurrentProcessElevated || isCurrentProcessElevated;
+  assertCurrentProcessAdministrator('system:multimedia-scheduler', await readElevation(),
+    'The multimedia scheduler settings are machine-wide and need Dialed running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
+  const before = await read();
+  const changed = multimediaScheduler.changedValues(before.values).map((definition) => definition.id);
+  if (!changed.length) throw new Error('The multimedia scheduler settings are already the Windows defaults. Nothing was changed.');
+  // Only exact captured values can be put back, so unusual existing values are refused up front.
+  multimediaScheduler.assertRestorableValues(before.values);
+  const intended = multimediaScheduler.defaultsFor(before.values);
+  const entry = createEntry(
+    'settings:machine:multimedia-scheduler',
+    'Multimedia scheduler: return to Windows defaults',
+    { values: before.values, changed },
+    { category: 'Windows setting', rollback: { available: true, kind: 'restore-multimedia-scheduler', reason: 'Restores the exact previous multimedia scheduler values.' } }
+  );
+  appendEntry(userDataPath, entry);
+  try {
+    const result = await write(intended, changed);
+    const verified = await read();
+    if (!multimediaScheduler.sameValues(verified.values, intended)) throw new Error('Windows did not report the default multimedia scheduler values after the write.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.stdout = result.stdout || '';
+    entry.stderr = result.stderr || '';
+    entry.resultingState = { verified, restartRequired: true, effectiveState: 'PENDING_RESTART', performanceOutcome: 'UNVERIFIED' };
+    replaceEntry(userDataPath, entry);
+    return { success: true, entry, result: entry.resultingState };
+  } catch (error) {
+    markUnverifiedMutation(entry, error);
+    replaceEntry(userDataPath, entry);
+    return { success: false, entry, error: entry.stderr };
+  }
+}
+
 async function setMouseAcceleration(userDataPath, enabled, adapters = {}) {
   const readMouse = adapters.readMouseAcceleration || mouse.readMouseAcceleration;
   const writeMouse = adapters.writeMouseValues || mouse.writeMouseValues;
@@ -2573,7 +2655,7 @@ async function setUserSetting(userDataPath, settingId, enabled, adapters = {}) {
   if (stateHasValue(before, intendedValue) || before.enabled === enabled) throw new Error(`${setting.title} is already ${enabled ? 'on' : 'off'}.`);
   const entry = createEntry(
     userSettingActionId(settingId),
-    `${setting.title}: turn ${enabled ? 'on' : 'off'}`,
+    setting.enableOnly ? `${setting.title}: return to Windows default` : `${setting.title}: turn ${enabled ? 'on' : 'off'}`,
     { settingId, existed: before.exists, value: before.value, kind: before.kind, intendedValue },
     { category: 'Windows gaming setting', rollback: { available: true, kind: 'restore-user-setting', reason: before.exists ? `Restores the exact previous ${setting.title} value.` : `Removes the value so Windows uses its default for ${setting.title} again.` } }
   );
@@ -2793,6 +2875,7 @@ module.exports = {
   setCpuMinimumState,
   setFullscreenOptimizations,
   setMouseAcceleration,
+  setMultimediaSchedulerDefaults,
   setUsbSelectiveSuspendOff,
   setWindowedGameOptimizations,
   setUserSetting,

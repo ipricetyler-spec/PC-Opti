@@ -20,8 +20,8 @@ Run these exactly. They are pinned for a reason: bare `node --test` and bare `bu
 into the build snapshots under `output/` and fail for reasons unrelated to your change.
 
 ```
-npm test         # Node suite, .cjs tests   — expect 858/858
-npm run test:ts  # bun, TypeScript tests    — expect 142/142
+npm test         # Node suite, .cjs tests   — expect 864/864
+npm run test:ts  # bun, TypeScript tests    — expect 143/143
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build
 ```

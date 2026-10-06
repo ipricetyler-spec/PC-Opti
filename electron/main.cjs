@@ -79,6 +79,7 @@ async function assertEditionSupports(editions) {
   if (!support.supported) throw new Error(`${support.reason} Nothing was changed.`);
 }
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
+const multimediaScheduler = require('../src/main/multimedia-scheduler/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
 const { openProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
@@ -98,6 +99,7 @@ const {
   setWindowedGameOptimizations,
   useProtectedJournalDirectory,
   setMouseAcceleration,
+  setMultimediaSchedulerDefaults,
   setUserSetting,
   applyJournalDeletion,
   createAuditExportPreview,
@@ -1106,6 +1108,17 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
       states['windowed-games'] = { enabled: null, manageable: false };
     }
   }
+  if (isCapabilityAvailable('system:multimedia-scheduler', resolveRuntimeProfileForApp())) {
+    try {
+      const state = await multimediaScheduler.readMultimediaScheduler();
+      let restorable = true;
+      try { multimediaScheduler.assertRestorableValues(state.values); } catch { restorable = false; }
+      // "On" means every value is the Windows default; the card only ever offers the way back.
+      states['multimedia-scheduler'] = { enabled: state.changed.length === 0, manageable: restorable, windowsDefault: true, differsFromDefault: state.changed.length > 0, detail: multimediaScheduler.describeChanges(state.values) };
+    } catch {
+      states['multimedia-scheduler'] = { enabled: null, manageable: false };
+    }
+  }
   if (isCapabilityAvailable('input:mouse-acceleration', resolveRuntimeProfileForApp())) {
     try {
       const state = await readMouseAcceleration();
@@ -1135,6 +1148,11 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
     if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
     assertCapabilityAvailable('graphics:windowed-game-optimizations');
     return serializeMutation(() => setWindowedGameOptimizations(app.getPath('userData'), enabled));
+  }
+  if (settingId === 'multimedia-scheduler') {
+    if (enabled !== true) throw new Error('Dialed only returns these settings to the Windows defaults. Use Undo to put back the previous values. Nothing was changed.');
+    assertCapabilityAvailable('system:multimedia-scheduler');
+    return serializeMutation(() => setMultimediaSchedulerDefaults(app.getPath('userData')));
   }
   if (settingId === 'mouse-acceleration') {
     if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');

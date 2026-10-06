@@ -65,6 +65,10 @@ const EXECUTION_AUTHORITY_BY_CAPABILITY = Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
   }),
+  'system:multimedia-scheduler': Object.freeze({
+    mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
+    enforcement: 'src/main/journal/index.cjs setMultimediaSchedulerDefaults and the restore-multimedia-scheduler rollback require a fresh current-process Administrator check before apply and rollback.',
+  }),
   'system:processor-scheduling': Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
@@ -1121,6 +1125,37 @@ const CAPABILITIES = Object.freeze([
     publicAvailability: 'ENABLED',
   },
   {
+    id: 'system:multimedia-scheduler',
+    actionPattern: 'settings:machine:multimedia-scheduler',
+    title: 'Multimedia scheduler settings',
+    category: 'Windows',
+    description: 'Shows when another tool changed the Multimedia Class Scheduler values that gaming tweak lists edit, and returns the changed ones to the Windows defaults.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['Dialed running as administrator', 'Existing values stored as plain numbers or words', 'At least one value differs from the Windows default', 'Explicit confirmation'],
+    detectionMethod: 'Machine-wide Registry read of SystemResponsiveness and NetworkThrottlingIndex under HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile and of GPU Priority, Priority, Scheduling Category and SFIO Priority under its Tasks\\Games key',
+    currentStateMethod: 'All six values re-read immediately before and after the write',
+    recommendedStateMethod: 'The Windows defaults: 20, 10, 8, 2, Medium and Normal. Dialed never writes any other value.',
+    expectedBenefit: 'None claimed. These values only affect programs that ask the scheduler for priority, mostly audio and video playback; tweak-list values have no measured gaming benefit.',
+    evidenceLevel: 'Observed Registry value readback; the effect after a restart is not verified',
+    confidence: 'High for configured state',
+    riskLevel: 'Low',
+    safetyClass: 'S2',
+    privilegeRequirement: 'Administrator',
+    persistence: 'Until changed again; takes full effect after a Windows restart',
+    rebootRequirement: 'Restart recommended',
+    mutationScope: 'Only the values that differ from the Windows default, among six fixed values in two machine-wide keys',
+    rollbackMethod: 'Restore the exact previous values of the ones Dialed changed',
+    rollbackLimitations: 'Refused if any of those values changed after Dialed wrote them. Requires administrator rights.',
+    verificationMethod: 'Re-read all six values after apply and restore',
+    measurableSuccessCriteria: 'The changed values read as the Windows defaults after the change, and as the captured values after restore',
+    knownConflicts: ['Gaming tweak scripts and other optimizers', 'Pro-audio software guides that change SystemResponsiveness'],
+    gamingConsiderations: 'Most games never ask the scheduler for priority, so these values do not reach them.',
+    securityImplications: 'Locations, names and the only values written come from a fixed main-process table; the renderer only asks for the defaults.',
+    unavailableReason: 'Not running as administrator, unexpected value types, already the Windows defaults, or Registry error',
+    profiles: ['public', 'owner'],
+    publicAvailability: 'ENABLED',
+  },
+  {
     id: 'system:processor-scheduling',
     actionPattern: 'settings:machine:processor-scheduling',
     title: 'Processor scheduling',
@@ -1947,6 +1982,7 @@ function capabilityForAction(actionId) {
   if (id === 'settings:machine:consumer-features') return capabilityById('policy:disable-windows-consumer-features');
   if (id === 'settings:machine:gpu-scheduling') return capabilityById('graphics:hardware-gpu-scheduling');
   if (id === 'settings:machine:processor-scheduling') return capabilityById('system:processor-scheduling');
+  if (id === 'settings:machine:multimedia-scheduler') return capabilityById('system:multimedia-scheduler');
   if (id === 'settings:machine:mpo') return capabilityById('graphics:multiplane-overlay');
   if (id === 'settings:machine:global-timer-resolution') return capabilityById('timing:global-timer-resolution');
   if (/^retrim-drive:[A-Z]$/.test(id)) return capabilityById('maintenance:retrim-drive');

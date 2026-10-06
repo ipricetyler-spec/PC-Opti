@@ -125,3 +125,13 @@ test('undo for the windowed-games, fullscreen and USB tweaks says what goes back
   assert.deepEqual(describeRollbackTarget(entry('restore-fullscreen-optimizations', { exePath: 'D:\Games\game.exe', existed: false })), ['Game: D:\Games\game.exe', 'Fullscreen optimizations will be set back to: on']);
   assert.deepEqual(describeRollbackTarget(entry('restore-fullscreen-optimizations', { exePath: 'D:\Games\game.exe', existed: true, data: '~ DISABLEDXMAXIMIZEDWINDOWEDMODE' })), ['Game: D:\Games\game.exe', 'Fullscreen optimizations will be set back to: off']);
 });
+test('undo names the exact values for processor scheduling and the multimedia scheduler', () => {
+  assert.deepEqual(describeRollbackTarget(entry('restore-user-setting', { settingId: 'processor-scheduling', existed: true, value: 40, kind: 'DWord', intendedValue: 2 })),
+    ['Setting: Processor scheduling', 'Will be set back to: 40']);
+  const lines = describeRollbackTarget(entry('restore-multimedia-scheduler', {
+    changed: ['system-responsiveness', 'games-sfio-priority', 'not-a-value'],
+    values: { 'system-responsiveness': { exists: true, kind: 'DWord', value: 10 }, 'games-sfio-priority': { exists: true, kind: 'String', value: 'High' } },
+  }));
+  assert.deepEqual(lines, ['SystemResponsiveness will be set back to: 10', 'Games SFIO Priority will be set back to: High']);
+  assert.deepEqual(describeRollbackTarget(entry('restore-multimedia-scheduler', { changed: 'x', values: {} })), []);
+});

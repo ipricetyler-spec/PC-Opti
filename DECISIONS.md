@@ -295,3 +295,7 @@ notice; none blocks the change or touches a security setting.
 
 - **2026-10-04: no "Your setup" card on Home.** Test results belong where the test lives, dated; Home keeps only what is
   current and actionable: suggestions, and how many Dialed changes are in effect or were set back.
+
+- **2026-10-06: settings other tools change, Dialed only puts back.** Processor scheduling and the multimedia
+  scheduler values are read, flagged when they differ from Windows' defaults, and only ever returned to those
+  defaults, with exact undo. Dialed does not offer tweak-list values for them: none has a measured gaming benefit.

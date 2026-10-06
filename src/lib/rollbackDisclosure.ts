@@ -3,7 +3,9 @@ import type { AuditJournalEntry } from '../types';
 const MAX_DISPLAY_LENGTH = 200;
 
 // Labels for the per-user settings Dialed manages; anything else is not described.
-const USER_SETTING_LABELS: Record<string, string> = { 'game-mode': 'Game Mode', 'background-recording': 'Game Bar background recording', 'gpu-scheduling': 'Hardware-accelerated GPU scheduling', mpo: 'Multiplane overlay (MPO)', 'global-timer-resolution': 'Global timer resolution requests', 'block-background-apps': 'Block background apps', 'exclude-driver-updates': 'Keep Windows Update from installing drivers', 'no-auto-restart': 'No automatic restart while signed in', 'consumer-features': 'Windows suggested apps and content' };
+const USER_SETTING_LABELS: Record<string, string> = { 'game-mode': 'Game Mode', 'background-recording': 'Game Bar background recording', 'gpu-scheduling': 'Hardware-accelerated GPU scheduling', mpo: 'Multiplane overlay (MPO)', 'global-timer-resolution': 'Global timer resolution requests', 'block-background-apps': 'Block background apps', 'exclude-driver-updates': 'Keep Windows Update from installing drivers', 'no-auto-restart': 'No automatic restart while signed in', 'consumer-features': 'Windows suggested apps and content', 'processor-scheduling': 'Processor scheduling' };
+// The multimedia scheduler values, by the ids the main process records.
+const SCHEDULER_LABELS: Record<string, string> = { 'system-responsiveness': 'SystemResponsiveness', 'network-throttling': 'NetworkThrottlingIndex', 'games-gpu-priority': 'Games GPU Priority', 'games-priority': 'Games Priority', 'games-scheduling-category': 'Games Scheduling Category', 'games-sfio-priority': 'Games SFIO Priority' };
 
 function displayValue(value: unknown): string | null {
   if (typeof value !== 'string' || value.length === 0) return null;
@@ -59,6 +61,23 @@ export function describeRollbackTarget(entry: AuditJournalEntry): string[] {
     const speed = asRecord(values?.MouseSpeed);
     const previous = speed?.exists === true && typeof speed.value === 'string' && /^\d{1,3}$/.test(speed.value) ? (speed.value === '0' ? 'off' : 'on') : 'the previous values';
     return ['Setting: Mouse acceleration (Enhance pointer precision)', `Will be set back to: ${previous}`];
+  }
+
+  if (entry.rollback.kind === 'restore-multimedia-scheduler') {
+    const values = asRecord(preAction.values);
+    const changed = Array.isArray(preAction.changed) ? preAction.changed.filter((id): id is string => typeof id === 'string' && id in SCHEDULER_LABELS) : [];
+    if (!changed.length) return [];
+    return changed.map((id) => {
+      const item = asRecord(values?.[id]);
+      const previous = item?.exists === true && (typeof item.value === 'number' || typeof item.value === 'string') ? displayValue(String(item.value)) : 'no value (the Windows default)';
+      return `${SCHEDULER_LABELS[id]} will be set back to: ${previous}`;
+    });
+  }
+
+  if (entry.rollback.kind === 'restore-user-setting' && preAction.settingId === 'processor-scheduling') {
+    // Not an on/off setting: the exact number another tool had set is what comes back.
+    const previous = preAction.existed === true && typeof preAction.value === 'number' ? String(preAction.value) : 'no value';
+    return ['Setting: Processor scheduling', `Will be set back to: ${previous}`];
   }
 
   if (entry.rollback.kind === 'restore-user-setting') {

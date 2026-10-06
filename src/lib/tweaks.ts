@@ -36,7 +36,7 @@ export interface TweakDefinition {
   destination: TweakDestination | null;
   actionLabel: string;
   /** A per-user Windows setting Dialed turns on or off directly on the card. */
-  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling';
+  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling' | 'multimedia-scheduler';
   /** Which state Dialed suggests, when there is one. */
   suggested?: 'on' | 'off';
   /** Machine-wide settings need administrator rights; some need a restart to take effect. */
@@ -158,6 +158,15 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'It already reads Programs, or you set something else on purpose for a server-style workload.',
     undo: 'Undo puts back the exact previous value.',
     measureFirst: false, destination: null, actionLabel: 'Return to Windows default', userSettingId: 'processor-scheduling', oneWay: true, requiresAdmin: true,
+  },
+  {
+    id: 'multimedia-scheduler', group: 'Windows & privacy', title: 'Multimedia scheduler settings', capabilityIds: ['system:multimedia-scheduler'], perItem: false,
+    summary: 'Six values gaming tweak lists change, such as SystemResponsiveness and the Games task priority.',
+    whatChanges: 'Returns only the values another tool changed to the Windows defaults (20, 10, 8, 2, Medium and Normal). Values already at the default are left alone. Fully applies after a restart.',
+    whenItHelps: 'When a script changed them and you want Windows behaviour back. These values only reach programs that ask the multimedia scheduler for priority, mostly audio and video playback; most games never do, so tweak-list values have no measured gaming benefit.',
+    leaveItIf: 'You set them on purpose, for example following a pro-audio guide for SystemResponsiveness.',
+    undo: 'Undo puts back the exact previous values of the ones Dialed changed.',
+    measureFirst: false, destination: null, actionLabel: 'Return to Windows defaults', userSettingId: 'multimedia-scheduler', oneWay: true, requiresAdmin: true, requiresRestart: true,
   },
   {
     id: 'usb-selective-suspend', group: 'Input', title: 'USB selective suspend', capabilityIds: ['power:usb-selective-suspend'], perItem: false,

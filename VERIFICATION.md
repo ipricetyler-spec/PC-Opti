@@ -834,3 +834,26 @@ Found and fixed: a one-way card that was also changed outside Dialed showed two 
 Windows default" buttons; the card's own button now steps aside, as the on/off toggle already did.
 Tests: values, wording, the main-process guard, apply + verify + exact undo with fakes; UI check shows
 the value in words and one button. npm test 858/858, lint, UI fixtures pass.
+## 2026-10-06 — Multimedia scheduler settings check
+
+New card in All tweaks › Windows & privacy (capability system:multimedia-scheduler, administrator, S2).
+Reads six fixed values: SystemResponsiveness (default 20) and NetworkThrottlingIndex (10) under
+...\Multimedia\SystemProfile; GPU Priority (8), Priority (2), Scheduling Category (Medium) and SFIO
+Priority (Normal) under its Tasks\Games key. A missing value counts as the default. The card says how
+many differ; the only action, "Return to Windows default", writes the default to just the changed
+values, verifies all six, and Undo restores the exact previous values (refused if any changed again;
+recovery handles an interrupted change). Text values must be short plain words and numbers plain
+DWORDs before anything is written or restored. No benefit is claimed; the card says most games never
+ask the scheduler for priority.
+Read on the owner's PC (read-only): 5 of 6 changed — SystemResponsiveness 10, NetworkThrottlingIndex
+4294967295, Priority 6, Scheduling Category High, SFIO Priority High (GPU Priority 8 is the default).
+Two read bugs found and fixed against that real data before anything shipped: PowerShell's 0xffffffff
+literal is -1, so 4294967295 read as nothing; and writing it back needs a bit-preserving conversion.
+No write was run on the owner's PC.
+Also: processor scheduling and the scheduler are named in exported history (action families), the
+journal title for processor scheduling reads "return to Windows default", and undo confirmations show
+the exact previous values for both (processor scheduling showed "on" for value 40).
+Tests: module values, refusals, apply only the changed values + verify + exact undo, undo refused on
+drift, no write without administrator or when already default; disclosure wording; UI card shows the
+count and one button. npm test 864/864, test:ts 143/143, lint, UI fixtures pass.
+Not verified: a real write and undo on Windows (needs an approved machine or the owner's go-ahead).

@@ -47,7 +47,6 @@ test('all filtered result counts announce updates politely and atomically', () =
     'DriftMonitor.tsx',
     'GameSettingsCenter.tsx',
     'LocalAuditHistory.tsx',
-    'MaintenanceQueue.tsx',
     'ProcessBalancer.tsx',
     'RecommendationsPanel.tsx',
     'SafePolicies.tsx',

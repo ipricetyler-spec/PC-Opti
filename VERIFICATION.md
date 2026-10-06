@@ -814,3 +814,9 @@ Measure › Test a change as a folded "Test a display or graphics-card setting" 
 nothing until opened (it was a second testing workflow). Games tabs: Profiles, Guides, Backups.
 Checks that opened Display setup from Games now open it from Measure. npm test 857/857, lint, UI
 fixtures pass.
+## 2026-10-06 — cleanup, stage 5: Upkeep
+
+Upkeep (was Maintenance): shader caches first (the one task worth doing on purpose, after a driver
+update), then temporary files, crash dumps and TRIM. The search, reversibility filter and sort are
+gone: every task is irreversible and there are at most a handful. The All tweaks group is renamed
+Upkeep too. npm test 857/857, test:ts 142/142, lint, UI fixtures pass.

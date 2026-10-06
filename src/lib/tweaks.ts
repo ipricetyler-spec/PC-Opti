@@ -9,9 +9,9 @@
  */
 import type { AuditJournalEntry } from '../types';
 
-export type TweakGroup = 'Power' | 'Startup & background' | 'Windows & privacy' | 'Input' | 'Graphics' | 'Experiments' | 'Maintenance';
+export type TweakGroup = 'Power' | 'Startup & background' | 'Windows & privacy' | 'Input' | 'Graphics' | 'Experiments' | 'Upkeep';
 
-export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Windows & privacy', 'Input', 'Graphics', 'Experiments', 'Maintenance'];
+export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Windows & privacy', 'Input', 'Graphics', 'Experiments', 'Upkeep'];
 
 export type TweakDestination =
   | { tab: 'startup'; view: 'startup' | 'background' | 'windows' | 'timing' | 'maintenance' | 'bios' }
@@ -241,7 +241,7 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: true, destination: { tab: 'startup', view: 'timing' }, actionLabel: 'Review experiment',
   },
   {
-    id: 'temp-files', group: 'Maintenance', title: 'Temporary files', capabilityIds: ['maintenance:clear-temp-files'], perItem: false,
+    id: 'temp-files', group: 'Upkeep', title: 'Temporary files', capabilityIds: ['maintenance:clear-temp-files'], perItem: false,
     summary: 'Delete old files from your temporary folder.',
     whatChanges: 'Deletes files in your user temporary folder that are not in use.',
     whenItHelps: 'Frees disk space. It does not make games faster.',
@@ -250,7 +250,7 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: false, destination: { tab: 'startup', view: 'maintenance' }, actionLabel: 'Review cleanup',
   },
   {
-    id: 'shader-caches', group: 'Maintenance', title: 'Graphics shader caches', capabilityIds: ['maintenance:clear-shader-caches'], perItem: false,
+    id: 'shader-caches', group: 'Upkeep', title: 'Graphics shader caches', capabilityIds: ['maintenance:clear-shader-caches'], perItem: false,
     summary: 'Clear the saved shader caches of DirectX and your graphics driver.',
     whatChanges: 'Deletes cached compiled shaders. Games and the driver rebuild them as needed.',
     whenItHelps: 'After a driver update, or when a game stutters or shows glitches that a cache rebuild can fix.',
@@ -259,7 +259,7 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: false, destination: { tab: 'startup', view: 'maintenance' }, actionLabel: 'Review caches',
   },
   {
-    id: 'retrim', group: 'Maintenance', title: 'SSD ReTRIM', capabilityIds: ['maintenance:retrim-drive'], perItem: false,
+    id: 'retrim', group: 'Upkeep', title: 'SSD ReTRIM', capabilityIds: ['maintenance:retrim-drive'], perItem: false,
     summary: 'Ask Windows to tell an SSD which blocks are free.',
     whatChanges: 'Runs the same ReTRIM Windows runs on a schedule, for one SSD. Needs administrator rights.',
     whenItHelps: 'When scheduled optimization has been turned off or has not run for a while.',

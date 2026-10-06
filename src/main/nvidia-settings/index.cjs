@@ -89,7 +89,7 @@ function notesFor(values) {
   const gsyncOn = values.gsync === 1 || values.gsync === 2;
   if (gsyncOn && values.vsync === 0x08416747) notes.push('G-SYNC is on but vertical sync is forced off. When the frame rate reaches the refresh rate, G-SYNC stops working and tearing can return. Blur Busters testing recommends vertical sync On in NVIDIA Control Panel with G-SYNC.');
   if (gsyncOn && (values['frame-cap'] === null || values['frame-cap'] === 0)) notes.push('G-SYNC is on with no frame-rate cap here. A cap a few FPS below your refresh rate (in the game, or Max frame rate here) keeps G-SYNC active; many competitive games with NVIDIA Reflex cap automatically.');
-  if (values.gsync === 0) notes.push('G-SYNC is off in the driver. If your monitor supports G-SYNC or G-SYNC Compatible, you can turn it on in NVIDIA Control Panel › Set up G-SYNC. Dialed does not read what your monitor supports.');
+  if (values.gsync === 0) notes.push('G-SYNC is off in the driver. Off is a common choice for competitive play at frame rates well above the refresh rate: lowest delay, with some tearing. On a G-SYNC monitor, turning it on in NVIDIA Control Panel › Set up G-SYNC trades a little delay for no tearing. Dialed does not read what your monitor supports.');
   if (values['shader-cache'] === 0) notes.push('The shader cache is off, so games compile shaders again each time, which can cause stutter.');
   return notes;
 }

@@ -316,3 +316,10 @@ notice; none blocks the change or touches a security setting.
 - **2026-10-06: settings other tools change, Dialed only puts back.** Processor scheduling and the multimedia
   scheduler values are read, flagged when they differ from Windows' defaults, and only ever returned to those
   defaults, with exact undo. Dialed does not offer tweak-list values for them: none has a measured gaming benefit.
+
+## NVIDIA settings stay read-only (2026-10-06)
+
+Dialed reads NVIDIA's global driver settings but does not write them. The only write judged worth
+building was a G-SYNC + vertical sync + frame cap set; the owner has a G-SYNC monitor and chooses not
+to use G-SYNC, and the other settings make small, game-dependent differences. Revisit only if users
+ask for the G-SYNC set.

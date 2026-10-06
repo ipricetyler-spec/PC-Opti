@@ -37,6 +37,13 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   getBundledInputStatus: () => ipcRenderer.invoke('pc-opti:get-bundled-input-status'),
   openBundledInputSetup: (deviceId) => ipcRenderer.invoke('pc-opti:open-bundled-input-setup', deviceId),
   readInputSetupRecord: () => ipcRenderer.invoke('pc-opti:read-input-setup-record'),
+  setRecordingHotkey: (accelerator) => ipcRenderer.invoke('pc-opti:set-recording-hotkey', accelerator),
+  onRecordingHotkey: (listener) => {
+    if (typeof listener !== 'function') throw new TypeError('Recording hotkey listener required.');
+    const handler = () => listener();
+    ipcRenderer.on('pc-opti:recording-hotkey', handler);
+    return () => ipcRenderer.removeListener('pc-opti:recording-hotkey', handler);
+  },
   onBundledInputSetupClosed: (listener) => {
     if (typeof listener !== 'function') throw new TypeError('Setup completion listener required.');
     const handler = () => listener();

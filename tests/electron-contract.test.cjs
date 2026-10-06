@@ -47,7 +47,7 @@ function harness(displays = []) {
 test('every actual preload invoke targets a registered main handler', async()=>{
   const h=harness();
   for(const [name,invoke] of Object.entries(h.bridge)) {
-    if(name==='onBundledInputSetupClosed') { invoke(()=>{})(); continue; }
+    if(name==='onBundledInputSetupClosed' || name==='onRecordingHotkey') { invoke(()=>{})(); continue; }
     await invoke();
   }
   for(const call of h.calls)assert.ok(h.handlers.has(call.channel),`Unregistered IPC: ${call.channel}`);

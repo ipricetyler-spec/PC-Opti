@@ -857,3 +857,25 @@ Tests: module values, refusals, apply only the changed values + verify + exact u
 drift, no write without administrator or when already default; disclosure wording; UI card shows the
 count and one button. npm test 864/864, test:ts 143/143, lint, UI fixtures pass.
 Not verified: a real write and undo on Windows (needs an approved machine or the owner's go-ahead).
+## 2026-10-06 — verdict list, recovery steps, network adapter power saving, recording hotkey
+
+- Measure › Test a change lists finished tests with the saved result ("It helped", "Got worse", "No
+  clear difference"…), the decision and the date; a test without a saved comparison says so.
+- Restore › History: "If Windows won't start" — WinRE steps (open it, System Restore to a "Dialed…"
+  point, Safe Mode then undo, the exact bcdedit commands for Dialed's two boot settings using
+  {default}, BitLocker key, Uninstall Updates) and "Save these steps" as a text file, because Dialed
+  cannot open if Windows does not start.
+- All tweaks › Power: "Network adapter power saving" (network:adapter-power-saving, admin). Wired
+  adapters only; *EEE, AdvancedEEE, EnableGreenEthernet, PowerSavingMode, GigaLite, on/off only;
+  turns off those that are on (the adapter restarts; the card says the connection drops briefly);
+  adapter matched by GUID; Undo turns the same ones back on, refused after drift. Owner's Realtek
+  2.5GbE read live (read-only): all already off, so the card reads "Off on Ethernet". No write run.
+- Recording hotkey: off by default; choose Ctrl+Shift+F9/F10 or Ctrl+Alt+F9/F10 in the recorder.
+  Held through Windows' RegisterHotKey only while the recorder is on screen (released when it closes
+  and on quit). Starts only a recording already confirmed in Dialed for the same game, length and
+  readings (skipping the start delay), stops one in progress (an early stop does not count), and
+  otherwise refuses; rising/falling/low tones say which. If another program holds the key, the
+  recorder says so.
+Checks: npm test 869/869, test:ts 145/145, lint, UI fixtures (hotkey refusal, confirmed start without
+the delay, release; recovery steps download; adapter card). Not verified on the owner's PC: the
+hotkey from inside a real game, and a real adapter change (both need a package).

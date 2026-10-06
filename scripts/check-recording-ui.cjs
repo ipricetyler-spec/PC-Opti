@@ -16,7 +16,7 @@ async function main() {
     await context.addInitScript(({ capabilities }) => {
       const rows = async () => ({ items: [], errors: [] });
       const unavailable = async () => { throw new Error('Unavailable in closed browser fixture.'); };
-      window.__recording = { previews: 0, starts: 0 };
+      window.__recording = { previews: 0, starts: 0, hotkeys: [] };
       const target = { targetId: 'fixture-target', pid: 4242, name: 'VALORANT-Win64-Shipping.exe', windowTitle: 'VALORANT', startedAt: new Date().toISOString(), sessionId: 1 };
       window.pcOptiNative = {
         getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
@@ -29,6 +29,8 @@ async function main() {
         getPresentMonCaptureState: async () => ({ active: null, entries: [], maximumEntries: 100 }),
         previewPresentMonCapture: async (targetId, durationSeconds, hardwareReadings) => { window.__recording.previews++; return { token: `t${window.__recording.previews}`, target, durationSeconds, hardwareReadings, toolVersion: '2.3.0', consequence: 'Fixture recording.', expiresAt: new Date(Date.now() + 60000).toISOString() }; },
         startPresentMonCapture: async () => { window.__recording.starts++; },
+        setRecordingHotkey: async (accelerator) => { window.__recording.hotkeys.push(accelerator); return { registered: true }; },
+        onRecordingHotkey: (listener) => { window.__fireHotkey = listener; return () => { window.__fireHotkey = null; }; },
       };
     }, { capabilities: listCapabilities('public') });
     const page = await context.newPage();
@@ -45,6 +47,12 @@ async function main() {
     await page.getByRole('button', { name: 'Start test' }).click();
     const startButton = page.getByRole('button', { name: 'Start recording' });
     await startButton.waitFor();
+    // The hotkey, turned on before anything was confirmed, refuses: a confirmation cannot be shown over a game.
+    await page.getByLabel('Recording hotkey').selectOption('Control+Shift+F9');
+    await page.waitForFunction(() => window.__recording.hotkeys.includes('Control+Shift+F9') && typeof window.__fireHotkey === 'function');
+    await page.evaluate(() => window.__fireHotkey());
+    await page.getByText(/The hotkey did nothing: start this recording once/).waitFor();
+    assert.equal(await page.evaluate(() => window.__recording.previews), 0);
     // First recording asks once.
     await startButton.click();
     await page.getByRole('dialog').waitFor();
@@ -79,6 +87,14 @@ async function main() {
     await page.getByLabel('Start').selectOption('0');
     await startButton.click();
     await page.waitForFunction(() => window.__recording.starts === 4);
+    // Confirmed once, the hotkey starts the same recording from the game at once, without the delay.
+    await page.getByLabel('Start').selectOption('5');
+    await page.evaluate(() => window.__fireHotkey());
+    await page.waitForFunction(() => window.__recording.starts === 5, null, { timeout: 3000 });
+    assert.equal(await page.getByText(/Recording starts in \d s/).count(), 0, 'The hotkey waited for the start delay.');
+    // Turned off, the key is handed back.
+    await page.getByLabel('Recording hotkey').selectOption('');
+    await page.waitForFunction(() => window.__recording.hotkeys.at(-1) === null && window.__fireHotkey === null);
     // Stopping the test during a countdown records nothing (Codex review R4).
     await page.getByLabel('Start').selectOption('5');
     await startButton.click();
@@ -86,9 +102,9 @@ async function main() {
     await page.getByRole('button', { name: 'Stop this test' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Stop test' }).click();
     await page.waitForTimeout(6500);
-    assert.equal(await page.evaluate(() => window.__recording.starts), 4, 'A countdown outlived its test and started a recording.');
+    assert.equal(await page.evaluate(() => window.__recording.starts), 5, 'A countdown outlived its test and started a recording.');
     assert.deepEqual(errors, []);
-    console.log('Recording checks passed: one confirmation per recording, delay with cancel.');
+    console.log('Recording checks passed: one confirmation per recording, delay with cancel, hotkey refuses unconfirmed and starts confirmed.');
   } finally { await browser.close(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, screen, session } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain, shell, screen, session } = require('electron');
 const crypto = require('crypto');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -1247,6 +1247,23 @@ ipcMain.handle('pc-opti:set-fullscreen-optimizations', async (_event, targetId, 
   if (!exePath) throw new Error('Choose the game again before changing this setting.');
   return serializeMutation(() => setFullscreenOptimizations(app.getPath('userData'), exePath, disableOptimizations));
 });
+
+// The recording hotkey. Windows hands the key to Dialed while a game is in front (RegisterHotKey;
+// nothing is injected into the game). Only these combinations, which games rarely bind, and only
+// while the recorder asks for it: it releases the key when it closes, and quitting releases all.
+const RECORDING_HOTKEYS = Object.freeze(['Control+Shift+F9', 'Control+Shift+F10', 'Control+Alt+F9', 'Control+Alt+F10']);
+let recordingHotkey = null;
+ipcMain.handle('pc-opti:set-recording-hotkey', async (_event, accelerator) => {
+  if (accelerator !== null && !RECORDING_HOTKEYS.includes(accelerator)) throw new Error('That key combination is not one Dialed offers.');
+  if (recordingHotkey) { globalShortcut.unregister(recordingHotkey); recordingHotkey = null; }
+  if (accelerator === null) return { registered: false };
+  const registered = globalShortcut.register(accelerator, () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('pc-opti:recording-hotkey');
+  });
+  if (registered) recordingHotkey = accelerator;
+  return { registered };
+});
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 ipcMain.handle('pc-opti:read-display-modes', async () => {
   assertCapabilityAvailable('diagnostic:display-modes');

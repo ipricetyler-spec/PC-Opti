@@ -40,7 +40,8 @@ Scope: documented OS-level intents in this repository only (no proprietary third
 ## Non-goals / exclusions (deliberate clean-room boundaries)
 
 - No direct import of third-party settings, presets, internals, registry names, or mutation command bodies.
-- No one-click optimization mode, hidden mutation scheduler, or opaque auto-chaining.
+- No hidden mutation scheduler or opaque auto-chaining. A reviewed set of named changes applied
+  together from one confirmation is allowed; each change stays individually recorded and undoable.
 - No OS-level driver/package installation, BIOS firmware writes, or network quality mutation.
 - No VM. No owner-host mutation during automated development.
 - No synthetic “boost” claims from partial evidence or unsupported conditions.

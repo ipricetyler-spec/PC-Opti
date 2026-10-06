@@ -39,7 +39,7 @@ The source is tracked directly in this repository so changes can be reviewed, te
 - Grounded local diagnostics only. External-AI audits are parked and are not part of the shipped runtime.
 - A fail-closed updater with a pinned HTTPS feed, signed metadata, no redirects, exact byte/hash verification, pinned Authenticode publisher checks, no downgrade, and an explicit installer launch. Release trust is intentionally unconfigured until the final signing identity and channel are approved.
 
-Dialed intentionally does not provide registry cleaners, generic driver updaters, RAM flushers, process termination, forced service disabling, or destructive debloat scripts. It never applies a global NVIDIA driver profile, GPU clock offsets or power-limit raises, an "estimated FPS gain" figure, or TCP/DNS changes sold as latency fixes.
+Dialed intentionally does not provide registry cleaners, generic driver updaters, RAM flushers, process termination, forced service disabling, or destructive debloat scripts. It never applies a whole NVIDIA profile of hidden driver settings, GPU clock offsets or power-limit raises, an "estimated FPS gain" figure, or TCP/DNS changes sold as latency fixes.
 
 The current source is version `2.8.0`, tracked entirely in this repository.
 

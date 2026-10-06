@@ -18,6 +18,18 @@ Product decisions that shape Dialed. The detailed working log is kept privately 
 
 See [docs/DECISION_LOG.md](docs/DECISION_LOG.md) and [docs/SAFETY_MODEL.md](docs/SAFETY_MODEL.md).
 
+## Grouped changes allowed; "one change at a time" retired (2026-10-06)
+
+The owner judged "one change at a time" a rule with no protective value of its own. The explanation
+before a change, the recorded previous value, the verify and the drift-refusing undo are what
+protect the reader, and all stay. Dialed may now apply several changes from one review that names
+each of them. Each change keeps its own journal entry and undo; undoing a whole run already works.
+This reopens: an "Apply recommended" set, presets as reviewed sets, a game guide applied to the
+game's config file with a backup, a small NVIDIA set (G-SYNC, V-Sync, frame cap) with exact undo,
+and removal of named preinstalled apps that Dialed says it cannot undo but the Store can reinstall.
+Still declined, on evidence rather than this rule: whole hidden-setting NVIDIA profiles without
+undo, blind debloat scripts, registry cleaners, broad service disabling.
+
 ## Per-game power throttling exemption — declined (2026-09-26)
 
 Dialed will not add a tweak that exempts a game from Windows Power Throttling

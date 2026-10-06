@@ -59,7 +59,8 @@ The main process owns JSON/CSV file selection, parsing, preview tokens, bounded 
 - RAM cleaners, memory flushers, pagefile changes, or fabricated performance scores.
 - Driver downloading or installation.
 - Core service disabling, Windows Update/Defender interference, or removal of system packages.
-- Silent configuration changes and irreversible one-click “debloat” routines.
+- Silent configuration changes, and blind debloat scripts that remove things without naming each
+  one. A reviewed set of named changes applied together is allowed (see AGENTS.md promise 1).
 
 ## Parked AI and bounded external paths
 

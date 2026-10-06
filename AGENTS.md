@@ -84,8 +84,9 @@ modify, uninstall, decompile or copy it.
 
 Every feature must keep these, or it does not ship:
 
-1. Nothing changes without the reader's say-so, one change at a time, explained in plain words
-   before it runs.
+1. Nothing changes without the reader's say-so, and every change is explained in plain words
+   before it runs. Several changes may be applied together from one review that lists each of
+   them; each is still recorded and undoable on its own.
 2. Every change records its previous value first, verifies the new value afterwards, and refuses
    to undo if something else changed it since. Changes that cannot be undone say exactly that.
 3. Dialed never overstates what it knows. Measured, read and inferred are different things and

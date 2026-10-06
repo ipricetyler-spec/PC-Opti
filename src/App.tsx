@@ -770,6 +770,7 @@ export default function App() {
       'no-auto-restart': onOff(userSettings['no-auto-restart']),
       'processor-scheduling': userSettings['processor-scheduling']?.detail ?? onOff(userSettings['processor-scheduling']),
       'multimedia-scheduler': userSettings['multimedia-scheduler']?.detail ?? null,
+      'network-power': userSettings['network-power']?.detail ?? (userSettings['network-power']?.unsupported ? 'No wired adapter with these settings' : null),
       'dynamic-tick': timing('timing:disable-dynamic-tick'),
       'clock-source': timing('timing:restore-automatic-clock-source'),
       'temp-files': maintenance('clear-temp-files'),

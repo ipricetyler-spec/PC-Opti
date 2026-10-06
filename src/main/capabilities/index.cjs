@@ -65,6 +65,10 @@ const EXECUTION_AUTHORITY_BY_CAPABILITY = Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
   }),
+  'network:adapter-power-saving': Object.freeze({
+    mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
+    enforcement: 'src/main/journal/index.cjs setNetworkPowerSavingOff and the restore-network-power rollback require a fresh current-process Administrator check before apply and rollback.',
+  }),
   'system:multimedia-scheduler': Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setMultimediaSchedulerDefaults and the restore-multimedia-scheduler rollback require a fresh current-process Administrator check before apply and rollback.',
@@ -1125,6 +1129,37 @@ const CAPABILITIES = Object.freeze([
     publicAvailability: 'ENABLED',
   },
   {
+    id: 'network:adapter-power-saving',
+    actionPattern: 'network:adapter-power-saving',
+    title: 'Network adapter power saving',
+    category: 'Network',
+    description: 'Shows whether power-saving features such as Energy-Efficient Ethernet are on for wired network adapters, and turns the ones that are on off.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['Dialed running as administrator', 'A wired adapter whose driver exposes these settings as on/off', 'At least one of them is on', 'Explicit confirmation'],
+    detectionMethod: 'Get-NetAdapterAdvancedProperty on physical 802.3 adapters for *EEE, AdvancedEEE, EnableGreenEthernet, PowerSavingMode and GigaLite',
+    currentStateMethod: 'All five properties re-read immediately before and after the change',
+    recommendedStateMethod: 'Off on a desktop gaming PC; laptops on battery may prefer them on',
+    expectedBenefit: 'Can remove small, uneven delays when the link wakes between packets. No latency figure is promised; measure with the network test.',
+    evidenceLevel: 'Observed driver property readback',
+    confidence: 'High for configured state; the effect depends on the adapter, driver and switch',
+    riskLevel: 'Low',
+    safetyClass: 'S2',
+    privilegeRequirement: 'Administrator',
+    persistence: 'Until changed in the adapter properties or by a driver reinstall',
+    rebootRequirement: 'No restart; the adapter restarts and the connection drops for a few seconds',
+    mutationScope: 'Only the listed power-saving properties that are on, on wired adapters, identified by their interface GUID',
+    rollbackMethod: 'Turn the same properties back on',
+    rollbackLimitations: 'Refused if any of them changed after Dialed set them or the adapter is gone. Requires administrator rights; the connection drops briefly again.',
+    verificationMethod: 'Re-read the properties after apply and restore',
+    measurableSuccessCriteria: 'Each changed property reads off after the change and on after restore',
+    knownConflicts: ['Adapter Properties > Advanced in Device Manager', 'Vendor network utilities', 'Driver updates, which can reset them'],
+    gamingConsiderations: 'Wired connections only. Wi-Fi power saving is a different setting and is not changed.',
+    securityImplications: 'Property names and the only values written come from a fixed main-process table; the adapter is matched by GUID read fresh from Windows.',
+    unavailableReason: 'Not running as administrator, no wired adapter with these settings, already off, or driver error',
+    profiles: ['public', 'owner'],
+    publicAvailability: 'ENABLED',
+  },
+  {
     id: 'system:multimedia-scheduler',
     actionPattern: 'settings:machine:multimedia-scheduler',
     title: 'Multimedia scheduler settings',
@@ -1983,6 +2018,7 @@ function capabilityForAction(actionId) {
   if (id === 'settings:machine:gpu-scheduling') return capabilityById('graphics:hardware-gpu-scheduling');
   if (id === 'settings:machine:processor-scheduling') return capabilityById('system:processor-scheduling');
   if (id === 'settings:machine:multimedia-scheduler') return capabilityById('system:multimedia-scheduler');
+  if (id === 'network:adapter-power-saving') return capabilityById('network:adapter-power-saving');
   if (id === 'settings:machine:mpo') return capabilityById('graphics:multiplane-overlay');
   if (id === 'settings:machine:global-timer-resolution') return capabilityById('timing:global-timer-resolution');
   if (/^retrim-drive:[A-Z]$/.test(id)) return capabilityById('maintenance:retrim-drive');

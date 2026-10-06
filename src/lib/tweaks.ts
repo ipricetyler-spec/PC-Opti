@@ -36,7 +36,7 @@ export interface TweakDefinition {
   destination: TweakDestination | null;
   actionLabel: string;
   /** A per-user Windows setting Dialed turns on or off directly on the card. */
-  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling' | 'multimedia-scheduler';
+  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling' | 'multimedia-scheduler' | 'network-power';
   /** Which state Dialed suggests, when there is one. */
   suggested?: 'on' | 'off';
   /** Machine-wide settings need administrator rights; some need a restart to take effect. */
@@ -77,6 +77,15 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'You are on a laptop, or you care about idle power use and heat. There is little to gain on a modern desktop.',
     undo: 'Undo removes the plan Dialed added. Switch to another plan first if it is active.',
     measureFirst: false, destination: null, actionLabel: 'Add plan', userSettingId: 'ultimate-plan', oneWay: true,
+  },
+  {
+    id: 'network-power', group: 'Power', title: 'Network adapter power saving', capabilityIds: ['network:adapter-power-saving'], perItem: false,
+    summary: 'Whether your wired network adapter naps between packets to save power (Energy-Efficient Ethernet and similar).',
+    whatChanges: 'Turns off the power-saving settings that are on for wired adapters: Energy-Efficient Ethernet, Advanced EEE, Green Ethernet, Power Saving Mode and Gigabit Lite, as your driver offers them. The adapter restarts, so the connection drops for a few seconds.',
+    whenItHelps: 'On a wired desktop, waking the link can add small, uneven delays. Many adapters and switches show no difference; measure with the network test.',
+    leaveItIf: 'You are on Wi-Fi (this is wired only), or on a laptop where battery life matters more.',
+    undo: 'Undo turns the same settings back on. The connection drops briefly again.',
+    measureFirst: false, destination: null, actionLabel: 'Turn power saving off', userSettingId: 'network-power', oneWay: true, requiresAdmin: true,
   },
   {
     id: 'startup-apps', group: 'Startup & background', title: 'Startup apps', capabilityIds: ['startup:disable-current-user-run', 'startup:disable-machine-run'], perItem: true,

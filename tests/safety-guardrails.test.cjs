@@ -465,6 +465,7 @@ test('every privileged capability has an explicit authority contract wired to it
     'graphics:multiplane-overlay',
     'input:polling-rate',
     'input:xhci-tier',
+    'network:adapter-power-saving',
     'policy:block-background-apps',
     'policy:disable-windows-consumer-features',
     'policy:exclude-windows-update-drivers',

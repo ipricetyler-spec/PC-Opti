@@ -23,6 +23,7 @@ const {
 } = require('../user-settings/index.cjs');
 const mouse = require('../mouse-acceleration/index.cjs');
 const multimediaScheduler = require('../multimedia-scheduler/index.cjs');
+const networkPower = require('../network-power/index.cjs');
 const powerTweaks = require('../power-tweaks/index.cjs');
 const windowedGames = require('../windowed-games/index.cjs');
 const fullscreen = require('../fullscreen-optimizations/index.cjs');
@@ -77,7 +78,7 @@ const JOURNAL_DELETION_MODES = Object.freeze({
 const KNOWN_CAPABILITY_IDS = new Set(listCapabilities().map((capability) => capability.id));
 const SAFE_JOURNAL_CATEGORIES = new Set(['Targeted maintenance', 'Startup management', 'Dynamic process balancing', 'Safe OS policy', 'Timing experiment', 'Power plan', 'Graphics preference', 'Windows gaming setting']);
 const SAFE_JOURNAL_STATUSES = new Set(['PENDING', 'SUCCESS', 'FAILED', 'NEEDS_REVIEW']);
-const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend', 'restore-multimedia-scheduler']);
+const SAFE_ROLLBACK_KINDS = new Set(['restore-registry-run-value', 'disable-process-ecoqos', 'restore-consumer-features-policy', 'restore-boot-timing-setting', 'restore-power-plan', 'restore-gpu-preference', 'restore-user-setting', 'restore-mouse-acceleration', 'remove-power-plan', 'restore-cpu-minimum-state', 'restore-windowed-games', 'restore-fullscreen-optimizations', 'restore-usb-selective-suspend', 'restore-multimedia-scheduler', 'restore-network-power']);
 const SAFE_RECONCILIATION_CLASSES = new Set(['INTENDED_STATE', 'PRE_ACTION_STATE', 'DIVERGED', 'TARGET_CHANGED', 'UNKNOWN', 'UNAVAILABLE']);
 
 // When Dialed runs as administrator the change log lives in an admin-only folder (see
@@ -552,6 +553,8 @@ function normalizedActionFamily(actionId) {
   if (id === 'policy:disable-windows-consumer-features') return id;
   if (/^settings:(user|machine):(game-mode|background-recording|gpu-scheduling|mpo|global-timer-resolution|mouse-acceleration|block-background-apps|exclude-driver-updates|no-auto-restart|consumer-features|processor-scheduling)$/.test(id)) return id;
   if (id === 'settings:machine:multimedia-scheduler') return id;
+  if (id === 'network:adapter-power-saving') return id;
+  if (id.startsWith('network:restore-adapter-power-saving:')) return 'network:restore-adapter-power-saving';
   if (id.startsWith('settings:restore-multimedia-scheduler:')) return 'settings:restore-multimedia-scheduler';
   if (id.startsWith('settings:restore-user:')) return 'settings:restore-user';
   if (id === 'power:add-ultimate-plan') return id;
@@ -1724,6 +1727,20 @@ async function reconcilePendingEntries(userDataPath, adapters = {}) {
         continue;
       }
 
+      if (entry.actionId === 'network:adapter-power-saving') {
+        const actual = await (adapters.readNetworkPower || networkPower.readNetworkPower)();
+        const changes = Array.isArray(entry.preAction?.changes) ? entry.preAction.changes : [];
+        const values = networkPower.currentValues(actual.adapters, changes);
+        if (changes.length && values.every((value) => value === '0')) {
+          setReconciliation(entry, 'SUCCESS', 'INTENDED_STATE', 'The power-saving settings are off after the interruption.', { verified: actual, recoveredAfterInterruption: true }, true);
+        } else if (changes.length && values.every((value) => value === '1')) {
+          setReconciliation(entry, 'FAILED', 'PRE_ACTION_STATE', 'The power-saving settings are still on; the interrupted change did not take effect.', { verified: actual }, false);
+        } else {
+          setReconciliation(entry, 'NEEDS_REVIEW', 'DIVERGED', 'The network adapter settings differ from both the captured and intended values. Dialed will not overwrite them.', { verified: actual }, false);
+        }
+        continue;
+      }
+
       if (entry.actionId === 'settings:machine:multimedia-scheduler') {
         const actual = await (adapters.readMultimediaScheduler || multimediaScheduler.readMultimediaScheduler)();
         const intended = multimediaScheduler.defaultsFor(entry.preAction?.values);
@@ -2165,6 +2182,29 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     });
   }
 
+  if (original.rollback.kind === 'restore-network-power') {
+    const read = adapters.readNetworkPower || networkPower.readNetworkPower;
+    const write = adapters.writeNetworkPower || networkPower.writeNetworkPower;
+    const changes = recordedNetworkChanges(original.preAction);
+    assertCurrentProcessAdministrator('network:adapter-power-saving', await readElevation(),
+      'Restoring network adapter settings requires Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
+    const current = await read();
+    if (networkPower.currentValues(current.adapters, changes).some((value) => value !== '0')) {
+      throw new Error('The network adapter settings changed after Dialed set them, or the adapter is gone. Restore was refused to avoid overwriting that change.');
+    }
+    return runRestore(userDataPath, original, {
+      actionId: `network:restore-adapter-power-saving:${original.id}`,
+      title: 'Restore network adapter power saving',
+      category: 'Network setting',
+      restore: async () => {
+        const result = await write(changes.map((change) => ({ guid: change.guid, keyword: change.keyword, value: '1' })));
+        const verified = await read();
+        if (networkPower.currentValues(verified.adapters, changes).some((value) => value !== '1')) throw new Error('Windows did not report the power-saving settings as back on after restore.');
+        return { ...result, output: { verified } };
+      },
+    });
+  }
+
   if (original.rollback.kind === 'restore-multimedia-scheduler') {
     const read = adapters.readMultimediaScheduler || multimediaScheduler.readMultimediaScheduler;
     const write = adapters.writeMultimediaScheduler || multimediaScheduler.writeMultimediaScheduler;
@@ -2602,6 +2642,52 @@ async function setMultimediaSchedulerDefaults(userDataPath, adapters = {}) {
   }
 }
 
+// Turns off the power-saving settings that are on, on wired adapters only. The adapter restarts,
+// so the connection drops for a few seconds. Undo turns exactly those back on, refused if any
+// changed again since.
+async function setNetworkPowerSavingOff(userDataPath, adapters = {}) {
+  const read = adapters.readNetworkPower || networkPower.readNetworkPower;
+  const write = adapters.writeNetworkPower || networkPower.writeNetworkPower;
+  const readElevation = adapters.isCurrentProcessElevated || isCurrentProcessElevated;
+  assertCurrentProcessAdministrator('network:adapter-power-saving', await readElevation(),
+    'Network adapter settings are machine-wide and need Dialed running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
+  const before = await read();
+  if (!before.on.length) throw new Error('Power saving is already off on your wired network adapters. Nothing was changed.');
+  const changes = before.on.map((item) => ({ guid: item.guid, keyword: item.keyword, label: item.label, adapter: item.adapter, value: '0' }));
+  const entry = createEntry(
+    'network:adapter-power-saving',
+    `Network adapter power saving: turn off (${[...new Set(changes.map((item) => item.label))].join(', ')})`,
+    { changes: changes.map(({ guid, keyword, label, adapter }) => ({ guid, keyword, label, adapter, previous: '1' })) },
+    { category: 'Network setting', rollback: { available: true, kind: 'restore-network-power', reason: 'Turns the same power-saving settings back on.' } }
+  );
+  appendEntry(userDataPath, entry);
+  try {
+    const result = await write(changes);
+    const verified = await read();
+    if (networkPower.currentValues(verified.adapters, changes).some((value) => value !== '0')) throw new Error('Windows did not report the power-saving settings as off after the change.');
+    entry.status = 'SUCCESS';
+    entry.exitCode = result.exitCode ?? 0;
+    entry.stdout = result.stdout || '';
+    entry.stderr = result.stderr || '';
+    entry.resultingState = { verified, effectiveState: 'APPLIED', performanceOutcome: 'UNVERIFIED' };
+    replaceEntry(userDataPath, entry);
+    return { success: true, entry, result: entry.resultingState };
+  } catch (error) {
+    markUnverifiedMutation(entry, error);
+    replaceEntry(userDataPath, entry);
+    return { success: false, entry, error: entry.stderr };
+  }
+}
+
+function recordedNetworkChanges(preAction) {
+  const changes = preAction?.changes;
+  if (!Array.isArray(changes) || !changes.length || changes.length > 20) throw new Error('The recorded change is not valid. Restore was refused.');
+  for (const change of changes) {
+    if (!/^\{[0-9A-F-]{36}\}$/i.test(String(change?.guid)) || !networkPower.KEYWORDS.some((known) => known.keyword === change.keyword) || change.previous !== '1') throw new Error('The recorded change is not valid. Restore was refused.');
+  }
+  return changes;
+}
+
 async function setMouseAcceleration(userDataPath, enabled, adapters = {}) {
   const readMouse = adapters.readMouseAcceleration || mouse.readMouseAcceleration;
   const writeMouse = adapters.writeMouseValues || mouse.writeMouseValues;
@@ -2876,6 +2962,7 @@ module.exports = {
   setFullscreenOptimizations,
   setMouseAcceleration,
   setMultimediaSchedulerDefaults,
+  setNetworkPowerSavingOff,
   setUsbSelectiveSuspendOff,
   setWindowedGameOptimizations,
   setUserSetting,

@@ -19,7 +19,7 @@ async function main() {
       window.pcOptiNative = { getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
         getAuditHistory: async () => ({ entries: [], recovery: null, protection: { notices: [] } }), listStartupItems: rows, listSafePolicies: rows,
         listTimingExperiments: rows, listManageableProcesses: rows, scanSystem: no, getLocalRecommendations: async () => [], listGameSettingsGuides: async () => [],
-        listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({ 'processor-scheduling': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: 'Set to 40 by another program or tool' }, 'multimedia-scheduler': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: '5 of 6 values changed by another program or tool' } }),
+        listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({ 'processor-scheduling': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: 'Set to 40 by another program or tool' }, 'multimedia-scheduler': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: '5 of 6 values changed by another program or tool' }, 'network-power': { enabled: false, manageable: true, detail: 'On: Energy-Efficient Ethernet' } }),
         listGpuPreferences: async () => { window.__listed = (window.__listed || 0) + 1; return []; },
         listFullscreenOptimizations: async () => { window.__listed = (window.__listed || 0) + 1; return []; } };
     }, { capabilities: listCapabilities('public') });
@@ -46,6 +46,9 @@ async function main() {
     const scheduling = page.locator('#tweak-processor-scheduling');
     await scheduling.getByText('Set to 40 by another program or tool').waitFor();
     assert.deepEqual(await scheduling.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);
+    const network = page.locator('#tweak-network-power');
+    await network.getByText('On: Energy-Efficient Ethernet').waitFor();
+    assert.deepEqual(await network.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Turn power saving off']);
     const mmcss = page.locator('#tweak-multimedia-scheduler');
     await mmcss.getByText('5 of 6 values changed by another program or tool').waitFor();
     assert.deepEqual(await mmcss.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);

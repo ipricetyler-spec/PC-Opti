@@ -80,6 +80,7 @@ async function assertEditionSupports(editions) {
 }
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
 const multimediaScheduler = require('../src/main/multimedia-scheduler/index.cjs');
+const networkPower = require('../src/main/network-power/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
 const { openProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
@@ -100,6 +101,7 @@ const {
   useProtectedJournalDirectory,
   setMouseAcceleration,
   setMultimediaSchedulerDefaults,
+  setNetworkPowerSavingOff,
   setUserSetting,
   applyJournalDeletion,
   createAuditExportPreview,
@@ -1108,6 +1110,17 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
       states['windowed-games'] = { enabled: null, manageable: false };
     }
   }
+  if (isCapabilityAvailable('network:adapter-power-saving', resolveRuntimeProfileForApp())) {
+    try {
+      const state = await networkPower.readNetworkPower();
+      // "On" means Dialed's suggestion is in place: power saving is off on every wired adapter.
+      states['network-power'] = state.adapters.length
+        ? { enabled: state.on.length === 0, manageable: true, detail: networkPower.describeAdapters(state.adapters) }
+        : { enabled: null, manageable: false, unsupported: 'No wired network adapter here has these power-saving settings. Wi-Fi power saving is a different setting.' };
+    } catch {
+      states['network-power'] = { enabled: null, manageable: false };
+    }
+  }
   if (isCapabilityAvailable('system:multimedia-scheduler', resolveRuntimeProfileForApp())) {
     try {
       const state = await multimediaScheduler.readMultimediaScheduler();
@@ -1148,6 +1161,11 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
     if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
     assertCapabilityAvailable('graphics:windowed-game-optimizations');
     return serializeMutation(() => setWindowedGameOptimizations(app.getPath('userData'), enabled));
+  }
+  if (settingId === 'network-power') {
+    if (enabled !== true) throw new Error('Use Undo to turn power saving back on. Nothing was changed.');
+    assertCapabilityAvailable('network:adapter-power-saving');
+    return serializeMutation(() => setNetworkPowerSavingOff(app.getPath('userData')));
   }
   if (settingId === 'multimedia-scheduler') {
     if (enabled !== true) throw new Error('Dialed only returns these settings to the Windows defaults. Use Undo to put back the previous values. Nothing was changed.');

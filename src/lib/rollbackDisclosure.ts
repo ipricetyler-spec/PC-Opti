@@ -63,6 +63,16 @@ export function describeRollbackTarget(entry: AuditJournalEntry): string[] {
     return ['Setting: Mouse acceleration (Enhance pointer precision)', `Will be set back to: ${previous}`];
   }
 
+  if (entry.rollback.kind === 'restore-network-power') {
+    const changes = Array.isArray(preAction.changes) ? preAction.changes.map(asRecord).filter((item): item is Record<string, unknown> => Boolean(item)) : [];
+    const lines = changes.flatMap((item) => {
+      const label = displayValue(typeof item.label === 'string' ? item.label : '');
+      const adapter = displayValue(typeof item.adapter === 'string' ? item.adapter : '');
+      return label ? [`${label}${adapter ? ` on ${adapter}` : ''} will be turned back on`] : [];
+    });
+    return lines.length ? [...lines, 'The connection drops for a few seconds while the adapter restarts.'] : [];
+  }
+
   if (entry.rollback.kind === 'restore-multimedia-scheduler') {
     const values = asRecord(preAction.values);
     const changed = Array.isArray(preAction.changed) ? preAction.changed.filter((id): id is string => typeof id === 'string' && id in SCHEDULER_LABELS) : [];

@@ -770,7 +770,7 @@ export interface AuditJournalEntry {
   exitCode: number | null;
   stdout: string;
   stderr: string;
-  rollback: { available: boolean; reason: string; kind?: 'restore-registry-run-value' | 'disable-process-ecoqos' | 'restore-consumer-features-policy' | 'restore-boot-timing-setting' | 'restore-power-plan' | 'restore-gpu-preference' | 'restore-user-setting' | 'restore-mouse-acceleration' | 'remove-power-plan' | 'restore-cpu-minimum-state' | 'restore-windowed-games' | 'restore-fullscreen-optimizations' | 'restore-usb-selective-suspend' | 'restore-multimedia-scheduler'; completedAt?: string };
+  rollback: { available: boolean; reason: string; kind?: 'restore-registry-run-value' | 'disable-process-ecoqos' | 'restore-consumer-features-policy' | 'restore-boot-timing-setting' | 'restore-power-plan' | 'restore-gpu-preference' | 'restore-user-setting' | 'restore-mouse-acceleration' | 'remove-power-plan' | 'restore-cpu-minimum-state' | 'restore-windowed-games' | 'restore-fullscreen-optimizations' | 'restore-usb-selective-suspend' | 'restore-multimedia-scheduler' | 'restore-network-power'; completedAt?: string };
   reconciliation?: {
     checkedAt: string;
     classification: 'INTENDED_STATE' | 'PRE_ACTION_STATE' | 'DIVERGED' | 'TARGET_CHANGED' | 'UNKNOWN' | 'UNAVAILABLE';

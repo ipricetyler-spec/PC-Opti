@@ -262,6 +262,11 @@ select option {
 :root .bg-cyan-400\/20,
 :root .bg-cyan-500\/15 { background-color: rgb(var(--app-accent-rgb) / 0.16) !important; }
 :root .to-cyan-950\/20 { --tw-gradient-to: rgb(var(--app-accent-rgb) / 0.06) !important; }
+/* Header panels' gradient stops kept Tailwind's navy in every theme (seen in the gold themes). */
+:root .from-slate-900 { --tw-gradient-from: var(--app-surface-visual) !important; }
+:root .via-slate-900 { --tw-gradient-via: var(--app-surface-visual) !important; --tw-gradient-via-stops: var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--app-surface-visual) var(--tw-gradient-via-position), var(--tw-gradient-to) var(--tw-gradient-to-position) !important; }
+:root .to-violet-950\/20,
+:root .to-emerald-950\/20 { --tw-gradient-to: rgb(var(--app-secondary-rgb) / 0.06) !important; }
 :root .ring-cyan-300\/70,
 :root .ring-cyan-400\/20,
 :root .ring-cyan-400\/30,

@@ -73,13 +73,6 @@ test('Local Audit filters use a consistent responsive grid and full-width contro
   assert.match(source, /className="inline-flex items-center justify-center gap-1 self-end/);
 });
 
-test('batch optimization progress is exposed as a named polite live log', () => {
-  const source = read('src/components/OptimizationCatalog.tsx');
-
-  assert.match(source, /role="log" aria-live="polite" aria-labelledby="optimization-run-log-heading"/);
-  assert.match(source, /id="optimization-run-log-heading"[^>]*>Results</);
-});
-
 test('network history chart derives its surfaces, labels, and series from theme tokens', () => {
   const component = read('src/components/NetworkQualityLab.tsx');
   const styles = read('src/index.css');

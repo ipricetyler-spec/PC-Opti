@@ -20,7 +20,7 @@ Run these exactly. They are pinned for a reason: bare `node --test` and bare `bu
 into the build snapshots under `output/` and fail for reasons unrelated to your change.
 
 ```
-npm test         # Node suite, .cjs tests   — expect 859/859
+npm test         # Node suite, .cjs tests   — expect 858/858
 npm run test:ts  # bun, TypeScript tests    — expect 142/142
 npm run lint     # tsc --noEmit
 npm run build    # production renderer build
@@ -93,7 +93,7 @@ Every feature must keep these, or it does not ship:
 
 Plain language everywhere the reader sees it: raw Windows and PowerShell errors are rewritten
 into one sentence saying what happened and what to do, with the original kept behind "Details".
-Preserve the ten workspaces (shown as eight sidebar sections), the two themes (Console and Instrument), existing useful actions and full normal-profile
+Preserve the nine workspaces (shown as seven sidebar sections), the four themes (Console, Instrument and their Gold versions), existing useful actions and full normal-profile
 access. BIOS stays guidance-only. The owner keeps full feature access.
 
 ## Working style

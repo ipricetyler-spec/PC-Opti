@@ -62,7 +62,7 @@ async function main() {
     await openSection(page, 'Tweaks');
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.getByRole('heading', { name: 'Use your RAM kit’s supported EXPO profile' }).waitFor();
-    assert.equal(await sectionButtons(page).count(), 8);
+    assert.equal(await sectionButtons(page).count(), 7);
     assert.equal(await page.getByRole('heading', { name: /Explore PBO/ }).count(), 0);
     await page.getByRole('checkbox', { name: 'Include advanced CPU tuning' }).check();
     await page.getByRole('heading', { name: /Explore PBO/ }).waitFor();
@@ -70,8 +70,8 @@ async function main() {
     await page.getByText('Steps, compatibility and recovery', { exact: true }).first().click();
     await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).fill('Fixture previous value: Auto; test pending.');
     await page.getByLabel('Progress: Use your RAM kit’s supported EXPO profile', { exact: true }).selectOption('Changed — needs testing');
-    await page.getByRole('tab', { name: 'Recommended', exact: true }).click();
-    await page.getByRole('heading', { name: 'Choose a small, reviewable set of changes' }).waitFor();
+    await page.getByRole('tab', { name: 'All tweaks', exact: true }).click();
+    await page.getByRole('heading', { name: 'Tweaks', exact: true }).waitFor();
     await page.getByRole('tab', { name: 'BIOS', exact: true }).click();
     await page.reload();
     await openSection(page, 'Tweaks');

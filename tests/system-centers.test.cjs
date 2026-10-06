@@ -28,7 +28,9 @@ test('Optimize keeps one fix list: the separate Plan tab and composer are remove
   assert.doesNotMatch(source, /\['plan', 'Plan'\]/);
   assert.doesNotMatch(source, /PlanComposer/);
   assert.equal(fs.existsSync(path.join(root, 'src', 'components', 'PlanComposer.tsx')), false);
-  assert.match(source, /optimizeView === 'recommended' && <div className="space-y-6">[^\n]*<OptimizationCatalog/);
+  // The Recommended batch list repeated All tweaks and each tab (owner, 2026-10-06); every change keeps one place.
+  assert.doesNotMatch(source, /OptimizationCatalog|'recommended'/);
+  assert.equal(fs.existsSync(path.join(root, 'src', 'components', 'OptimizationCatalog.tsx')), false);
 });
 
 test('power-plan query preserves the escaped Windows response parser at runtime', () => {
@@ -97,7 +99,6 @@ test('shared Technical details mode is default-off across evidence surfaces with
     'MaintenanceQueue.tsx',
     'NativePresentMonCapture.tsx',
     'NetworkQualityLab.tsx',
-    'OptimizationCatalog.tsx',
     'PerformanceLab.tsx',
     'ProcessBalancer.tsx',
     'ReadinessCenter.tsx',

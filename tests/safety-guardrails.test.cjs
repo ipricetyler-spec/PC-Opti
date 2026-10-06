@@ -567,11 +567,13 @@ test('runtime profile resolution is packaged-main-owned while monetization defer
   assert.deepEqual([...publicIds].sort(), [...premiumIds].sort());
 });
 
-test('navigation shows eight sections over the ten workspaces and keeps detailed tools in scoped subtabs', () => {
+test('navigation shows seven sections over nine workspaces and keeps detailed tools in scoped subtabs', () => {
   const appSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
   const sidebarSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'Sidebar.tsx'), 'utf8');
-  assert.match(appSource, /\['readiness', 'overview', 'startup', 'game-settings', 'gpu', 'network-quality', 'input-devices', 'performance-lab', 'drift', 'workload-profiles'\]/);
-  for (const label of ['Home', 'Tweaks', 'Games', 'GPU', 'Measure', 'Input devices', 'Restore', 'Settings']) assert.match(sidebarSource, new RegExp(`label: '${label}'`));
+  assert.match(appSource, /\['readiness', 'overview', 'startup', 'game-settings', 'network-quality', 'input-devices', 'performance-lab', 'drift', 'workload-profiles'\]/);
+  for (const label of ['Home', 'Tweaks', 'Games', 'Measure', 'Input devices', 'Restore', 'Settings']) assert.match(sidebarSource, new RegExp(`label: '${label}'`));
+  // GPU settings are tweaks like any other (owner, 2026-10-06): no separate section repeating them.
+  assert.doesNotMatch(sidebarSource, /label: 'GPU'/);
   // Scan and the network test stay reachable, inside Home and Measure.
   assert.match(sidebarSource, /includes: \[\{ id: 'overview'/);
   assert.match(sidebarSource, /includes: \[\{ id: 'network-quality'/);
@@ -582,7 +584,7 @@ test('navigation shows eight sections over the ten workspaces and keeps detailed
   assert.match(appSource, /onOpenRecordings=\{\(\) => setMeasureView\('results'\)\}/);
   assert.match(appSource, /measureView === 'results' && <Suspense[^\n]*<BenchmarkEvidence/);
   assert.doesNotMatch(sidebarSource, /Clean-room parity|Plan composer|Game & Network|Performance Lab/);
-  assert.match(appSource, /activeTab === 'startup' && optimizeView === 'timing' && <Suspense[^\n]*<PerformanceLab/);
+  assert.match(appSource, /<details id="boot-timing"[\s\S]{0,600}<PerformanceLab/);
   // The goal picker was removed: it only reordered a short list and read as more than it did.
   assert.doesNotMatch(appSource, /WorkloadProfiles|orderRecommendationsForGoal/);
 });

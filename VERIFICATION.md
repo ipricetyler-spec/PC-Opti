@@ -778,3 +778,24 @@ calculation), and game profiles usually read "None applied". Removed (component,
 Windows since" when Windows or another program reversed a Dialed change (the same test the Tweaks
 cards use; Home now reads Windows settings, read-only, when it opens). Test added for the wording.
 npm test 859/859, test:ts 142/142 (one test removed, one added), lint, UI fixtures pass. Not installed.
+## 2026-10-06 — cleanup, stage 1-2: themes' navy panels; Tweaks in one place; no GPU section
+
+Owner approved the cleanup list (features in too many places, weak features). Walked the installed
+app section by section first (read-only UI Automation, 25 screens).
+- Gold themes: header panels kept navy gradient stops (from-/via-slate-900, to-violet/emerald-950/20
+  were never themed). Mapped to theme tokens.
+- Tweaks: Recommended tab removed (its 40-card batch list repeated All tweaks and every tab; startup
+  entries showed raw ids). OptimizationCatalog and its runner deleted. Boot timing tab removed: its two
+  experiments are a folded "Boot timing experiments" section at the end of All tweaks, opened by their
+  cards' "Review experiment". Maintenance renamed Upkeep. Windows tab loses its "Open boot timing"
+  panel. Tabs: All tweaks, Startup, Background apps, Windows, Upkeep, BIOS.
+- GPU section removed: its three cards are already on All tweaks; "Graphics settings for one
+  program" (fullscreen optimizations per game; graphics processor per program only on PCs with two
+  graphics processors) is a folded section at the end of All tweaks. Seven sidebar sections.
+  AGENTS.md (both copies) updated: nine workspaces, seven sections, four themes.
+- Found and fixed on the way: opening that section suspended the page-level loading boundary, which
+  blanked the page and reset the scroll; it has its own boundary now. Folded sections load nothing
+  until opened (they read Windows state).
+New UI check scripts/check-tweak-tools-ui.cjs: six tabs, sections folded and unread until opened, cards
+open and scroll to them, no GPU section. Updated checks and source tests that pinned the old tabs.
+npm test 858/858 (one test removed with the batch list), test:ts 142/142, lint, UI fixtures pass.

@@ -212,7 +212,7 @@ async function main() {
     await page.getByRole('tab', { name: 'Backups', exact: true }).click();
     await page.getByRole('heading', { name: 'Backups', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Preview restore', exact: true }).count(), 4);
-    assert.equal(await sectionButtons(page).count(), 8);
+    assert.equal(await sectionButtons(page).count(), 7);
     await openSection(page, 'Home');
     await page.getByRole('tab', { name: 'Scan details', exact: true }).click();
     await page.getByRole('heading', { name: 'What Dialed found on this PC' }).waitFor();
@@ -232,7 +232,7 @@ async function main() {
     // Every sidebar section, both disclosure modes, every shipped theme and two widths.
     // These are browser fixture states, not native hardware acceptance.
     const workspaceMatrix = [];
-    const workspaceNames = ['Home','Tweaks','Games','GPU','Measure','Input devices','Restore','Settings'];
+    const workspaceNames = ['Home','Tweaks','Games','Measure','Input devices','Restore','Settings'];
     for (const workspace of workspaceNames) {
       await openSection(page, workspace);
       await page.locator('#main-content').waitFor();

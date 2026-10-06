@@ -77,7 +77,7 @@ test('the notices reach the boot, game-file and power plan confirmations', () =>
   assert.match(main, /planNotice: modernStandbyPlanNotice\(standby\)/);
   const app = fs.readFileSync(path.join(__dirname, '../src/App.tsx'), 'utf8');
   // Every path that writes boot settings reads BitLocker fresh first: a single change, a Restore of a
-  // boot entry, Undo all and Undo this run (the Recommended batch is checked below).
+  // boot entry, Undo all and Undo this run.
   assert.match(app, /const timingBootNotice = await readBootNotice\(\);/);
   assert.match(app, /const bootNotice = isBootEntry\(entry\) \? await readBootNotice\(\) : null;/);
   assert.match(app, /const undoAllBootNotice = restorable\.some\(isBootEntry\) \? await readBootNotice\(\) : null;/);
@@ -85,10 +85,6 @@ test('the notices reach the boot, game-file and power plan confirmations', () =>
   // Each notice is passed as the dialog's separate warning callout, not folded into the small print.
   assert.equal([...app.matchAll(/warning: (timingBootNotice|bootNotice|undoAllBootNotice|runBootNotice) \?\? null/g)].length, 4);
   assert.match(app, /const isBootEntry = \(entry: AuditJournalEntry\) => entry\.actionId\.startsWith\('timing:'\);/);
-  const catalog = fs.readFileSync(path.join(__dirname, '../src/components/OptimizationCatalog.tsx'), 'utf8');
-  assert.match(catalog, /selectedItems\.some\(\(item\) => item\.kind === 'timing'\) \? await readBootNotice\?\.\(\) \?\? null : null/);
-  assert.match(catalog, /warning: bootNotice \?\? null, notice: `/);
-  assert.match(app, /readBootNotice=\{readBootNotice\}/);
   assert.equal([...app.matchAll(/warning: preview\.protectionNotice \?\? null/g)].length, 2);
   assert.match(app, /warning: planNotice \?\? null/);
   const dialog = fs.readFileSync(path.join(__dirname, '../src/components/ActionPreviewDialog.tsx'), 'utf8');

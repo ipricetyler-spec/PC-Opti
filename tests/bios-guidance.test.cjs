@@ -198,7 +198,7 @@ test('all profiles retain BIOS guide; IPC cannot apply or reboot and Optimize ca
   assert.match(read('electron/preload.cjs'), /readBiosPlan: \(\) => ipcRenderer.invoke\('pc-opti:read-bios-plan'\)/);
   assert.match(read('electron/main.cjs'), /assertCapabilityAvailable\('bios:hardware-guidance'\)/);
   const appSource = read('src/App.tsx');
-  assert.match(appSource, /\['recommended', 'Recommended'\].*\['bios', 'BIOS'\]/s);
+  assert.match(appSource, /\['all', 'All tweaks'\].*\['bios', 'BIOS'\]/s);
   assert.match(appSource, /activeTab === 'startup' && optimizeView === 'startup'.*<StartupCenter/s);
   assert.match(appSource, /activeTab === 'startup' && optimizeView === 'bios'.*<BiosGuidanceCenter/s);
   assert.doesNotMatch(read('src/components/BiosGuidanceCenter.tsx'), /executeMaintenance|executeTiming|restartComputer|applyBios/i);

@@ -1,4 +1,3 @@
-import { fixTextsFor, WHY_LISTED } from './lib/fixTexts';
 import type { ExperimentSession } from './lib/experimentSessions';
 import { WorkspaceErrorBoundary } from './components/WorkspaceErrorBoundary';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,7 +10,6 @@ import { useGameSession } from './lib/useGameSession';
 import { BackgroundActivity } from './components/BackgroundActivity';
 import { DriftMonitor } from './components/DriftMonitor';
 import { LocalAuditHistory } from './components/LocalAuditHistory';
-import type { BatchOptimizationItem, BatchRunLogEntry, BatchRunStatus } from './components/OptimizationCatalog';
 import { Sidebar } from './components/Sidebar';
 import type { AppTab } from './components/Sidebar';
 import { ReadinessCenter } from './components/ReadinessCenter';
@@ -111,7 +109,6 @@ const PerformanceLab = lazy(() => import('./components/PerformanceLab').then((mo
 // Each section loads its own components the first time it opens; see src/workspaces.
 const DashboardOverview = lazy(() => loadScanDetails().then((module) => ({ default: module.DashboardOverview })));
 const SystemInsightCenters = lazy(() => loadScanDetails().then((module) => ({ default: module.SystemInsightCenters })));
-const OptimizationCatalog = lazy(() => loadTweaks().then((module) => ({ default: module.OptimizationCatalog })));
 // Boot-timing changes are recorded under a timing: action id, and undoing one writes boot settings too.
 const isBootEntry = (entry: AuditJournalEntry) => entry.actionId.startsWith('timing:');
 /** Today's scans show the time only; older ones show the date, so a stale scan never reads as fresh. */
@@ -158,7 +155,15 @@ export default function App() {
   const [focusedAuditId, setFocusedAuditId] = useState<string | null>(null);
   const [focusedExperimentId, setFocusedExperimentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>('readiness');
-  const [optimizeView, setOptimizeView] = useState<'all' | 'recommended' | 'startup' | 'background' | 'windows' | 'timing' | 'maintenance' | 'bios'>('all');
+  const [optimizeView, setOptimizeView] = useState<'all' | 'startup' | 'background' | 'windows' | 'maintenance' | 'bios'>('all');
+  // Boot timing and per-program graphics live at the end of All tweaks, folded until opened.
+  // Each folded section loads its data only once opened: both read Windows state that the rest of All tweaks does not need.
+  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean }>({ 'boot-timing': false, 'per-program-graphics': false });
+  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics') => {
+    setOptimizeView('all'); setActiveTab('startup'); setTweakToolsOpen((current) => ({ ...current, [section]: true }));
+    // After the section opens and lays out; a smooth scroll started earlier was cancelled by that layout.
+    window.setTimeout(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })), 120);
+  }, []);
   const [gameView, setGameView] = useState<'detected' | 'profiles' | 'guides' | 'backups' | 'display'>('detected');
   const [measureView, setMeasureView] = useState<'test' | 'results'>('test');
   const [savedTestsOpen, setSavedTestsOpen] = useState(false);
@@ -272,7 +277,7 @@ export default function App() {
     if (target.id === 'balancer') setOptimizeView('background');
     if (target.id === 'maintenance') setOptimizeView('maintenance');
     if (target.id === 'startup') setOptimizeView('startup');
-    if (target.id === 'performance-lab') setOptimizeView('timing');
+    if (target.id === 'performance-lab') { openTweakTools('boot-timing'); return; }
     if (target.id === 'benchmarks') { setFocusedExperimentId(target.evidenceId || null); setMeasureView('results'); }
     if (target.id === 'history') { setVerifyView('history'); setFocusedAuditId(target.evidenceId || null); }
     if (target.id === 'drift') setVerifyView('drift');
@@ -281,7 +286,7 @@ export default function App() {
     if (sectionId) {
       window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
     }
-  }, []);
+  }, [openTweakTools]);
   // Recommendations are shown in the order the scan produced them.
   const orderedRecommendations = recommendations;
   useEffect(() => {
@@ -302,7 +307,7 @@ export default function App() {
       setScanError(error instanceof Error ? error.message : 'The runtime profile could not be verified.');
     }
   }, []);
-  const availableTabs = useMemo<AppTab[]>(() => ['readiness', 'overview', 'startup', 'game-settings', 'gpu', 'network-quality', 'input-devices', 'performance-lab', 'drift', 'workload-profiles'], []);
+  const availableTabs = useMemo<AppTab[]>(() => ['readiness', 'overview', 'startup', 'game-settings', 'network-quality', 'input-devices', 'performance-lab', 'drift', 'workload-profiles'], []);
 
   // Restore opens on the History tab; a link to another tab opens it only for that visit.
   useEffect(() => { if (activeTab !== 'drift' && verifyView !== 'history') setVerifyView('history'); }, [activeTab, verifyView]);
@@ -689,94 +694,6 @@ export default function App() {
   const refreshAfterSessionChange = useCallback(() => { void loadHistory(); void loadProcesses(); }, [loadHistory, loadProcesses]);
   const gameSession = useGameSession(refreshAfterSessionChange);
 
-  const batchOptimizationItems = useMemo<BatchOptimizationItem[]>(() => {
-    const capability = (id: string) => runtimeProfile.capabilities.find((item) => item.id === id);
-    const fromCapability = (id: string) => {
-      const item = capability(id);
-      const plain = fixTextsFor(id);
-      return {
-        expectedBenefit: plain?.expectedBenefit || item?.expectedBenefit || 'Depends on your PC. Measure before keeping it.',
-        undo: plain?.undo || (item ? `${item.rollbackMethod}. ${item.rollbackLimitations}` : 'After it runs, you can undo it from Restore.'),
-        verification: plain?.verification || (item ? `${item.verificationMethod}. Success means: ${item.measurableSuccessCriteria}.` : 'The result is recorded in Restore.'),
-        riskLevel: item?.riskLevel || 'Medium' as const,
-        requiresAdmin: item?.privilegeRequirement.toLowerCase().includes('administrator') || false,
-        requiresReboot: item?.rebootRequirement.toLowerCase().includes('required') || false,
-      };
-    };
-    const items: BatchOptimizationItem[] = [];
-
-    startupItems.filter((item) => item.canDisable).forEach((item) => {
-      const machineWide = item.scope.startsWith('All users');
-      items.push({
-        id: `startup:${item.id}`,
-        kind: 'startup',
-        targetId: item.id,
-        title: `Stop ${item.name} starting with Windows`,
-        description: `${item.scope} · ${item.path || 'Windows did not report the program path.'}`,
-        whyAppeared: WHY_LISTED.startup,
-        category: 'Startup',
-        ...fromCapability(machineWide ? 'startup:disable-machine-run' : 'startup:disable-current-user-run'),
-        requiresAdmin: machineWide,
-        irreversible: false,
-      });
-    });
-
-    processes.filter((item) => !item.efficiencyMode).forEach((item) => items.push({
-      id: `process:${item.pid}`,
-      kind: 'process',
-      targetId: `${item.pid}`,
-      creationTime: item.creationTime || undefined,
-      title: `Efficiency mode: ${item.name}`,
-      description: `${item.cpuPercent === null ? 'CPU use unknown' : `${item.cpuPercent}% CPU recently`} · lasts until the app closes`,
-      whyAppeared: WHY_LISTED.process,
-      category: 'Background apps',
-      ...fromCapability('process:enable-ecoqos'),
-      irreversible: false,
-    }));
-
-    queue.forEach((action) => items.push({
-      id: `maintenance:${action.id}`,
-      kind: 'maintenance',
-      targetId: action.id,
-      title: action.title,
-      description: `${action.description} ${action.evidence}`,
-      whyAppeared: `From your scan: ${action.evidence}`,
-      category: 'Maintenance',
-      ...fromCapability(action.kind === 'retrim-drive' ? 'maintenance:retrim-drive' : `maintenance:${action.kind}`),
-      irreversible: action.kind !== 'retrim-drive',
-    }));
-
-    policies.filter((policy) => !policy.enabled && (!policy.valueExists || policy.valueKind === 'DWord')).forEach((policy) => items.push({
-      id: `policy:${policy.id}`,
-      kind: 'policy',
-      targetId: policy.id,
-      title: policy.title,
-      description: policy.description,
-      whyAppeared: WHY_LISTED.policy,
-      category: 'Windows policy',
-      ...fromCapability('policy:disable-windows-consumer-features'),
-      irreversible: false,
-    }));
-
-    timingExperiments.filter((experiment) => experiment.actionId).forEach((experiment) => items.push({
-      id: `timing:${experiment.actionId || experiment.id}`,
-      kind: 'timing',
-      targetId: experiment.actionId || experiment.id,
-      title: experiment.title,
-      description: `${experiment.currentState} ${experiment.framing}`,
-      whyAppeared: WHY_LISTED.timing,
-      category: 'Experimental timing',
-      ...fromCapability(experiment.actionId || ''),
-      requiresAdmin: experiment.requiresElevation,
-      requiresReboot: experiment.requiresReboot,
-      irreversible: false,
-      selectable: Boolean(experiment.actionId && experiment.availability === 'APPLICABLE'),
-      statusReason: experiment.availability === 'APPLICABLE' ? 'Available. Not ticked by default; you see a preview and confirm before anything changes.' : experiment.unavailableReason || experiment.actionLabel,
-    }));
-
-    return items;
-  }, [policies, processes, queue, runtimeProfile.capabilities, startupItems, timingExperiments]);
-
   const powerPlanName = usePowerPlanName(activeTab === 'startup' && optimizeView === 'all' && capabilityIds.has('power:switch-plan'), history);
   const [userSettings, setUserSettings] = useState<Partial<Record<string, UserSettingState>>>({});
   const [busySettingId, setBusySettingId] = useState<string | null>(null);
@@ -793,11 +710,12 @@ export default function App() {
     if (!window.pcOptiNative) return;
     try { setUserSettings(await window.pcOptiNative.readUserSettings()); } catch { setUserSettings({}); }
   }, []);
-  useEffect(() => { if ((activeTab === 'startup' && optimizeView === 'all') || activeTab === 'gpu' || activeTab === 'performance-lab' || activeTab === 'readiness') void loadUserSettings(); }, [activeTab, optimizeView, loadUserSettings, history]);
+  useEffect(() => { if ((activeTab === 'startup' && optimizeView === 'all') || activeTab === 'performance-lab' || activeTab === 'readiness') void loadUserSettings(); }, [activeTab, optimizeView, loadUserSettings, history]);
   const openTweakDestination = (destination: TweakDestination) => {
-    if (destination.tab === 'startup') { setOptimizeView(destination.view); setActiveTab('startup'); }
-    else if (destination.tab === 'gpu') setActiveTab('gpu');
-    else { setGameView(destination.view); setActiveTab('game-settings'); }
+    if (destination.tab === 'gpu') { openTweakTools('per-program-graphics'); return; }
+    if (destination.tab === 'game-settings') { setGameView(destination.view); setActiveTab('game-settings'); return; }
+    if (destination.view === 'timing') { openTweakTools('boot-timing'); return; }
+    setOptimizeView(destination.view); setActiveTab('startup');
   };
   const toggleUserSetting = async (card: TweakCardState, enable: boolean) => {
     const settingId = card.definition.userSettingId;
@@ -860,64 +778,6 @@ export default function App() {
       : definition.capabilityIds.some((id) => capabilityIds.has(id));
     return buildTweakCards(TWEAKS, history, states, available);
   }, [capabilityIds, history, policies, powerPlanName, processes, queue, snapshot, startupItems, timingExperiments, userSettings]);
-
-  const refreshBatchOptimizationTargets = useCallback(async () => {
-    await Promise.all([runScan(), loadProcesses(), loadPolicies(), loadTimingExperiments()]);
-  }, [loadPolicies, loadProcesses, loadTimingExperiments, runScan]);
-
-  const runOptimizationBatch = async (items: BatchOptimizationItem[], emit: (entry: BatchRunLogEntry) => void) => {
-    if (!window.pcOptiNative) return;
-    const publish = (item: BatchOptimizationItem, status: BatchRunStatus, message: string) => emit({
-      itemId: item.id,
-      title: item.title,
-      status,
-      message,
-      timestamp: new Date().toISOString(),
-    });
-
-    for (const item of items) {
-      publish(item, 'RUNNING', 'Checking, then applying…');
-      try {
-        let result: { success?: boolean; error?: string; entry?: AuditJournalEntry } | null = null;
-        if (item.kind === 'startup') result = await window.pcOptiNative.disableStartupItem(item.targetId);
-        else if (item.kind === 'process') result = await window.pcOptiNative.enableProcessEcoQos(Number(item.targetId), item.creationTime || '');
-        else if (item.kind === 'maintenance') result = await window.pcOptiNative.executeMaintenance(item.targetId);
-        else if (item.kind === 'timing') result = await window.pcOptiNative.executeTimingExperiment(item.targetId as NonNullable<TimingExperiment['actionId']>);
-        else if (item.kind === 'policy') {
-          let policyResult = await window.pcOptiNative.enableConsumerFeaturesPolicy();
-          if (policyResult.requiresThrottleConfirmation) {
-            const proceed = Boolean(policyResult.throttleToken && policyResult.checkpoint) && await confirmAction({
-              title: 'Use the recent restore point?',
-              description: policyResult.checkpoint?.message || 'Windows recently created a restore point.',
-              details: `Restore point sequence ${policyResult.checkpoint?.sequenceNumber ?? 'not reported'}, created ${policyResult.checkpoint?.creationTime || 'at an unreported time'}.`,
-              notice: 'The policy has not been changed. Cancel skips only this item; the rest of the run continues.',
-              confirmLabel: 'Continue with this item',
-            });
-            if (!proceed || !policyResult.throttleToken) {
-              publish(item, 'SKIPPED', 'Skipped because proceeding without a newly created restore point was not authorized.');
-              continue;
-            }
-            policyResult = await window.pcOptiNative.confirmConsumerFeaturesPolicy(policyResult.throttleToken);
-          }
-          result = policyResult;
-        }
-
-        if (!result) {
-          publish(item, 'FAILED', 'No supported executor was resolved for this item.');
-        } else if (result.success) {
-          publish(item, 'SUCCESS', result.entry?.status === 'SUCCESS' ? 'Done and checked.' : 'Done.');
-        } else if (result.entry?.status === 'NEEDS_REVIEW') {
-          publish(item, 'NEEDS_REVIEW', result.error || 'Windows made the change but Dialed could not confirm it. Check it in Restore › History before trying again.');
-        } else {
-          publish(item, 'FAILED', result.error || 'The change did not take effect.');
-        }
-      } catch (error) {
-        publish(item, 'FAILED', error instanceof Error ? error.message : 'The change could not be started.');
-      }
-    }
-
-    await Promise.all([loadHistory(), runScan(), loadProcesses(), loadPolicies(), loadTimingExperiments()]);
-  };
 
   const runMaintenance = async (action: MaintenanceAction) => {
     if (!window.pcOptiNative || activeActionId) return;
@@ -1534,15 +1394,25 @@ export default function App() {
     {activeTab === 'workload-profiles' && <><section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Settings</p><h2 className="mt-2 text-2xl font-bold text-white">Appearance, data and release status</h2><p className="mt-1 text-sm text-slate-400">Choose a look, manage what Dialed stores on this PC, and review the installed version. Nothing here changes Windows.</p></section><ThemePicker activeTheme={appTheme} onChange={setAppTheme} /><TechnicalDetailsSetting enabled={technicalDetails} onChange={setTechnicalDetails} />{capabilityIds.has('telemetry:windows-counters') && <HardwareReadingsSetting />}<BackgroundActivity /><LocalDataCenter auditEntries={history} comparisons={benchmarkEvidence.comparisons} appVersion={releaseStatus?.version} technicalDetails={technicalDetails} auditCount={history.length} comparisonCount={benchmarkEvidence.comparisons.length} theme={appTheme} onNavigate={(tab) => { if (tab === 'drift') { setVerifyView('history'); setFocusedAuditId(null); } if (tab === 'game-settings') setGameView('backups'); setActiveTab(tab); }} /><ReleaseStatusCard status={releaseStatus} loading={isReleaseStatusLoading} error={releaseStatusError} onRefresh={loadReleaseStatus} /></>}
     {activeTab === 'overview' && <TabPanel ariaLabel="Home views" value={activeTab}><DashboardOverview suggestionsOpen={scanSuggestionsOpen} snapshot={snapshot} isScanning={isScanning} scanError={scanError} recommendations={orderedRecommendations} recommendationError={recommendationError} onScan={runScan} onNavigateRecommendation={navigateToRecommendationPanel} driftReport={driftReport} onOpenChanges={() => { setVerifyView('drift'); setActiveTab('drift'); }} onOpenStartup={() => openTweakDestination({ tab: 'startup', view: 'startup' })} onOpenTempFiles={() => openTweakDestination({ tab: 'startup', view: 'maintenance' })} />
     <SystemInsightCenters snapshot={snapshot} inventory={installedApplications} appsLoading={isInstalledAppsLoading} appsError={installedAppsError} onRefreshApps={loadInstalledApplications} /></TabPanel>}
-    {activeTab === 'startup' && <TabRow<typeof optimizeView> ariaLabel="Optimize categories" items={([['all', 'All tweaks'], ['recommended', 'Recommended'], ['startup', 'Startup'], ['background', 'Background Apps'], ['windows', 'Windows'], ['timing', 'Boot timing'], ['maintenance', 'Maintenance'], ['bios', 'BIOS']] as const).map(([id, label]) => ({ id, label }))} value={optimizeView} onChange={setOptimizeView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
+    {activeTab === 'startup' && <TabRow<typeof optimizeView> ariaLabel="Optimize categories" items={([['all', 'All tweaks'], ['startup', 'Startup'], ['background', 'Background apps'], ['windows', 'Windows'], ['maintenance', 'Upkeep'], ['bios', 'BIOS']] as const).map(([id, label]) => ({ id, label }))} value={optimizeView} onChange={setOptimizeView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
     {activeTab === 'startup' && <TabPanel ariaLabel="Optimize categories" value={optimizeView}>
-    {activeTab === 'startup' && optimizeView === 'timing' && <Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense>}
     {activeTab === 'startup' && optimizeView === 'bios' && (capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative) && <Suspense fallback={<p className="text-sm text-slate-400">Loading BIOS guide…</p>}><BiosGuidanceCenter /></Suspense>}
     {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: () => void applySelectedTweaks(), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined, restorePoint: window.pcOptiNative?.createRestorePoint && capabilityIds.has('recovery:restore-point') ? { checked: batchRestorePoint, onChange: setBatchRestorePoint } : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
-    {activeTab === 'startup' && optimizeView === 'recommended' && <div className="space-y-6"><section className="rounded-2xl border border-cyan-400/20 bg-cyan-950/10 p-6"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Recommended</p><h2 className="mt-2 text-2xl font-bold text-white">Choose a small, reviewable set of changes</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Pick the fixes you want. Each one is checked again before it runs, verified afterwards, and recorded so you can undo it. The tabs above explain each area in more detail.</p></section><OptimizationCatalog items={batchOptimizationItems} loading={isScanning || isStartupLoading || isProcessLoading || isPolicyLoading || isTimingLoading} onRefresh={refreshBatchOptimizationTargets} onRunSelected={runOptimizationBatch} readBootNotice={readBootNotice} /></div>}
+    {/* Two tools that work on one program or one boot setting at a time, kept with the tweaks they belong to (2026-10-06: the
+        GPU section and the Boot timing tab repeated cards already on All tweaks). */}
+    {activeTab === 'startup' && optimizeView === 'all' && <div className="mt-8 space-y-4">
+      {(capabilityIds.has('graphics:per-app-gpu-preference') || capabilityIds.has('graphics:fullscreen-optimizations')) && <details id="per-program-graphics" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['per-program-graphics'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'per-program-graphics': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Graphics settings for one program</summary>
+        {tweakToolsOpen['per-program-graphics'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><div className="mt-4 space-y-6">{graphicsAdapters(snapshot).length > 1 && capabilityIds.has('graphics:per-app-gpu-preference') && <GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} />}{capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}</div></Suspense>}
+      </details>}
+      <details id="boot-timing" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['boot-timing'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'boot-timing': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Boot timing experiments</summary>
+        {tweakToolsOpen['boot-timing'] && <div className="mt-4"><Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense></div>}
+      </details>
+    </div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
     {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}
-    {activeTab === 'startup' && optimizeView === 'windows' && <div className="space-y-6">{capabilityIds.has('power:switch-plan') && <PowerPlanCard onChanged={() => void loadHistory()} />}<SafePolicies policies={policies} errors={policyErrors} loading={isPolicyLoading} activePolicyId={activePolicyId} actionError={policyActionError} onRefresh={loadPolicies} onEnable={enableConsumerFeaturesPolicy} /><section className="rounded-2xl border border-violet-500/20 bg-violet-950/10 p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><div className="flex items-center gap-2 text-violet-200"><TimerReset className="h-4 w-4" /><h2 className="text-sm font-semibold">Boot timing controls</h2></div><p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-400">Two Windows boot settings. Dialed backs them up first, checks them after a restart, and can undo them. Results vary by PC; neither promises lower latency or more FPS.</p></div><button type="button" onClick={() => setOptimizeView('timing')} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-400/20"><TimerReset className="h-3.5 w-3.5" />Open boot timing</button></div></section></div>}
+    {activeTab === 'startup' && optimizeView === 'windows' && <div className="space-y-6">{capabilityIds.has('power:switch-plan') && <PowerPlanCard onChanged={() => void loadHistory()} />}<SafePolicies policies={policies} errors={policyErrors} loading={isPolicyLoading} activePolicyId={activePolicyId} actionError={policyActionError} onRefresh={loadPolicies} onEnable={enableConsumerFeaturesPolicy} /></div>}
     {activeTab === 'startup' && optimizeView === 'maintenance' && (snapshot ? <div id="maintenance-queue" className="scroll-mt-6"><MaintenanceQueue actions={queue} activeActionId={activeActionId} error={maintenanceError} onExecute={runMaintenance} /></div> : <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-400"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-300" />A verified scan is required before reviewing maintenance actions.</div><button onClick={() => setActiveTab('overview')} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950"><CheckCircle2 className="h-3.5 w-3.5" />Open Scan</button></section>)}
     </TabPanel>}
     {(activeTab === 'performance-lab' || activeTab === 'network-quality') && <TabRow<'test' | 'results' | 'network-quality'> ariaLabel="Measure views" items={[{ id: 'test', label: 'Test a change' }, { id: 'network-quality', label: 'Network' }]} value={activeTab === 'network-quality' ? 'network-quality' : measureView} onChange={(view) => { if (view === 'network-quality') setActiveTab('network-quality'); else { setMeasureView(view); setActiveTab('performance-lab'); } }} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
@@ -1552,13 +1422,10 @@ export default function App() {
     {/* Saved tests are otherwise reached only from a finished result, which left people with
         no finished test unable to export, import or tidy up the ones they have. */}
     {activeTab === 'performance-lab' && measureView === 'test' && <p className="mt-4 text-xs text-slate-400">Export, import or tidy up earlier tests: <button type="button" className="text-cyan-300 underline underline-offset-2" onClick={() => { setSavedTestsOpen(true); setMeasureView('results'); }}>Saved tests</button></p>}
-    {activeTab === 'performance-lab' && measureView === 'results' && <details open={savedTestsOpen || undefined} onToggle={(event) => setSavedTestsOpen(event.currentTarget.open)} className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><summary className="cursor-pointer text-sm font-semibold text-slate-100">Saved tests: notes, decisions, export and import</summary><div className="mt-4"><ExperimentSessions history={history} evidence={benchmarkEvidence} onNavigate={(destination, evidenceId) => { if (destination === 'history') { setFocusedAuditId(evidenceId || null); setVerifyView('history'); setActiveTab('drift'); } else if (destination === 'measure') { setActiveTab('performance-lab'); } else { setOptimizeView('recommended'); setActiveTab('startup'); } }} onCompare={openComparison} /></div></details>}
+    {activeTab === 'performance-lab' && measureView === 'results' && <details open={savedTestsOpen || undefined} onToggle={(event) => setSavedTestsOpen(event.currentTarget.open)} className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><summary className="cursor-pointer text-sm font-semibold text-slate-100">Saved tests: notes, decisions, export and import</summary><div className="mt-4"><ExperimentSessions history={history} evidence={benchmarkEvidence} onNavigate={(destination, evidenceId) => { if (destination === 'history') { setFocusedAuditId(evidenceId || null); setVerifyView('history'); setActiveTab('drift'); } else if (destination === 'measure') { setActiveTab('performance-lab'); } else { setOptimizeView('all'); setActiveTab('startup'); } }} onCompare={openComparison} /></div></details>}
     {activeTab === 'network-quality' && <Suspense fallback={<p className="text-sm text-slate-400">Loading connection tools…</p>}><NetworkQualityLab snapshot={snapshot} onOpenScan={() => setActiveTab('overview')} /></Suspense>}
     </TabPanel>}
     {activeTab === 'game-settings' && <><TabRow<typeof gameView> ariaLabel="Game categories" items={([['detected', 'Detected'], ['profiles', 'Profiles'], ['guides', 'Guides'], ['backups', 'Backups'], ['display', 'Display setup']] as const).map(([id, label]) => ({ id, label }))} value={gameView} onChange={setGameView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" /><TabPanel ariaLabel="Game categories" value={gameView}>{gameView === 'display' && <><DisplaySetupGuide onOpenMeasure={() => { setMeasureView('test'); setActiveTab('performance-lab'); }} onTest={(prefill) => openTest(prefill)} snapshot={snapshot} discovery={installedGameDiscovery} /></>}{gameView === 'profiles' && capabilityIds.has('game:reviewed-profile') && <Suspense fallback={<p className="text-sm text-slate-400">Loading game profiles…</p>}><GameOptimizationCenter busy={isGameConfigBusy} restoreStatus={gameConfigStatus} restoreError={gameConfigError} onBusyChange={setIsGameConfigBusy} onBackupCreated={(backup) => setGameConfigBackups((items) => [backup, ...items.filter((item) => item.backupId !== backup.backupId)])} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} /></Suspense>}{gameView === 'detected' && <GameConfigCenter mode="discovery" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} />}{gameView === 'guides' && <GameSettingsCenter guides={gameSettingsGuides} loading={isGameSettingsLoading} error={gameSettingsError} onRefresh={loadGameSettingsGuides} />}{gameView === 'backups' && <GameConfigCenter mode="backups" guides={gameSettingsGuides} discovery={installedGameDiscovery} backups={gameConfigBackups} loading={isGameConfigLoading} busy={isGameConfigBusy} error={gameConfigError} status={gameConfigStatus} onRefresh={loadGameConfigCenter} onBackup={createGameConfigBackup} onRestore={restoreGameConfigBackup} onUndoProfile={undoGameProfile} />}</TabPanel></>}
-    {activeTab === 'gpu' && <TweaksOverview heading={{ title: 'GPU', intro: 'Graphics card settings in Windows, with what each one does and when to leave it alone. The machine-wide settings need Dialed running as administrator and a restart; every change is confirmed, checked afterwards and can be undone.' }} cards={tweakCards.filter((card) => card.definition.id === 'gpu-scheduling' || card.definition.id === 'mpo' || card.definition.id === 'windowed-games')} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
-    {activeTab === 'gpu' && capabilityIds.has('graphics:per-app-gpu-preference') && <div className="mt-8"><GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} /></div>}
-    {activeTab === 'gpu' && capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}
     {activeTab === 'input-devices' && <Suspense fallback={<p className="text-sm text-slate-400">Loading input devices…</p>}><InputDevicesCenter /></Suspense>}
     {activeTab === 'drift' && <><TabRow<typeof verifyView> ariaLabel="Restore views" items={([['history', 'History'], ['drift', 'Outside changes'], ['readiness', 'Readiness']] as const).map(([id, label]) => ({ id, label }))} value={verifyView} onChange={setVerifyView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" /><TabPanel ariaLabel="Restore views" value={verifyView}>{verifyView === 'history' && <LocalAuditHistory focusedId={focusedAuditId} entries={history} loading={isHistoryLoading} rollingBackId={rollingBackId} privacyBusy={isHistoryPrivacyBusy} privacyStatus={historyPrivacyStatus} actionError={historyActionError} recovery={historyRecovery} notices={historyNotices} recoveryBusy={isHistoryRecoveryBusy} onRefresh={loadHistory} onRetryVerification={retryAuditVerification} onRecoverCorruptJournal={recoverCorruptAuditJournal} onRollback={(entry) => void rollbackAuditEntry(entry)} onUndoAll={() => void undoAllDialedChanges()} undoAllBusy={isUndoAllBusy} onExport={exportAuditHistory} onDelete={deleteAuditHistory} />}{verifyView === 'drift' && <DriftMonitor report={driftReport} loading={isDriftLoading} error={driftError} onOpenScan={() => setActiveTab('overview')} onSetBaseline={defineDriftBaseline} />}{verifyView === 'readiness' && <ReadinessCenter snapshot={snapshot} scanError={scanError} recommendations={orderedRecommendations} benchmarkEvidence={benchmarkEvidence} timingExperiments={timingExperiments} driftReport={driftReport} driftError={driftError} history={history} historyRecovery={historyRecovery} onOpenScan={() => setActiveTab('overview')} onNavigateRecommendation={navigateToRecommendationPanel} />}</TabPanel></>}
   </Suspense></WorkspaceErrorBoundary></div></main></div></div></ConfirmContext.Provider>;

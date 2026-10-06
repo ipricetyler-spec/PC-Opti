@@ -1,4 +1,3 @@
-export { OptimizationCatalog } from '../components/OptimizationCatalog';
 export { StartupCenter } from '../components/StartupCenter';
 export { ProcessBalancer } from '../components/ProcessBalancer';
 export { GameSessionMode } from '../components/GameSessionMode';

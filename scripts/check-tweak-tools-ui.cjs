@@ -1,0 +1,49 @@
+// The per-program graphics tools and the boot timing experiments live at the end of All tweaks
+// (2026-10-06: the GPU section and the Boot timing tab only repeated these cards). Their cards open
+// and scroll to them. Closed fixture: nothing is changed.
+const assert = require('node:assert/strict');
+const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright');
+const { listCapabilities } = require('../src/main/capabilities/index.cjs');
+const { openFixture, openSection } = require('./ui-fixture-page.cjs');
+const origin = process.env.DIALED_UI_URL || 'http://127.0.0.1:5178';
+if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Only loopback fixture servers are allowed.');
+
+async function main() {
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  try {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+    await context.route('**/*', (route) => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await context.addInitScript(({ capabilities }) => {
+      const rows = async () => ({ items: [], errors: [] });
+      const no = async () => { throw new Error('Unavailable in closed browser fixture.'); };
+      window.pcOptiNative = { getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
+        getAuditHistory: async () => ({ entries: [], recovery: null, protection: { notices: [] } }), listStartupItems: rows, listSafePolicies: rows,
+        listTimingExperiments: rows, listManageableProcesses: rows, scanSystem: no, getLocalRecommendations: async () => [], listGameSettingsGuides: async () => [],
+        listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({}),
+        listGpuPreferences: async () => { window.__listed = (window.__listed || 0) + 1; return []; },
+        listFullscreenOptimizations: async () => { window.__listed = (window.__listed || 0) + 1; return []; } };
+    }, { capabilities: listCapabilities('public') });
+    const page = await context.newPage();
+    page.setDefaultTimeout(10000);
+    const errors = []; page.on('pageerror', (error) => errors.push(error.message));
+    await openFixture(page, origin);
+    await openSection(page, 'Tweaks');
+    const tabs = page.getByRole('tablist', { name: 'Optimize categories' });
+    await tabs.getByRole('tab').first().waitFor();
+    assert.deepEqual(await tabs.getByRole('tab').allInnerTexts(), ['All tweaks', 'Startup', 'Background apps', 'Windows', 'Upkeep', 'BIOS'], 'Tweaks has six tabs');
+    const perProgram = page.locator('#per-program-graphics');
+    const bootTiming = page.locator('#boot-timing');
+    assert.equal(await perProgram.getAttribute('open'), null, 'Folded until asked for.');
+    assert.equal(await bootTiming.getAttribute('open'), null);
+    assert.equal(await page.evaluate(() => window.__listed || 0), 0, 'Folded tools read nothing from Windows until opened.');
+    await page.locator('#tweak-fullscreen-optimizations').getByRole('button', { name: 'Choose a game', exact: true }).click();
+    await page.waitForFunction(() => document.getElementById('per-program-graphics')?.hasAttribute('open'));
+    await page.waitForFunction(() => { const r = document.getElementById('per-program-graphics')?.getBoundingClientRect(); return Boolean(r && r.top < window.innerHeight && r.bottom > 0); });
+    await page.locator('#tweak-dynamic-tick').getByRole('button', { name: 'Review experiment', exact: true }).click();
+    await page.waitForFunction(() => document.getElementById('boot-timing')?.hasAttribute('open'));
+    assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'GPU', exact: true }).count(), 0, 'No GPU section.');
+    assert.deepEqual(errors, []);
+    console.log('Tweak tools checks passed: six tabs, GPU tools and boot timing open from their cards.');
+  } finally { await browser.close(); }
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

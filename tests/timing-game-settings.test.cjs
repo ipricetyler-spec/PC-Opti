@@ -388,11 +388,10 @@ test('guides never tell a reader to weaken security, even where the maker sugges
   const cs2 = gameSettings.listGameSettingsGuides().find((item) => item.game === 'Counter-Strike 2');
   assert.match(cs2.settings.find((item) => item.id === 'anti-lag-2').value, /never a driver-forced Anti-Lag\+/);
 });
-test('normal local UI exposes persisted themes and a real sequential optimization runner', () => {
+test('normal local UI exposes persisted themes and the boot timing experiments', () => {
   const root = path.join(__dirname, '..');
   const themesSource = fs.readFileSync(path.join(root, 'src', 'lib', 'themes.ts'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src', 'App.tsx'), 'utf8');
-  const catalogSource = fs.readFileSync(path.join(root, 'src', 'components', 'OptimizationCatalog.tsx'), 'utf8');
   for (const theme of ['console', 'instrument', 'console-gold', 'instrument-gold']) assert.match(themesSource, new RegExp(`id: '${theme}'`));
   assert.match(appSource, /pcopti-theme:v1/);
   assert.match(appSource, /document\.documentElement\.dataset\.theme = appTheme/);
@@ -400,31 +399,9 @@ test('normal local UI exposes persisted themes and a real sequential optimizatio
   assert.match(appSource, /dialed-technical-details:v1/);
   assert.match(appSource, /document\.documentElement\.dataset\.technicalDetails/);
   assert.match(appSource, /<TechnicalDetailsSetting enabled=\{technicalDetails\}/);
-  assert.match(appSource, /<OptimizationCatalog items=\{batchOptimizationItems\}/);
-  assert.match(appSource, /for \(const item of items\)/);
-  assert.match(appSource, /disableStartupItem\(item\.targetId\)/);
-  assert.match(appSource, /enableProcessEcoQos\(Number\(item\.targetId\),/);
-  assert.match(appSource, /executeMaintenance\(item\.targetId\)/);
-  assert.match(appSource, /executeTimingExperiment\(item\.targetId/);
   assert.match(appSource, /activeTab === 'startup' \|\| activeTab === 'performance-lab'\) void loadTimingExperiments\(\)/);
-  assert.match(appSource, /timingExperiments\.filter\(\(experiment\) => experiment\.actionId\)\.forEach/);
-  assert.match(appSource, /category: 'Experimental timing'/);
-  assert.match(appSource, /selectable: Boolean\(experiment\.actionId && experiment\.availability === 'APPLICABLE'\)/);
-  assert.match(catalogSource, /Not available now/);
-  assert.match(catalogSource, /Select all shown/);
-  assert.match(appSource, /Open boot timing/);
-  assert.match(appSource, /\['timing', 'Boot timing'\]/);
-  assert.doesNotMatch(appSource, /\['timing', 'Windows timing'\]/);
-  assert.match(catalogSource, /Run selected \(\$\{selectedItems\.length\}\)/);
-  assert.match(catalogSource, /optimization-run-log-heading[^>]*>Results</);
-  for (const field of ['What changes:', 'Why this appeared:', 'Expected:', 'Undo:', 'How to verify:']) assert.match(catalogSource, new RegExp(field));
-  assert.match(appSource, /rollbackMethod/);
-  assert.match(appSource, /verificationMethod/);
-  assert.match(appSource, /measurableSuccessCriteria/);
-  assert.match(catalogSource, /min-w-0 overflow-hidden rounded-xl/);
-  assert.match(catalogSource, /\[overflow-wrap:anywhere\]/);
-  for (const status of ['RUNNING', 'SUCCESS', 'SKIPPED', 'FAILED', 'NEEDS_REVIEW']) assert.match(catalogSource, new RegExp(`'${status}'`));
-  assert.doesNotMatch(catalogSource, /reg\.exe|powershell|bcdedit|Optimize-Volume/i);
+  assert.match(appSource, /<summary[^>]*>Boot timing experiments<\/summary>/);
+  assert.doesNotMatch(appSource, /\['timing', 'Boot timing'\]/);
 });
 
 test('optimization run summaries never report clean completion for partial or mixed outcomes', async () => {
@@ -480,7 +457,7 @@ test('capability and IPC boundaries keep commands main-owned while exposing the 
   assert.doesNotMatch(preloadSource, /useplatformclock|disabledynamictick|bcdedit/i);
   assert.match(timingSource, /\/deletevalue '\{current\}' useplatformclock/);
   assert.match(timingSource, /\/set '\{current\}' disabledynamictick yes/);
-  assert.match(appSource, /activeTab === 'startup' && optimizeView === 'timing' && <Suspense[^\n]*<PerformanceLab/);
+  assert.match(appSource, /<details id="boot-timing"[\s\S]{0,600}<PerformanceLab/);
   assert.doesNotMatch(appSource, /activeTab === 'performance-lab'[^\n]*<PerformanceLab/);
   assert.match(appSource, /capabilityIds\.has\('game:settings-guidance'\)/);
   assert.match(sidebarSource, /label: 'Measure'/);

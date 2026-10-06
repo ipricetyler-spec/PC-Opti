@@ -102,10 +102,10 @@ async function main() {
     await search.fill('nothing-matches-this');
     assert.equal(await page.locator('aside nav button').count(), 0);
     await search.press('Escape');
-    assert.equal(await page.locator('aside nav button').count(), 8);
+    assert.equal(await page.locator('aside nav button').count(), 7);
     report.checks.push({ state: 'Workspace search aliases, single-result Enter, empty result and Escape recovery', passed: true });
     await navigate('Tweaks');
-    await page.getByRole('tab', { name: 'Background Apps', exact: true }).click();
+    await page.getByRole('tab', { name: 'Background apps', exact: true }).click();
     await page.getByText('Fixture unknown CPU', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Refresh first', exact: true }).isDisabled(), true);
     await layout('Optimize populated processes: known/unknown CPU and existing efficiency');
@@ -134,7 +134,7 @@ async function main() {
     await layout('Verify populated success/failure/pending/needs-review history');
     await navigate('Tweaks');
     const tabs = page.getByRole('tablist', { name: 'Optimize categories' });
-    await tabs.getByRole('tab', { name: 'Background Apps', exact: true }).focus();
+    await tabs.getByRole('tab', { name: 'Background apps', exact: true }).focus();
     await page.keyboard.press('Home');
     await page.waitForFunction(() => document.activeElement?.getAttribute('aria-selected') === 'true' && document.activeElement?.textContent === 'All tweaks');
     await page.keyboard.press('End');

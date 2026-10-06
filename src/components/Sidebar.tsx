@@ -2,7 +2,7 @@ import { BarChart3, Cpu, Gamepad2, History, Radar, Settings, SlidersHorizontal, 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TWEAKS, tweakMatches } from '../lib/tweaks';
 
-export type AppTab = 'readiness' | 'overview' | 'startup' | 'game-settings' | 'gpu' | 'network-quality' | 'input-devices' | 'performance-lab' | 'drift' | 'workload-profiles';
+export type AppTab = 'readiness' | 'overview' | 'startup' | 'game-settings' | 'network-quality' | 'input-devices' | 'performance-lab' | 'drift' | 'workload-profiles';
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -28,9 +28,8 @@ interface NavItem {
 // workspace ids are unchanged so links and saved places keep working.
 const navItems: NavItem[] = [
   { id: 'readiness', label: 'Home', icon: Radar, keywords: 'home priorities sessions summary', includes: [{ id: 'overview', keywords: 'scan hardware inventory storage apps security' }] },
-  { id: 'startup', label: 'Tweaks', icon: SlidersHorizontal, keywords: 'tweaks optimize bios boot timing bcd startup processes maintenance policies power plan game session shader cache' },
+  { id: 'startup', label: 'Tweaks', icon: SlidersHorizontal, keywords: 'tweaks optimize bios boot timing bcd startup processes maintenance upkeep policies power plan game session shader cache gpu graphics card scheduling hags mpo overlay flicker per program preference fullscreen' },
   { id: 'game-settings', label: 'Games', icon: Gamepad2, keywords: 'games display backups refresh rate' },
-  { id: 'gpu', label: 'GPU', icon: Cpu, keywords: 'gpu graphics card scheduling hags mpo overlay flicker per program preference' },
   { id: 'performance-lab', label: 'Measure', icon: BarChart3, keywords: 'measure benchmark captures presentmon sessions', includes: [{ id: 'network-quality', keywords: 'network internet latency jitter wifi signal connection' }] },
   { id: 'input-devices', label: 'Input devices', icon: Usb, keywords: 'input controller mouse keyboard usb polling hidusbf' },
   { id: 'drift', label: 'Restore', icon: History, keywords: 'restore undo verify audit history recovery changes' },

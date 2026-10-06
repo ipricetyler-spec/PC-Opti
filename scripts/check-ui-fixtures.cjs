@@ -18,6 +18,7 @@ const checks = [
   'check-restore-point-ui.cjs',
   'check-game-guides-ui.cjs',
   'check-theme-default-ui.cjs',
+  'check-tweak-tools-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

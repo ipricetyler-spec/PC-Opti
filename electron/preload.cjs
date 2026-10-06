@@ -94,7 +94,7 @@ contextBridge.exposeInMainWorld('pcOptiNative', {
   listFullscreenOptimizations: () => ipcRenderer.invoke('pc-opti:list-fullscreen-optimizations'),
   chooseFullscreenOptimizationsApp: () => ipcRenderer.invoke('pc-opti:choose-fullscreen-optimizations-app'),
   setFullscreenOptimizations: (targetId, disableOptimizations) => ipcRenderer.invoke('pc-opti:set-fullscreen-optimizations', targetId, disableOptimizations),
-  readUserSettings: () => ipcRenderer.invoke('pc-opti:read-user-settings'),
+  readUserSettings: () => ipcRenderer.invoke('pc-opti:read-user-settings'), readNvidiaSettings: () => ipcRenderer.invoke('pc-opti:read-nvidia-settings'),
   setUserSetting: (settingId, enabled) => ipcRenderer.invoke('pc-opti:set-user-setting', settingId, enabled),
   readDisplayModes: () => ipcRenderer.invoke('pc-opti:read-display-modes'),
   readWifiStatus: () => ipcRenderer.invoke('pc-opti:read-wifi-status'),

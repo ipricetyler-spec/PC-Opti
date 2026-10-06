@@ -81,6 +81,7 @@ async function assertEditionSupports(editions) {
 const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.cjs');
 const multimediaScheduler = require('../src/main/multimedia-scheduler/index.cjs');
 const networkPower = require('../src/main/network-power/index.cjs');
+const nvidiaSettings = require('../src/main/nvidia-settings/index.cjs');
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
 const { openProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
@@ -1041,6 +1042,9 @@ ipcMain.handle('pc-opti:activate-power-plan', async (_event, guid) => {
   assertShortString(guid, 'Power plan id', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   return serializeMutation(() => activatePowerPlan(app.getPath('userData'), guid));
 });
+
+// NVIDIA's global driver settings, read through NVIDIA's driver interface. Read-only.
+ipcMain.handle('pc-opti:read-nvidia-settings', async () => nvidiaSettings.readNvidiaSettings());
 
 // Reads the on/off state of the per-user gaming settings this profile can manage.
 ipcMain.handle('pc-opti:read-user-settings', async () => {

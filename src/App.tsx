@@ -11,6 +11,7 @@ import { BackgroundActivity } from './components/BackgroundActivity';
 import { DriftMonitor } from './components/DriftMonitor';
 import { LocalAuditHistory } from './components/LocalAuditHistory';
 import { RecoveryStepsCard } from './components/RecoveryStepsCard';
+import { NvidiaSettingsCheck } from './components/NvidiaSettingsCheck';
 import { Sidebar } from './components/Sidebar';
 import type { AppTab } from './components/Sidebar';
 import { ThemePicker } from './components/ThemePicker';
@@ -158,8 +159,8 @@ export default function App() {
   const [optimizeView, setOptimizeView] = useState<'all' | 'startup' | 'background' | 'windows' | 'maintenance' | 'bios'>('all');
   // Boot timing and per-program graphics live at the end of All tweaks, folded until opened.
   // Each folded section loads its data only once opened: both read Windows state that the rest of All tweaks does not need.
-  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean }>({ 'boot-timing': false, 'per-program-graphics': false });
-  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics') => {
+  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean; 'nvidia-settings': boolean }>({ 'boot-timing': false, 'per-program-graphics': false, 'nvidia-settings': false });
+  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings') => {
     setOptimizeView('all'); setActiveTab('startup'); setTweakToolsOpen((current) => ({ ...current, [section]: true }));
     // After the section opens and lays out; a smooth scroll started earlier was cancelled by that layout.
     window.setTimeout(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })), 120);
@@ -715,6 +716,7 @@ export default function App() {
   useEffect(() => { if ((activeTab === 'startup' && optimizeView === 'all') || activeTab === 'performance-lab' || activeTab === 'readiness') void loadUserSettings(); }, [activeTab, optimizeView, loadUserSettings, history]);
   const openTweakDestination = (destination: TweakDestination) => {
     if (destination.tab === 'gpu') { openTweakTools('per-program-graphics'); return; }
+    if (destination.tab === 'nvidia') { openTweakTools('nvidia-settings'); return; }
     if (destination.tab === 'game-settings') { setGameView(destination.view); setActiveTab('game-settings'); return; }
     if (destination.view === 'timing') { openTweakTools('boot-timing'); return; }
     setOptimizeView(destination.view); setActiveTab('startup');
@@ -778,9 +780,12 @@ export default function App() {
       retrim: maintenance('retrim-drive'),
     };
     // A card appears only when this build can act on it (the BIOS guide needs its guide).
+    // The NVIDIA check is read-only and needs no capability; it is hidden once a scan shows no NVIDIA card.
     const available = (definition: (typeof TWEAKS)[number]) => definition.id === 'bios'
       ? capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative
-      : definition.capabilityIds.some((id) => capabilityIds.has(id));
+      : definition.id === 'nvidia-settings'
+        ? Boolean(window.pcOptiNative?.readNvidiaSettings) && (!snapshot || graphicsAdapters(snapshot).some((adapter) => /nvidia/i.test(adapter.name)))
+        : definition.capabilityIds.some((id) => capabilityIds.has(id));
     return buildTweakCards(TWEAKS, history, states, available);
   }, [capabilityIds, history, policies, powerPlanName, processes, queue, snapshot, startupItems, timingExperiments, userSettings]);
 
@@ -1409,6 +1414,10 @@ export default function App() {
       {(capabilityIds.has('graphics:per-app-gpu-preference') || capabilityIds.has('graphics:fullscreen-optimizations')) && <details id="per-program-graphics" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['per-program-graphics'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'per-program-graphics': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Graphics settings for one program</summary>
         {tweakToolsOpen['per-program-graphics'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><div className="mt-4 space-y-6">{graphicsAdapters(snapshot).length > 1 && capabilityIds.has('graphics:per-app-gpu-preference') && <GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} />}{capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}</div></Suspense>}
+      </details>}
+      {window.pcOptiNative?.readNvidiaSettings && <details id="nvidia-settings" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['nvidia-settings'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'nvidia-settings': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">NVIDIA driver settings</summary>
+        {tweakToolsOpen['nvidia-settings'] && <NvidiaSettingsCheck />}
       </details>}
       <details id="boot-timing" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['boot-timing'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'boot-timing': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Boot timing experiments</summary>

@@ -893,3 +893,11 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - Recording: one confirmation per game at any length, remembered across restarts.
 - Checks: npm test 869/869, test:ts 146/146, lint clean, test:ui:fixtures all pass (restore-point check now covers recommended review, keep and reload; recording check covers per-game approval).
 - Not verified in the installed app or against the owner's real settings.
+
+## 2026-10-06 — NVIDIA driver settings check (read-only)
+
+- Reads eight global settings (G-SYNC, vertical sync, max frame rate, low latency, power management, shader cache size, texture filtering quality, threaded optimization) through NVAPI. Each setting id was confirmed by the owner's installed driver returning its name (read-only probe, no window). No NVAPI write or save function is referenced; a test guards that.
+- Run against the owner's real driver (read-only): low latency On/Ultra, power Prefer maximum performance, texture filtering High performance and threaded optimization On differ from the defaults; G-SYNC off globally; shader cache unlimited.
+- Tweaks › Graphics card "NVIDIA driver settings" opens a folded section that reads only when opened. Notes appear only for G-SYNC with vertical sync forced off, G-SYNC without a cap, G-SYNC off, and a disabled shader cache.
+- Checks: npm test 872/872, test:ts 146/146, lint, test:ui:fixtures pass (one intermittent BIOS skip-link focus failure did not recur on rerun).
+- Not verified: in the installed app; whether the driver's G-SYNC global value matches what NVIDIA Control Panel shows per monitor.

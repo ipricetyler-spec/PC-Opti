@@ -16,7 +16,8 @@ export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Win
 export type TweakDestination =
   | { tab: 'startup'; view: 'startup' | 'background' | 'windows' | 'timing' | 'maintenance' | 'bios' }
   | { tab: 'game-settings'; view: 'profiles' }
-  | { tab: 'gpu' };
+  | { tab: 'gpu' }
+  | { tab: 'nvidia' };
 
 export interface TweakDefinition {
   id: string;
@@ -250,6 +251,15 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'Your PC has only one graphics processor. The choice then has no effect.',
     undo: 'Undo restores the previous choice for that program, or removes it if there was none.',
     measureFirst: false, destination: { tab: 'gpu' }, actionLabel: 'Open GPU',
+  },
+  {
+    id: 'nvidia-settings', group: 'Graphics', title: 'NVIDIA driver settings', capabilityIds: [], perItem: false,
+    summary: 'What NVIDIA Control Panel\'s global settings are set to, and which differ from the driver defaults.',
+    whatChanges: 'Nothing. Dialed reads the settings through NVIDIA\'s driver interface and shows them in plain words.',
+    whenItHelps: 'When another tool applied an NVIDIA profile, or to check that G-SYNC, vertical sync and a frame cap work together.',
+    leaveItIf: 'You do not have an NVIDIA graphics card.',
+    undo: 'Nothing to undo. Change these in NVIDIA Control Panel.',
+    measureFirst: false, destination: { tab: 'nvidia' }, actionLabel: 'Check settings',
   },
   {
     id: 'game-profiles', group: 'Graphics', title: 'Game settings profiles', capabilityIds: ['game:config-restore'], perItem: true,

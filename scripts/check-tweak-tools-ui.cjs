@@ -21,7 +21,11 @@ async function main() {
         listTimingExperiments: rows, listManageableProcesses: rows, scanSystem: no, getLocalRecommendations: async () => [], listGameSettingsGuides: async () => [],
         listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({ 'processor-scheduling': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: 'Set to 40 by another program or tool' }, 'multimedia-scheduler': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: '5 of 6 values changed by another program or tool' }, 'network-power': { enabled: false, manageable: true, detail: 'On: Energy-Efficient Ethernet' } }),
         listGpuPreferences: async () => { window.__listed = (window.__listed || 0) + 1; return []; },
-        listFullscreenOptimizations: async () => { window.__listed = (window.__listed || 0) + 1; return []; } };
+        listFullscreenOptimizations: async () => { window.__listed = (window.__listed || 0) + 1; return []; },
+        readNvidiaSettings: async () => { window.__nvidia = (window.__nvidia || 0) + 1; return { available: true, rows: [
+          { id: 'gsync', label: 'G-SYNC', value: 'Off', differs: false, defaultText: null },
+          { id: 'power', label: 'Power management mode', value: 'Prefer maximum performance', differs: true, defaultText: 'Normal' },
+        ], notes: ['G-SYNC is off in the driver. Fixture note.'] }; } };
     }, { capabilities: listCapabilities('public') });
     const page = await context.newPage();
     page.setDefaultTimeout(10000);
@@ -41,6 +45,14 @@ async function main() {
     await page.waitForFunction(() => { const r = document.getElementById('per-program-graphics')?.getBoundingClientRect(); return Boolean(r && r.top < window.innerHeight && r.bottom > 0); });
     await page.locator('#tweak-dynamic-tick').getByRole('button', { name: 'Review experiment', exact: true }).click();
     await page.waitForFunction(() => document.getElementById('boot-timing')?.hasAttribute('open'));
+    // NVIDIA driver settings: folded and unread until its card opens it, then a read-only table.
+    assert.equal(await page.evaluate(() => window.__nvidia || 0), 0, 'The NVIDIA driver is not read until asked.');
+    await page.locator('#tweak-nvidia-settings').getByRole('button', { name: 'Check settings', exact: true }).click();
+    const nvidia = page.locator('#nvidia-settings');
+    await nvidia.getByText('1 setting differs from the driver default, set in NVIDIA Control Panel or by another tool.').waitFor();
+    await nvidia.getByRole('cell', { name: 'Prefer maximum performance · changed' }).waitFor();
+    await nvidia.getByText('G-SYNC is off in the driver. Fixture note.').waitFor();
+    assert.deepEqual(await nvidia.getByRole('button').allInnerTexts(), ['Read again'], 'Read-only: no button changes a driver setting.');
     assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'GPU', exact: true }).count(), 0, 'No GPU section.');
     // Processor scheduling: the value in words; the only change is back to the Windows default, and
     // as a recommended fix it can be kept as set instead.
@@ -61,7 +73,7 @@ async function main() {
     await page.getByRole('button', { name: 'Save these steps', exact: true }).click();
     assert.equal((await saved).suggestedFilename(), 'If Windows will not start - Dialed.txt');
     assert.deepEqual(errors, []);
-    console.log('Tweak tools checks passed: six tabs, GPU tools and boot timing open from their cards.');
+    console.log('Tweak tools checks passed: six tabs, GPU tools, NVIDIA settings and boot timing open from their cards.');
   } finally { await browser.close(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

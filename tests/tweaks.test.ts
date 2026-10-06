@@ -87,4 +87,16 @@ test('suggestion progress counts only settings Windows reported, and ticks only 
   assert.deepEqual({ matching: progress.matching, known: progress.known }, { matching: 1, known: 2 }, 'an unread setting counts neither way');
   assert.deepEqual(progress.toTick, [withSuggestion[1].id]);
   assert.deepEqual(suggestionProgress(cards, settings, () => false).toTick, []);
+  // A setting the reader kept is reported, never recommended.
+  const kept = suggestionProgress(cards, settings, () => true, new Set([withSuggestion[1].id]));
+  assert.deepEqual([kept.toTick, kept.kept], [[], [withSuggestion[1].id]]);
+});
+
+test('return-to-default fixes are recommended only when another tool changed them', async () => {
+  const { suggestionProgress } = await import('../src/lib/tweaks');
+  const fixes = TWEAKS.filter((definition) => definition.recommendWhenChanged);
+  assert.deepEqual(fixes.map((definition) => definition.id), ['processor-scheduling', 'multimedia-scheduler']);
+  const cards = fixes.map((definition) => ({ definition, state: null, changes: [], undoEntry: null }));
+  const progress = suggestionProgress(cards, { 'processor-scheduling': { enabled: false }, 'multimedia-scheduler': { enabled: true } }, () => true);
+  assert.deepEqual([progress.toTick, progress.matching, progress.known], [['processor-scheduling'], 1, 2]);
 });

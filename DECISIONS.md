@@ -27,6 +27,11 @@ each of them. Each change keeps its own journal entry and undo; undoing a whole 
 This reopens: an "Apply recommended" set, presets as reviewed sets, a game guide applied to the
 game's config file with a backup, a small NVIDIA set (G-SYNC, V-Sync, frame cap) with exact undo,
 and removal of named preinstalled apps that Dialed says it cannot undo but the Store can reinstall.
+Also loosened the same day: closing programs the reader picks (launchers, browsers, RGB tools)
+before a game, with an offer to reopen them, is allowed; only blind or arbitrary process
+termination stays out. A recording is confirmed once per game, at any length, and the approval is
+remembered across restarts, since recording changes nothing on the PC. The 75% context checkpoint
+(D-009) is retired.
 Still declined, on evidence rather than this rule: whole hidden-setting NVIDIA profiles without
 undo, blind debloat scripts, registry cleaners, broad service disabling.
 

@@ -2,7 +2,7 @@ import { ErrorText } from './ErrorText';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, FlaskConical, RotateCcw } from 'lucide-react';
 import type { AuditJournalEntry } from '../types';
-import { TWEAK_GROUPS, changedLabel, noLongerInEffect, suggestionProgress, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
+import { TWEAK_GROUPS, changedLabel, noLongerInEffect, readKeptTweaks, saveKeptTweaks, suggestionProgress, tweakMatches, type BatchAction, type TweakCardState, type TweakDestination } from '../lib/tweaks';
 
 export interface UserSettingState {
   enabled: boolean | null;
@@ -25,8 +25,10 @@ export interface OutsideChange {
   onReturnToDefault: () => void;
 }
 
-function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest, focused, outside, batchAction, selected, onSelect }: {
+function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onReviewChanges, onToggle, onTest, focused, outside, batchAction, selected, onSelect, recommendation }: {
   focused?: boolean;
+  /** Present when the setting differs from Dialed's recommendation. */
+  recommendation?: { kept: boolean; onKeep: (keep: boolean) => void };
   batchAction?: BatchAction;
   selected?: boolean;
   onSelect?: (selected: boolean) => void;
@@ -79,6 +81,9 @@ function TweakCard({ card, restoringId, busy, userSetting, onOpen, onUndo, onRev
       {definition.userSettingId && userSetting && !userSetting.manageable && !unsupported && <span className="text-xs text-amber-200">Stored in a form Dialed will not overwrite. Change it in Windows Settings.</span>}
       {undoEntry && !reverted && <button type="button" disabled={restoringId !== null} onClick={() => onUndo(undoEntry)} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />{restoringId === undoEntry.id ? 'Undoing…' : 'Undo'}</button>}
       {!undoEntry && card.changes.length > 0 && <button type="button" onClick={onReviewChanges} className="tweak-undo inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />Undo in Restore</button>}
+      {recommendation && (recommendation.kept
+        ? <p className="w-full text-xs text-slate-400">Kept as you set it, so it is left out of recommended. <button type="button" onClick={() => recommendation.onKeep(false)} className="font-semibold text-slate-200 underline underline-offset-2">Recommend it again</button></p>
+        : <button type="button" onClick={() => recommendation.onKeep(true)} className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500">Keep my setting</button>)}
       {onTest && !unsupported && <button type="button" onClick={onTest} className="tweak-badge-measure inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"><FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />Test it</button>}
       <button type="button" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen((value) => !value)} className="ml-auto inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200">Details<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" /></button>
     </div>
@@ -113,7 +118,7 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
     actions: Partial<Record<string, BatchAction>>;
     selected: Set<string>;
     onSelect: (tweakId: string, selected: boolean) => void;
-    onApply: () => void;
+    onApply: (ids?: string[]) => void;
     onClear: () => void;
     running: boolean;
     results: BatchResult[] | null;
@@ -129,22 +134,23 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
   useEffect(() => { if (focusId) setQuery(''); }, [focusId]);
   const shown = cards.filter((card) => tweakMatches(card.definition, query));
   const changedCount = cards.filter((card) => card.changes.length).length;
+  const [kept, setKept] = useState(readKeptTweaks);
+  const keep = (id: string, value: boolean) => setKept((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); saveKeptTweaks(next); return next; });
+  const progress = batch ? suggestionProgress(cards, userSettings, (id) => Boolean(batch.actions[id]), kept) : null;
+  const differing = new Set([...(progress?.toTick ?? []), ...(progress?.kept ?? [])]);
   return <div className="space-y-8">
     <section>
       <h2 className="text-2xl font-bold text-white">{heading?.title ?? 'Tweaks'}</h2>
       <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">{heading?.intro ?? 'Every setting Dialed can change or guide, with what it does and when to leave it alone. Nothing here changes on its own: each change is previewed, confirmed, checked afterwards and can be undone.'}</p>
       {cards.length > 4 && <div className="mt-3 flex flex-wrap items-center gap-2"><label className="sr-only" htmlFor="tweak-filter">Find a tweak</label><input id="tweak-filter" type="search" maxLength={60} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setQuery(''); }} placeholder="Find a tweak…" className="w-64 max-w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />{query.trim() && <span role="status" className="text-xs text-slate-400">{shown.length ? `${shown.length} match${shown.length === 1 ? '' : 'es'}` : 'No tweak matches that.'}</span>}</div>}
       {batch && <div className="sticky top-2 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs">
-        {(() => {
-          // Ticking only selects; Apply selected still shows every change for review first.
-          const progress = suggestionProgress(cards, userSettings, (id) => Boolean(batch.actions[id]));
-          return progress.known ? <>
-            <span className="text-slate-400">{progress.matching} of {progress.known} match Dialed's suggestion</span>
-            {progress.toTick.length > 0 && !batch.running && <button type="button" onClick={() => progress.toTick.forEach((id) => batch.onSelect(id, true))} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Tick the {progress.toTick.length} that differ</button>}
-          </> : null;
-        })()}
+        {/* Recommended opens the same review as Apply selected, listing every change before anything runs. */}
+        {progress?.known ? <>
+          <span className="text-slate-400">{progress.matching} of {progress.known} match Dialed's recommendation{progress.kept.length ? ` · ${progress.kept.length} kept as you set ${progress.kept.length === 1 ? 'it' : 'them'}` : ''}</span>
+          {progress.toTick.length > 0 && <button type="button" disabled={batch.running} onClick={() => batch.onApply(progress.toTick)} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">Review {progress.toTick.length} recommended</button>}
+        </> : null}
         <span role="status" className="text-slate-300">{batch.selected.size ? `${batch.selected.size} selected` : 'Tick several tweaks to apply them together.'}</span>
-        <button type="button" disabled={!batch.selected.size || batch.running} onClick={batch.onApply} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">{batch.running ? 'Applying…' : 'Apply selected'}</button>
+        <button type="button" disabled={!batch.selected.size || batch.running} onClick={() => batch.onApply()} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 disabled:opacity-40">{batch.running ? 'Applying…' : 'Apply selected'}</button>
         {batch.restorePoint && <label className="inline-flex items-center gap-1.5 text-slate-300"><input type="checkbox" checked={batch.restorePoint.checked} disabled={batch.running} onChange={(event) => batch.restorePoint?.onChange(event.target.checked)} className="h-4 w-4 accent-cyan-400" />Make a Windows restore point first</label>}
         {batch.selected.size > 0 && !batch.running && <button type="button" onClick={batch.onClear} className="rounded-md border border-slate-700 px-3 py-1.5 font-semibold text-slate-300">Clear</button>}
       </div>}
@@ -161,7 +167,7 @@ export function TweaksOverview({ heading, cards, restoringId, userSettings, busy
       if (!inGroup.length) return null;
       return <section key={group} aria-labelledby={`tweak-group-${group.replace(/\W+/g, '-')}`}>
         <h3 id={`tweak-group-${group.replace(/\W+/g, '-')}`} className="tweak-group-label mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{group}</h3>
-        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} focused={focusId === card.definition.id} outside={outsideChanges?.[card.definition.id]} batchAction={batch?.actions[card.definition.id]} selected={batch?.selected.has(card.definition.id)} onSelect={batch ? (value) => batch.onSelect(card.definition.id, value) : undefined} />)}</div>
+        <div className="tweak-grid grid gap-3 md:grid-cols-2">{inGroup.map((card) => <TweakCard key={card.definition.id} card={card} restoringId={restoringId} busy={busySettingId !== null && busySettingId === card.definition.userSettingId} userSetting={userSettings[card.definition.userSettingId ?? card.definition.id]} onOpen={onOpen} onUndo={onUndo} onReviewChanges={onReviewChanges} onToggle={onToggle} onTest={onTest && testableIds?.has(card.definition.id) ? () => onTest(card.definition.id) : undefined} focused={focusId === card.definition.id} outside={outsideChanges?.[card.definition.id]} batchAction={batch?.actions[card.definition.id]} selected={batch?.selected.has(card.definition.id)} onSelect={batch ? (value) => batch.onSelect(card.definition.id, value) : undefined} recommendation={differing.has(card.definition.id) ? { kept: kept.has(card.definition.id), onKeep: (value) => keep(card.definition.id, value) } : undefined} />)}</div>
       </section>;
     })}
   </div>;

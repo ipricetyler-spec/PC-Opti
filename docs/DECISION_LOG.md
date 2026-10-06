@@ -2,7 +2,7 @@
 
 ## D-001 — Evidence over feature count
 
-Accepted. Dialed exposes only observed telemetry and narrowly scoped operations. Registry cleaners, RAM cleaners, page-file mutation, generic driver installation, broad service disabling, Defender/Update disabling, destructive debloat, arbitrary process termination, and synthetic health/FPS scores remain rejected.
+Accepted. Dialed exposes only observed telemetry and narrowly scoped operations. Registry cleaners, RAM cleaners, page-file mutation, generic driver installation, broad service disabling, Defender/Update disabling, destructive debloat, arbitrary process termination, and synthetic health/FPS scores remain rejected. Updated 2026-10-06: closing programs the reader picks by name, with an offer to reopen them, is not "arbitrary" and is allowed.
 
 ## D-002 — Bun is authoritative
 
@@ -34,7 +34,7 @@ Accepted before the 2026-08-25 naming decision. CALIVECT and RIGORSET were resea
 
 ## D-009 — 75% context checkpoint
 
-Accepted on 2026-08-15. At approximately 75% context usage, stop opening a new implementation batch. Finish the current atomic operation, run only the verification needed to leave it truthful, update repository-owned current state and the next-session handoff, and yield with a copyable continuation prompt. If an exact usage percentage is not visible to the agent, treat the first context-pressure/compaction warning or a conservative two-thirds-to-three-quarters estimate as the trigger. Safety-critical cleanup may continue briefly; feature expansion may not.
+Retired on 2026-10-06: automatic context summaries replaced it; keep the continuity files current instead. Originally accepted on 2026-08-15. At approximately 75% context usage, stop opening a new implementation batch. Finish the current atomic operation, run only the verification needed to leave it truthful, update repository-owned current state and the next-session handoff, and yield with a copyable continuation prompt. If an exact usage percentage is not visible to the agent, treat the first context-pressure/compaction warning or a conservative two-thirds-to-three-quarters estimate as the trigger. Safety-critical cleanup may continue briefly; feature expansion may not.
 
 ## D-010 — Dialed is the approved product name
 

@@ -42,16 +42,17 @@ async function main() {
     await page.locator('#tweak-dynamic-tick').getByRole('button', { name: 'Review experiment', exact: true }).click();
     await page.waitForFunction(() => document.getElementById('boot-timing')?.hasAttribute('open'));
     assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'GPU', exact: true }).count(), 0, 'No GPU section.');
-    // Processor scheduling: the value in words, and the only action is back to the Windows default.
+    // Processor scheduling: the value in words; the only change is back to the Windows default, and
+    // as a recommended fix it can be kept as set instead.
     const scheduling = page.locator('#tweak-processor-scheduling');
     await scheduling.getByText('Set to 40 by another program or tool').waitFor();
-    assert.deepEqual(await scheduling.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);
+    assert.deepEqual(await scheduling.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default', 'Keep my setting']);
     const network = page.locator('#tweak-network-power');
     await network.getByText('On: Energy-Efficient Ethernet').waitFor();
     assert.deepEqual(await network.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Turn power saving off']);
     const mmcss = page.locator('#tweak-multimedia-scheduler');
     await mmcss.getByText('5 of 6 values changed by another program or tool').waitFor();
-    assert.deepEqual(await mmcss.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);
+    assert.deepEqual(await mmcss.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default', 'Keep my setting']);
     // Restore › History carries the steps for when Windows will not start, and saves them as a file.
     await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Restore', exact: true }).click();
     await page.getByText("If Windows won't start", { exact: true }).click();

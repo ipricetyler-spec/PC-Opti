@@ -1,5 +1,5 @@
-// Recording inside Test a change: one confirmation covers repeat recordings of the same game,
-// length and readings; the optional start delay counts down and can be canceled. Closed fixture:
+// Recording inside Test a change: one confirmation covers every later recording of the same game,
+// at any length, and is remembered; the optional start delay counts down and can be canceled. Closed fixture:
 // in-memory adapters, loopback page, nothing is launched or recorded.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.DIALED_PLAYWRIGHT_PATH || 'playwright');
@@ -62,12 +62,12 @@ async function main() {
     await startButton.click();
     await page.waitForFunction(() => window.__recording.starts === 2);
     assert.equal(await page.getByRole('dialog').count(), 0, 'A repeat recording of the same game asked again.');
-    // A different length is a different recording and asks again.
+    // A different length of the same game does not ask again, and the approval is remembered.
     await page.getByLabel('Duration').selectOption('10');
     await startButton.click();
-    await page.getByRole('dialog').waitFor();
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    assert.equal(await page.evaluate(() => window.__recording.starts), 2);
+    await page.waitForFunction(() => window.__recording.starts === 3);
+    assert.equal(await page.getByRole('dialog').count(), 0, 'A different length of the same game asked again.');
+    assert.match(await page.evaluate(() => localStorage.getItem('dialed-recording-approved-games:v1')), /valorant-win64-shipping\.exe/);
     // A start delay counts down and can be canceled before anything is recorded.
     await page.getByLabel('Duration').selectOption('20');
     await page.getByLabel('Start').selectOption('5');
@@ -75,10 +75,10 @@ async function main() {
     await page.getByText(/Recording starts in \d s/).waitFor();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByText('Recording canceled before it started. Nothing was recorded.').waitFor();
-    assert.equal(await page.evaluate(() => window.__recording.starts), 2);
+    assert.equal(await page.evaluate(() => window.__recording.starts), 3);
     // Left to finish, the countdown starts the recording.
     await startButton.click();
-    await page.waitForFunction(() => window.__recording.starts === 3, null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__recording.starts === 4, null, { timeout: 15000 });
     // After a canceled countdown, an immediate recording still starts.
     await page.getByLabel('Start').selectOption('5');
     await startButton.click();
@@ -86,11 +86,11 @@ async function main() {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByLabel('Start').selectOption('0');
     await startButton.click();
-    await page.waitForFunction(() => window.__recording.starts === 4);
+    await page.waitForFunction(() => window.__recording.starts === 5);
     // Confirmed once, the hotkey starts the same recording from the game at once, without the delay.
     await page.getByLabel('Start').selectOption('5');
     await page.evaluate(() => window.__fireHotkey());
-    await page.waitForFunction(() => window.__recording.starts === 5, null, { timeout: 3000 });
+    await page.waitForFunction(() => window.__recording.starts === 6, null, { timeout: 3000 });
     assert.equal(await page.getByText(/Recording starts in \d s/).count(), 0, 'The hotkey waited for the start delay.');
     // Turned off, the key is handed back.
     await page.getByLabel('Recording hotkey').selectOption('');
@@ -102,9 +102,9 @@ async function main() {
     await page.getByRole('button', { name: 'Stop this test' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Stop test' }).click();
     await page.waitForTimeout(6500);
-    assert.equal(await page.evaluate(() => window.__recording.starts), 5, 'A countdown outlived its test and started a recording.');
+    assert.equal(await page.evaluate(() => window.__recording.starts), 6, 'A countdown outlived its test and started a recording.');
     assert.deepEqual(errors, []);
-    console.log('Recording checks passed: one confirmation per recording, delay with cancel, hotkey refuses unconfirmed and starts confirmed.');
+    console.log('Recording checks passed: one confirmation per game (remembered), delay with cancel, hotkey refuses unconfirmed and starts confirmed.');
   } finally { await browser.close(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

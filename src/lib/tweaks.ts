@@ -44,6 +44,17 @@ export interface TweakDefinition {
   requiresRestart?: boolean;
   /** The card only makes the change (actionLabel); reversing it is done with Undo. */
   oneWay?: boolean;
+  /** A one-way return to the Windows default that is recommended whenever it is offered. */
+  recommendWhenChanged?: boolean;
+}
+
+// Settings the reader chose to keep as they are; recommended never ticks them again.
+const KEPT_KEY = 'dialed-tweaks-kept:v1';
+export function readKeptTweaks(): Set<string> {
+  try { const value = JSON.parse(window.localStorage.getItem(KEPT_KEY) ?? '[]'); return new Set(Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []); } catch { return new Set(); }
+}
+export function saveKeptTweaks(kept: Set<string>) {
+  try { window.localStorage.setItem(KEPT_KEY, JSON.stringify([...kept])); } catch { /* a convenience only */ }
 }
 
 /**
@@ -166,7 +177,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'When an optimizer or script changed it to a custom value. Those values have no documented gaming benefit, and some make the program in front get less time, not more.',
     leaveItIf: 'It already reads Programs, or you set something else on purpose for a server-style workload.',
     undo: 'Undo puts back the exact previous value.',
-    measureFirst: false, destination: null, actionLabel: 'Return to Windows default', userSettingId: 'processor-scheduling', oneWay: true, requiresAdmin: true,
+    measureFirst: false, destination: null, actionLabel: 'Return to Windows default', userSettingId: 'processor-scheduling', oneWay: true, requiresAdmin: true, recommendWhenChanged: true,
   },
   {
     id: 'multimedia-scheduler', group: 'Windows & privacy', title: 'Multimedia scheduler settings', capabilityIds: ['system:multimedia-scheduler'], perItem: false,
@@ -175,7 +186,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'When a script changed them and you want Windows behaviour back. These values only reach programs that ask the multimedia scheduler for priority, mostly audio and video playback; most games never do, so tweak-list values have no measured gaming benefit.',
     leaveItIf: 'You set them on purpose, for example following a pro-audio guide for SystemResponsiveness.',
     undo: 'Undo puts back the exact previous values of the ones Dialed changed.',
-    measureFirst: false, destination: null, actionLabel: 'Return to Windows defaults', userSettingId: 'multimedia-scheduler', oneWay: true, requiresAdmin: true, requiresRestart: true,
+    measureFirst: false, destination: null, actionLabel: 'Return to Windows defaults', userSettingId: 'multimedia-scheduler', oneWay: true, requiresAdmin: true, requiresRestart: true, recommendWhenChanged: true,
   },
   {
     id: 'usb-selective-suspend', group: 'Input', title: 'USB selective suspend', capabilityIds: ['power:usb-selective-suspend'], perItem: false,
@@ -412,21 +423,24 @@ export function noLongerInEffect(card: TweakCardState, current: { enabled: boole
 
 /**
  * How many tweaks with a Dialed suggestion already match it, counted only where Windows reported
- * the current value, and which unmatched ones can be ticked for Apply selected. Unread settings are
- * left out of both numbers rather than counted either way.
+ * the current value, and which unmatched ones are recommended. Unread settings are left out of both
+ * numbers rather than counted either way. A return-to-default fix counts as suggested "on" (at the
+ * default). Settings the reader kept are reported, never recommended.
  */
-export function suggestionProgress(cards: TweakCardState[], userSettings: Partial<Record<string, { enabled: boolean | null }>>, batchable: (id: string) => boolean) {
+export function suggestionProgress(cards: TweakCardState[], userSettings: Partial<Record<string, { enabled: boolean | null }>>, batchable: (id: string) => boolean, kept: Set<string> = new Set()) {
   let matching = 0, known = 0;
   const toTick: string[] = [];
+  const keptDiffering: string[] = [];
   for (const card of cards) {
-    const suggested = card.definition.suggested;
+    const suggested = card.definition.suggested ?? (card.definition.recommendWhenChanged ? 'on' : undefined);
     const enabled = userSettings[card.definition.userSettingId ?? card.definition.id]?.enabled;
     if (!suggested || typeof enabled !== 'boolean') continue;
     known += 1;
     if (enabled === (suggested === 'on')) matching += 1;
+    else if (kept.has(card.definition.id)) keptDiffering.push(card.definition.id);
     else if (batchable(card.definition.id)) toTick.push(card.definition.id);
   }
-  return { matching, known, toTick };
+  return { matching, known, toTick, kept: keptDiffering };
 }
 
 export function changedLabel(card: TweakCardState): string | null {

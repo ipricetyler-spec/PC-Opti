@@ -885,3 +885,11 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - The helper now refuses a schema 1 (listed-device) release policy that expires more than 400 days out, the same limit schema 2 already had. Fixture check added (closed-native-protocol-pass 146). `npm test` 869/869.
 - Checked and already in place, no change: the patching acknowledgement is enforced inside the helper (`LifecycleSession.cs` Plan and Preview), and "Keep current settings" refuses records setup can update itself — restart-only, inventory refresh, older session identity — and unlatched pending changes (fixture checks in `InventoryReconciliationChecks.cs`). The earlier notes listing these as open were stale.
 - Not verified: the rebuilt, signed helper. It ships with the next `release:native` and packaging run.
+
+## 2026-10-06 — Rules loosened; Review recommended; recording asks once per game
+
+- Promise 1 now allows several changes from one review that names each; one-at-a-time retired. Closing programs the reader picks is allowed; D-009 retired (DECISIONS.md, docs/DECISION_LOG.md).
+- Tweaks: "Review N recommended" opens the review for every card that differs from Dialed's recommendation, now including the processor scheduling and multimedia scheduler return-to-default fixes. "Keep my setting" leaves a card out of recommended (remembered; "Recommend it again" undoes it).
+- Recording: one confirmation per game at any length, remembered across restarts.
+- Checks: npm test 869/869, test:ts 146/146, lint clean, test:ui:fixtures all pass (restore-point check now covers recommended review, keep and reload; recording check covers per-game approval).
+- Not verified in the installed app or against the owner's real settings.

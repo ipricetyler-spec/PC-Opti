@@ -18,7 +18,7 @@ export function saveRecordingHotkey(value: RecordingHotkey | null) {
 
 /**
  * What a key press should do. Starting needs a recording the reader already confirmed in Dialed
- * for this exact game, length and readings, because a confirmation cannot be shown over a game.
+ * for this game, because a confirmation cannot be shown over a game.
  */
 export function hotkeyAction(input: { recording: boolean; busy: boolean; toolReady: boolean; targetChosen: boolean; approved: boolean }): 'STOP' | 'START' | 'REFUSE' {
   if (input.recording) return input.busy ? 'REFUSE' : 'STOP';

@@ -20,12 +20,18 @@ interface NativePresentMonCaptureProps {
   preferTarget?: string;
 }
 
-// A recording changes nothing on the PC, so after one confirmation the same recording (same game
-// process, length and readings) starts without asking again until Dialed closes. Kept in memory
-// only; each recording still gets its own fresh preview, so the game must still be running.
-let approvedRecording: string | null = null;
-export const recordingApprovalKey = (target: { targetId: string; pid: number }, durationSeconds: number, hardwareReadings: boolean) =>
-  `${target.targetId}|${target.pid}|${durationSeconds}|${hardwareReadings ? 1 : 0}`;
+// A recording changes nothing on the PC, so one confirmation per game is enough: later recordings
+// of that game, at any length, start without asking, also after Dialed restarts. Each recording
+// still gets its own fresh preview, so the game must still be running.
+const APPROVED_GAMES_KEY = 'dialed-recording-approved-games:v1';
+export const recordingApprovalKey = (target: { name: string }) => target.name.toLowerCase();
+function approvedGames(): string[] {
+  try { const value = JSON.parse(window.localStorage.getItem(APPROVED_GAMES_KEY) ?? '[]'); return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []; } catch { return []; }
+}
+export const isRecordingApproved = (target: { name: string }) => approvedGames().includes(recordingApprovalKey(target));
+function approveRecording(target: { name: string }) {
+  try { window.localStorage.setItem(APPROVED_GAMES_KEY, JSON.stringify([...new Set([...approvedGames(), recordingApprovalKey(target)])].slice(-50))); } catch { /* asked again next time */ }
+}
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const letters = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -123,19 +129,18 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       setBusy(false);
       return;
     }
-    const approvalKey = recordingApprovalKey(preview.target, preview.durationSeconds, preview.hardwareReadings === true);
-    const confirmed = approvedRecording === approvalKey || await confirm({
+    const confirmed = isRecordingApproved(preview.target) || await confirm({
       title: `Start a ${preview.durationSeconds}-second frame-time capture?`,
       description: preview.consequence,
       details: `Target: ${preview.target.name} (PID ${preview.target.pid})\nWindow: ${preview.target.windowTitle}\nPresentMon ${preview.toolVersion}\nHardware readings: ${preview.hardwareReadings ? 'on — CPU, memory and GPU counters once per second' : 'off'}`,
-      notice: 'Play the same scene the same way each time while it records. Recording changes nothing on this PC, so Dialed will not ask again for this game, length and readings until you close Dialed.',
+      notice: 'Play the same scene the same way each time while it records. Recording changes nothing on this PC, so Dialed will not ask again for this game.',
       confirmLabel: 'Start recording',
     });
     if (!confirmed) {
       setBusy(false);
       return;
     }
-    approvedRecording = approvalKey;
+    approveRecording(preview.target);
     if (startDelay > 0 && !fromHotkey) {
       for (let left = startDelay; left > 0; left -= 1) {
         setCountdown(left);
@@ -188,7 +193,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       const now = latest.current;
       const action = hotkeyAction({
         recording: Boolean(now.captureState.active), busy: now.busy, toolReady: now.tool?.status === 'AVAILABLE', targetChosen: Boolean(now.selectedTarget),
-        approved: Boolean(now.selectedTarget) && approvedRecording === recordingApprovalKey(now.selectedTarget!, now.duration, now.hardwareReadings),
+        approved: Boolean(now.selectedTarget) && isRecordingApproved(now.selectedTarget!),
       });
       playCue(action);
       if (action === 'STOP') void now.stop();

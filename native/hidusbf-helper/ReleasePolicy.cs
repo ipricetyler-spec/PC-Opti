@@ -64,7 +64,7 @@ namespace Dialed.HidusbfHelper {
       if (names.Length != 8 || names.Distinct().Count() != 8 || names.Except(new[] { "SchemaVersion", "ExpiresAt", "BrokerSha256", "HelperSha256", "PublisherThumbprint", "AcceptedPlatformDigests", "Purpose", "AuthorizedDeviceDigests" }).Any()) throw new InvalidOperationException("Unexpected policy fields.");
       var data = JsonSerializer.Deserialize<ReleasePolicyData>(bytes);
       string expiry = document.RootElement.GetProperty("ExpiresAt").GetString();
-      if (data == null || data.SchemaVersion != 1 || expiry == null || !Regex.IsMatch(expiry, @"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,7})?(?:Z|\+00:00)$") || data.ExpiresAt <= now || (data.Purpose != "VALIDATION_ONLY" && data.Purpose != "ACCEPTED_RELEASE") || !LifecycleSession.IsDigest(data.BrokerSha256) || !LifecycleSession.IsDigest(data.HelperSha256) ||
+      if (data == null || data.SchemaVersion != 1 || expiry == null || !Regex.IsMatch(expiry, @"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,7})?(?:Z|\+00:00)$") || data.ExpiresAt <= now || data.ExpiresAt - now > MaximumGeneralLifetime || (data.Purpose != "VALIDATION_ONLY" && data.Purpose != "ACCEPTED_RELEASE") || !LifecycleSession.IsDigest(data.BrokerSha256) || !LifecycleSession.IsDigest(data.HelperSha256) ||
           data.PublisherThumbprint == null || data.PublisherThumbprint.Length != 40 || !data.PublisherThumbprint.All(Uri.IsHexDigit) ||
           data.AcceptedPlatformDigests == null || data.AcceptedPlatformDigests.Length < 1 || data.AcceptedPlatformDigests.Length > 128 || data.AcceptedPlatformDigests.Distinct().Count() != data.AcceptedPlatformDigests.Length || data.AcceptedPlatformDigests.Any(x => !LifecycleSession.IsDigest(x)) ||
           data.AuthorizedDeviceDigests == null || data.AuthorizedDeviceDigests.Length < 1 || data.AuthorizedDeviceDigests.Length > 128 || data.AuthorizedDeviceDigests.Distinct().Count() != data.AuthorizedDeviceDigests.Length || data.AuthorizedDeviceDigests.Any(x => !LifecycleSession.IsDigest(x)))
@@ -74,7 +74,8 @@ namespace Dialed.HidusbfHelper {
     static readonly string[] GeneralFields = { "SchemaVersion", "ExpiresAt", "BrokerSha256", "HelperSha256", "PublisherThumbprint", "Purpose", "DeviceClasses", "SpeedClasses", "MinimumWindowsBuild", "DeniedDevices" };
     static readonly string[] KnownDeviceClasses = { "MOUSE", "KEYBOARD", "GAMEPAD", "JOYSTICK" };
     static readonly string[] KnownSpeedClasses = { "FULL", "HIGH" };
-    // A general release must be renewed at least this often.
+    // Every release, general or listed-device, must be renewed at least this often; a leaked
+    // long-lived schema 1 policy would otherwise outlast every later fix.
     static readonly TimeSpan MaximumGeneralLifetime = TimeSpan.FromDays(400);
 
     static bool BoundedSet(string[] values, int minimum, int maximum, Func<string, bool> valid) =>

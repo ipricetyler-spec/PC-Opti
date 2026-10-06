@@ -267,6 +267,8 @@ class Program {
       byte[] signature = rsa.SignData(bytes, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss);
       Assert(ReleasePolicy.Verify(bytes, signature, rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow).SchemaVersion == 1);
       Refuse(() => ReleasePolicy.Verify(bytes, signature, rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow.AddDays(2)));
+      var longLived = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(policy with { ExpiresAt = DateTimeOffset.UtcNow.AddDays(500) });
+      Refuse(() => ReleasePolicy.Verify(longLived, rsa.SignData(longLived, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pss), rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow));
       bytes[10] ^= 1;
       Refuse(() => ReleasePolicy.Verify(bytes, signature, rsa.ExportSubjectPublicKeyInfoPem(), DateTimeOffset.UtcNow));
 

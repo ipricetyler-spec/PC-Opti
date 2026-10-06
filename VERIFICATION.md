@@ -879,3 +879,9 @@ Not verified: a real write and undo on Windows (needs an approved machine or the
 Checks: npm test 869/869, test:ts 145/145, lint, UI fixtures (hotkey refusal, confirmed start without
 the delay, release; recovery steps download; adapter card). Not verified on the owner's PC: the
 hotkey from inside a real game, and a real adapter change (both need a package).
+
+## 2026-10-06 — Setup helper: 400-day limit on every release policy
+
+- The helper now refuses a schema 1 (listed-device) release policy that expires more than 400 days out, the same limit schema 2 already had. Fixture check added (closed-native-protocol-pass 146). `npm test` 869/869.
+- Checked and already in place, no change: the patching acknowledgement is enforced inside the helper (`LifecycleSession.cs` Plan and Preview), and "Keep current settings" refuses records setup can update itself — restart-only, inventory refresh, older session identity — and unlatched pending changes (fixture checks in `InventoryReconciliationChecks.cs`). The earlier notes listing these as open were stale.
+- Not verified: the rebuilt, signed helper. It ships with the next `release:native` and packaging run.

@@ -799,3 +799,10 @@ app section by section first (read-only UI Automation, 25 screens).
 New UI check scripts/check-tweak-tools-ui.cjs: six tabs, sections folded and unread until opened, cards
 open and scroll to them, no GPU section. Updated checks and source tests that pinned the old tabs.
 npm test 858/858 (one test removed with the batch list), test:ts 142/142, lint, UI fixtures pass.
+## 2026-10-06 — cleanup, stage 3: Restore without Readiness; one snapshot comparison
+
+Restore > Readiness removed: scan status, suggestions, unfinished changes and test results are all on
+Home. ReadinessCenter and its helper (publicExperience) deleted with their tests; its "Copy summary"
+is not moved, because Settings > local data already copies a support summary. Home > Scan details
+keeps the snapshot card as a count with "Review changes"; the list itself is only in Restore >
+Outside changes. Restore tabs: History, Outside changes. npm test 857/857, lint, UI fixtures pass.

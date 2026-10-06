@@ -23,7 +23,6 @@ const { createAcceptanceRecord, resolveOutput } = require('../scripts/collect-ac
 const benchmarks = require('../src/main/benchmarks/index.cjs');
 const maintenance = require('../src/main/maintenance/index.cjs');
 const licenseInventory = require('../scripts/generate-license-inventory.cjs');
-const publicExperience = require('../src/lib/publicExperience.js');
 const windowsSigning = require('../scripts/windows-signing.cjs');
 const windowsElevation = require('../src/main/shared/windows-elevation.cjs');
 
@@ -589,39 +588,19 @@ test('navigation shows seven sections over nine workspaces and keeps detailed to
   assert.doesNotMatch(appSource, /WorkloadProfiles|orderRecommendationsForGoal/);
 });
 
-test('readiness is discrete and treats unstable or regressed benchmark evidence as review', () => {
-  const base = {
-    hasSnapshot: true,
-    unresolvedHistory: 0,
-    antiCheatStatus: 'PASS',
-    reviewRecommendations: 0,
-    benchmarkComparisons: [],
-  };
-  assert.equal(publicExperience.computeReadinessState(base).state, 'Ready');
-  assert.equal(publicExperience.computeReadinessState({ ...base, hasSnapshot: false }).state, 'Blocked');
-  for (const classification of ['INCOMPLETE', 'INCOMPARABLE', 'HIGH_VARIANCE', 'INCONCLUSIVE', 'REGRESSION']) {
-    assert.equal(publicExperience.computeReadinessState({ ...base, benchmarkComparisons: [{ classification }] }).state, 'Review', classification);
-  }
-  assert.equal(publicExperience.computeReadinessState({ ...base, benchmarkComparisons: [{ classification: 'MEASURED_DIFFERENCE' }] }).state, 'Ready');
-  const readinessSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'ReadinessCenter.tsx'), 'utf8');
-  assert.doesNotMatch(readinessSource, /Outcome score|readinessScore|percent aligned/i);
-});
-
 test('the verified system scan has one canonical page and secondary views route to it', () => {
   const root = path.join(__dirname, '..', 'src', 'components');
   const dashboard = fs.readFileSync(path.join(root, 'DashboardOverview.tsx'), 'utf8');
-  const readiness = fs.readFileSync(path.join(root, 'ReadinessCenter.tsx'), 'utf8');
   const insights = fs.readFileSync(path.join(root, 'SystemInsightCenters.tsx'), 'utf8');
   const network = fs.readFileSync(path.join(root, 'NetworkQualityLab.tsx'), 'utf8');
   const drift = fs.readFileSync(path.join(root, 'DriftMonitor.tsx'), 'utf8');
   assert.match(dashboard, /Scan this PC/);
   assert.match(dashboard, /Scan finished/);
-  for (const source of [readiness, insights, network, drift]) {
+  for (const source of [insights, network, drift]) {
     assert.doesNotMatch(source, />Run verified scan</);
     assert.doesNotMatch(source, />Refresh verified scan</);
     assert.doesNotMatch(source, />Rescan and compare</);
   }
-  assert.match(readiness, /Scan details/);
   assert.match(network, /Open Scan/);
   assert.match(drift, /Scan details/);
 });

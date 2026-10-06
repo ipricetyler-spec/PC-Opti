@@ -645,18 +645,11 @@ async function main() {
         await page.getByRole('heading', { name: 'Worth doing', exact: true }).waitFor();
       }
       if (workspace === 'Restore') {
-        // Restore opens on History, with Outside changes and Readiness as tabs at the top.
+        // Restore opens on History, with Outside changes as the other tab (Readiness repeated Home; removed 2026-10-06).
         const restoreTabs = page.getByRole('tablist', { name: 'Restore views' });
         assert.equal(await restoreTabs.getByRole('tab', { name: 'History', exact: true }).getAttribute('aria-selected'), 'true');
+        assert.deepEqual(await restoreTabs.getByRole('tab').allInnerTexts().then((names) => names.map((name) => name.toLowerCase())), ['history', 'outside changes']);
         await restoreTabs.getByRole('tab', { name: 'Outside changes', exact: true }).click();
-        await restoreTabs.getByRole('tab', { name: 'Readiness', exact: true }).click();
-        // With Technical details hidden (the default), the reader still learns whether copying worked.
-        await page.getByRole('button', { name: 'Copy summary', exact: true }).click();
-        const copied = page.getByRole('status').filter({ hasText: /Summary copied\.|Copying was blocked/ });
-        await copied.waitFor();
-        assert.equal(await copied.isVisible(), true, 'the copy result is visible without Technical details');
-        await page.evaluate(() => { document.documentElement.dataset.technicalDetails = 'shown'; });
-        await page.getByRole('heading', { name: 'Checks', exact: true }).waitFor();
       }
       if (workspace === 'Settings') {
         await page.getByRole('heading', { name: 'Appearance, data and release status' }).waitFor();

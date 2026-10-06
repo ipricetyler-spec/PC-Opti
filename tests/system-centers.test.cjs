@@ -101,7 +101,6 @@ test('shared Technical details mode is default-off across evidence surfaces with
     'NetworkQualityLab.tsx',
     'PerformanceLab.tsx',
     'ProcessBalancer.tsx',
-    'ReadinessCenter.tsx',
     'RecommendationsPanel.tsx',
     'ReleaseStatusCard.tsx',
     'SafePolicies.tsx',

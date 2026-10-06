@@ -639,7 +639,7 @@ async function main() {
     await section.getByRole('button',{name:'Show saved recovery'}).click();
     assert.equal(await section.getByRole('button',{name:'Review exact restore'}).isDisabled(),true);
     const polishLayouts = [];
-    for (const workspace of ['Home', 'Restore', 'Settings', 'Games', 'Input devices']) {
+    for (const workspace of ['Home', 'Restore', 'Settings', 'Games', 'Measure', 'Input devices']) {
       await openSection(page, workspace);
       if (workspace === 'Home') {
         await page.getByRole('heading', { name: 'Worth doing', exact: true }).waitFor();
@@ -666,9 +666,10 @@ async function main() {
         assert.equal(await section.getByRole('button',{name:'Open setup to undo…'}).isEnabled(),true);
         assert.equal(await section.getByRole('button',{name:'Check controls'}).isEnabled(),true);
       }
-      if (workspace === 'Games') {
+      if (workspace === 'Measure') {
+        // Display setup is folded under Test a change and loads nothing until opened.
         assert.equal(await page.getByLabel('Display and GPU setup guide').count(),0);
-        await page.getByRole('tab',{name:'Display setup',exact:true}).click();
+        await page.getByText('Test a display or graphics-card setting',{exact:true}).click();
         await page.getByLabel('Display and GPU setup guide').waitFor();
       }
       for (const theme of themes) for (const width of [960, 1280]) {

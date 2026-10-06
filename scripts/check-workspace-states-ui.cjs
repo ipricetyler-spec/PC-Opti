@@ -176,8 +176,9 @@ async function main() {
     assert.equal(await page.getByLabel('After · VPN (or none)', { exact: true }).inputValue(), 'none');
     await page.getByText('Differences below are after minus before.', { exact: true }).waitFor();
     report.checks.push({ state: 'Network saved declarations persist; matching compares, mismatch refuses; no probe API', passed: true });
-    await navigate('Games');
-    await page.getByRole('tab', { name: 'Display setup', exact: true }).click();
+    await navigate('Measure');
+    await page.getByRole('tab', { name: 'Test a change', exact: true }).click();
+    await page.getByText('Test a display or graphics-card setting', { exact: true }).click();
     assert.equal(await page.evaluate(() => window.__workspaceState.displayReads), 0);
     await page.getByRole('button', { name: 'Read display information', exact: true }).click();
     await page.getByText('143.98 Hz', { exact: true }).waitFor();

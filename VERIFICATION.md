@@ -806,3 +806,11 @@ Home. ReadinessCenter and its helper (publicExperience) deleted with their tests
 is not moved, because Settings > local data already copies a support summary. Home > Scan details
 keeps the snapshot card as a count with "Review changes"; the list itself is only in Restore >
 Outside changes. Restore tabs: History, Outside changes. npm test 857/857, lint, UI fixtures pass.
+## 2026-10-06 — cleanup, stage 4: Games has three tabs; Display setup moved to Measure
+
+Games › Detected and Backups merged into Backups (the games found, making a backup and the backup
+list together; you no longer make a backup on one tab and find it on another). Display setup moved to
+Measure › Test a change as a folded "Test a display or graphics-card setting" section that loads
+nothing until opened (it was a second testing workflow). Games tabs: Profiles, Guides, Backups.
+Checks that opened Display setup from Games now open it from Measure. npm test 857/857, lint, UI
+fixtures pass.

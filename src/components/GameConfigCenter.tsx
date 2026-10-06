@@ -39,7 +39,7 @@ export function GameConfigCenter({ mode = 'all', guides, discovery, backups, loa
     <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1 text-[11px] font-semibold text-violet-200"><ArchiveRestore className="h-3.5 w-3.5" /> Game config safety</div>
-        <h2 className="mt-3 text-2xl font-bold text-white">{mode === 'backups' ? 'Your game setting backups' : 'Games on this PC'}</h2>
+        <h2 className="mt-3 text-2xl font-bold text-white">{mode === 'backups' ? 'Your game setting backups' : mode === 'all' ? 'Your games and their setting backups' : 'Games on this PC'}</h2>
         <p className="mt-1 text-sm leading-relaxed text-slate-400">Back up a game's settings files before you change anything, and put them back later. Restoring always shows you exactly what will change first, and keeps a copy of what it replaces.</p>
       </div>
       <button type="button" onClick={onRefresh} disabled={loading || busy} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 disabled:opacity-60"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Checking…' : 'Refresh'}</button>

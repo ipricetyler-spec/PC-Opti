@@ -15,7 +15,7 @@ export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Win
 
 export type TweakDestination =
   | { tab: 'startup'; view: 'startup' | 'background' | 'windows' | 'timing' | 'maintenance' | 'bios' }
-  | { tab: 'game-settings'; view: 'profiles' | 'display' }
+  | { tab: 'game-settings'; view: 'profiles' }
   | { tab: 'gpu' };
 
 export interface TweakDefinition {

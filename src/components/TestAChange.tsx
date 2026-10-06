@@ -9,7 +9,7 @@ import { SESSION_KEY, parseSessions, sameCaptureGroup, sessionCaptureIds, sessio
 import { linkRuns, partitionRuns, sessionLimitReached, vendorFor } from '../lib/displayExperiment';
 import { abaCheck, capWarning, comparableLowFps, conditionFlags, effectVsNoise, runProgress, RECOMMENDED_RUNS } from '../lib/experimentRigor';
 import {
-  CHANGE_TESTS_KEY, STEP_LABELS, VISIBLE_STEPS, activeTests, awaitingRestart, newChangeTest, parseChangeTests, saveChangeTests, sessionForChange, visibleStepIndex,
+  CHANGE_TESTS_KEY, STEP_LABELS, VISIBLE_STEPS, activeTests, awaitingRestart, finishedTestRows, newChangeTest, parseChangeTests, saveChangeTests, sessionForChange, visibleStepIndex,
   testStep, upsertChangeTest, withBootSeen, type ChangeTest, type ChangeTestSource,
 } from '../lib/changeTest';
 import { DISPLAY_BASELINES_KEY, FIELD_LABELS, contextChanges, parseBaselines, type DisplayBaseline } from '../lib/displayBaseline';
@@ -142,6 +142,8 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
   const [displayBaselineId, setDisplayBaselineId] = useState<string | null>(null);
 
   const running = activeTests(tests, sessionState.sessions);
+  // Each finished test with its result in a few words, so earlier answers are visible without opening each.
+  const finished = finishedTestRows(tests, sessionState.sessions, evidence.comparisons);
   const test = tests.find((item) => item.id === selectedId) ?? (creating ? null : running[0] ?? null);
   const storedSession = test ? sessionState.sessions.find((item) => item.id === test.sessionId) ?? null : null;
   const step = test ? testStep(test, storedSession) : null;
@@ -455,6 +457,10 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
       {running.length > 0 && <div className="mt-4 rounded-lg border border-slate-700 p-3 text-xs text-slate-300">
         <p className="font-semibold text-slate-200">Tests in progress</p>
         <ul className="mt-2 space-y-1">{running.map((item) => <li key={item.id}><button type="button" className="text-cyan-300 underline underline-offset-2" onClick={() => { setSelectedId(item.id); setCreating(false); }}>{item.source.title} in {item.game}</button> · {STEP_LABELS[testStep(item, sessionState.sessions.find((saved) => saved.id === item.sessionId) ?? null)]}</li>)}</ul>
+      </div>}
+      {finished.length > 0 && <div className="mt-3 rounded-lg border border-slate-700 p-3 text-xs text-slate-300">
+        <p className="font-semibold text-slate-200">Finished tests</p>
+        <ul aria-label="Finished tests" className="mt-2 divide-y divide-slate-800">{finished.map((row) => <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-1.5"><button type="button" className="text-left text-cyan-300 underline underline-offset-2" onClick={() => { setSelectedId(row.id); setCreating(false); }}>{row.title} in {row.game}</button><span><span className="font-semibold text-slate-100">{row.verdict}</span><span className="text-slate-500"> · {row.decision} · {new Date(row.finishedAt).toLocaleDateString()}</span></span></li>)}</ul>
       </div>}
       <div className="mt-5 space-y-4">
         <fieldset>

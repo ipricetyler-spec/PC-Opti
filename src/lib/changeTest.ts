@@ -15,7 +15,7 @@
  *
  * Pure and storage-agnostic so it can be tested without a browser.
  */
-import type { ExperimentSession } from './experimentSessions';
+import { sameCaptureGroup, sessionCaptureIds, type ExperimentSession } from './experimentSessions';
 import type { RunWindow } from './displayExperiment';
 
 export const CHANGE_TESTS_KEY = 'dialed-change-tests:v1';
@@ -118,6 +118,33 @@ export function withBootSeen(test: ChangeTest, bootTime: string | null): ChangeT
   if (test.source.kind !== 'TWEAK' || !test.source.restartRequired || !test.change || test.activeFrom || !bootTime) return test;
   if (Date.parse(bootTime) <= Date.parse(test.change.declaredAt)) return test;
   return { ...test, activeFrom: bootTime };
+}
+
+const VERDICTS: Record<string, string> = {
+  MEASURED_DIFFERENCE: 'It helped', REGRESSION: 'Got worse', INCONCLUSIVE: 'No clear difference',
+  HIGH_VARIANCE: 'Too inconsistent to judge', INCOMPLETE: 'Not enough runs', INCOMPARABLE: 'Runs did not match',
+};
+const DECISIONS: Record<ExperimentSession['decision'], string> = {
+  UNDECIDED: 'Not decided', KEEP: 'Kept', REVIEW_RESTORE: 'Put back', INCONCLUSIVE: 'Left as it was, unsettled',
+};
+
+export interface FinishedTestRow { id: string; title: string; game: string; finishedAt: string; verdict: string; decision: string }
+
+/**
+ * Finished tests, newest first, each with its saved result in a few words and what the reader
+ * decided. The result is the comparison saved for exactly this test's runs; without one it says
+ * so rather than guessing from the decision.
+ */
+export function finishedTestRows(tests: ChangeTest[], sessions: ExperimentSession[], comparisons: Array<{ experimentId?: string; classification: string; baseline?: { trialIds?: string[] } | null; candidate?: { trialIds?: string[] } | null }>, limit = 10): FinishedTestRow[] {
+  return tests.flatMap((test) => {
+    const session = sessions.find((item) => item.id === test.sessionId);
+    if (!session || session.decision === 'UNDECIDED') return [];
+    const comparison = comparisons.find((item) => item.experimentId === session.id
+      && sameCaptureGroup(item.baseline?.trialIds, sessionCaptureIds(session, 'baseline'))
+      && sameCaptureGroup(item.candidate?.trialIds, sessionCaptureIds(session, 'candidate')));
+    return [{ id: test.id, title: test.source.title, game: test.game, finishedAt: test.afterDoneAt ?? test.createdAt,
+      verdict: comparison ? VERDICTS[comparison.classification] ?? 'Result saved' : 'No result saved', decision: DECISIONS[session.decision] }];
+  }).sort((left, right) => Date.parse(right.finishedAt) - Date.parse(left.finishedAt)).slice(0, limit);
 }
 
 export function activeTests(tests: ChangeTest[], sessions: ExperimentSession[]): ChangeTest[] {

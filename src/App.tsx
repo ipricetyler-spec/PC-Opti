@@ -767,6 +767,7 @@ export default function App() {
       'block-background-apps': onOff(userSettings['block-background-apps']),
       'exclude-driver-updates': onOff(userSettings['exclude-driver-updates']),
       'no-auto-restart': onOff(userSettings['no-auto-restart']),
+      'processor-scheduling': userSettings['processor-scheduling']?.detail ?? onOff(userSettings['processor-scheduling']),
       'dynamic-tick': timing('timing:disable-dynamic-tick'),
       'clock-source': timing('timing:restore-automatic-clock-source'),
       'temp-files': maintenance('clear-temp-files'),

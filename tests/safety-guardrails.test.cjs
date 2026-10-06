@@ -471,6 +471,7 @@ test('every privileged capability has an explicit authority contract wired to it
     'policy:no-auto-restart-signed-in',
     'recovery:restore-point',
     'startup:disable-machine-run',
+    'system:processor-scheduling',
     'timing:disable-dynamic-tick',
     'timing:global-timer-resolution',
     'timing:restore-automatic-clock-source',

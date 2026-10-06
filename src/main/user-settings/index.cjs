@@ -82,6 +82,23 @@ const USER_SETTINGS = Object.freeze({
     minimumBuild: 22000,
     minimumBuildReason: 'Windows 10 does not have this setting, so turning it on would do nothing. It needs Windows 11.',
   }),
+  // Processor scheduling (System Properties > Advanced > Performance > Advanced): whether Windows
+  // favours the program in front. Both 2 (as installed) and 38 (what that dialog writes for
+  // "Programs") mean the same on Windows 10 and 11. Tweak scripts write many other values; Dialed
+  // only reads them and offers the way back to the default, never a value of its own.
+  'processor-scheduling': Object.freeze({
+    capabilityId: 'system:processor-scheduling',
+    title: 'Processor scheduling',
+    scope: 'machine',
+    registryPath: 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl',
+    valueName: 'Win32PrioritySeparation',
+    onValue: 2,
+    onValues: Object.freeze([2, 38]),
+    offValue: 24,
+    absentMeans: true,
+    restartRequired: false,
+    enableOnly: true,
+  }),
   'block-background-apps': Object.freeze({
     capabilityId: 'policy:block-background-apps',
     title: 'Block background apps',
@@ -175,6 +192,8 @@ function effectiveEnabled(settingId, state) {
   const setting = userSetting(settingId);
   if (!state?.exists) return setting.absentMeans;
   if (state.kind !== 'DWord' || !Number.isInteger(state.value)) return null;
+  // Settings with several equivalent default values: anything else is a change made elsewhere.
+  if (setting.onValues) return setting.onValues.includes(state.value);
   if (setting.onValue !== null && state.value === setting.onValue) return true;
   if (setting.offValue !== null && state.value === setting.offValue) return false;
   // Game Mode and recording treat any non-zero value as on, as Windows does.
@@ -311,6 +330,15 @@ function differsFromWindowsDefault(settingId, state) {
   return enabled !== null && enabled !== setting.absentMeans;
 }
 
+/** The current value in words, for settings that are more than on and off. Null when not needed. */
+function describeUserSetting(settingId, state) {
+  if (settingId !== 'processor-scheduling') return null;
+  if (!state?.exists || state.value === 2 || state.value === 38) return 'Programs (Windows default)';
+  if (state.kind !== 'DWord' || !Number.isInteger(state.value)) return 'Could not be read';
+  if (state.value === 24) return 'Background services';
+  return `Set to ${state.value} by another program or tool`;
+}
+
 /** Journal action id: scope is part of the id so machine-wide changes are easy to spot. */
 function userSettingActionId(settingId) {
   return `settings:${userSetting(settingId).scope}:${settingId}`;
@@ -323,6 +351,7 @@ module.exports = {
   buildSupport,
   readWindowsBuild,
   differsFromWindowsDefault,
+  describeUserSetting,
   unsupportedReasonFor,
   editionFamily,
   editionSupport,

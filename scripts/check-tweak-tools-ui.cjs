@@ -19,7 +19,7 @@ async function main() {
       window.pcOptiNative = { getRuntimeProfile: async () => ({ profile: 'public', capabilities }), listCapabilities: async () => capabilities,
         getAuditHistory: async () => ({ entries: [], recovery: null, protection: { notices: [] } }), listStartupItems: rows, listSafePolicies: rows,
         listTimingExperiments: rows, listManageableProcesses: rows, scanSystem: no, getLocalRecommendations: async () => [], listGameSettingsGuides: async () => [],
-        listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({}),
+        listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({ 'processor-scheduling': { enabled: false, manageable: true, windowsDefault: true, differsFromDefault: true, detail: 'Set to 40 by another program or tool' } }),
         listGpuPreferences: async () => { window.__listed = (window.__listed || 0) + 1; return []; },
         listFullscreenOptimizations: async () => { window.__listed = (window.__listed || 0) + 1; return []; } };
     }, { capabilities: listCapabilities('public') });
@@ -42,6 +42,10 @@ async function main() {
     await page.locator('#tweak-dynamic-tick').getByRole('button', { name: 'Review experiment', exact: true }).click();
     await page.waitForFunction(() => document.getElementById('boot-timing')?.hasAttribute('open'));
     assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'GPU', exact: true }).count(), 0, 'No GPU section.');
+    // Processor scheduling: the value in words, and the only action is back to the Windows default.
+    const scheduling = page.locator('#tweak-processor-scheduling');
+    await scheduling.getByText('Set to 40 by another program or tool').waitFor();
+    assert.deepEqual(await scheduling.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);
     assert.deepEqual(errors, []);
     console.log('Tweak tools checks passed: six tabs, GPU tools and boot timing open from their cards.');
   } finally { await browser.close(); }

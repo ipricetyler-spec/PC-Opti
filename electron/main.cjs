@@ -57,7 +57,7 @@ const {
 } = require('../src/main/benchmarks/index.cjs');
 const { listPowerPlans } = require('../src/main/power-plans/index.cjs');
 const { readBitLockerStatus, bitLockerBootNotice, readControlledFolderAccess, controlledFolderNotice, readModernStandby, modernStandbyPlanNotice } = require('../src/main/system-protection/index.cjs');
-const { USER_SETTINGS, blockingPolicyReason, buildSupport, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsBuild, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
+const { USER_SETTINGS, blockingPolicyReason, buildSupport, describeUserSetting, differsFromWindowsDefault, editionSupport, readUserSetting, readWindowsBuild, readWindowsEdition, unsupportedReasonFor } = require('../src/main/user-settings/index.cjs');
 
 // Microsoft documents the consumer-experience policy for Enterprise and Education only.
 const CONSUMER_FEATURES_EDITIONS = Object.freeze(['enterprise', 'education']);
@@ -1061,7 +1061,7 @@ ipcMain.handle('pc-opti:read-user-settings', async () => {
     if (blocked) { states[settingId] = { enabled: null, manageable: false, unsupported: blocked }; continue; }
     try {
       const state = await readUserSetting(settingId);
-      states[settingId] = { enabled: state.enabled, manageable: !state.exists || state.kind === 'DWord', windowsDefault: setting.absentMeans, differsFromDefault: differsFromWindowsDefault(settingId, state) };
+      states[settingId] = { enabled: state.enabled, manageable: !state.exists || state.kind === 'DWord', windowsDefault: setting.absentMeans, differsFromDefault: differsFromWindowsDefault(settingId, state), detail: describeUserSetting(settingId, state) ?? undefined };
     } catch {
       states[settingId] = { enabled: null, manageable: false };
     }
@@ -1144,6 +1144,8 @@ ipcMain.handle('pc-opti:set-user-setting', async (_event, settingId, enabled) =>
   if (!Object.prototype.hasOwnProperty.call(USER_SETTINGS, settingId)) throw new Error('This Windows setting is not one Dialed manages.');
   if (typeof enabled !== 'boolean') throw new Error('Choose on or off.');
   if (USER_SETTINGS[settingId].removeOnly && enabled) throw new Error('Turn this policy on from its own page, which creates a restore point first. Nothing was changed.');
+  // Dialed only returns this setting to the Windows default; Undo puts back what was there before.
+  if (USER_SETTINGS[settingId].enableOnly && !enabled) throw new Error('Dialed only returns this setting to the Windows default. Use Undo to put back the previous value. Nothing was changed.');
   assertCapabilityAvailable(USER_SETTINGS[settingId].capabilityId);
   // Enabling a policy this edition ignores would record a change that does nothing.
   // Turning one off (removing the value) stays allowed, so leftovers can be cleaned up.

@@ -36,7 +36,7 @@ export interface TweakDefinition {
   destination: TweakDestination | null;
   actionLabel: string;
   /** A per-user Windows setting Dialed turns on or off directly on the card. */
-  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features';
+  userSettingId?: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling';
   /** Which state Dialed suggests, when there is one. */
   suggested?: 'on' | 'off';
   /** Machine-wide settings need administrator rights; some need a restart to take effect. */
@@ -149,6 +149,15 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'You tend never to restart. Security updates that need a restart wait until you do. Microsoft documents this policy for PCs where Windows Update installs on a schedule, so on others it may have no effect. Dialed cannot confirm the effect until the next update.',
     undo: 'Undo removes the policy again, or restores the exact previous value.',
     measureFirst: false, destination: null, actionLabel: 'Turn on', userSettingId: 'no-auto-restart', requiresAdmin: true,
+  },
+  {
+    id: 'processor-scheduling', group: 'Windows & privacy', title: 'Processor scheduling', capabilityIds: ['system:processor-scheduling'], perItem: false,
+    summary: 'Whether Windows favours the program in front. Programs is the default and right for games.',
+    whatChanges: 'Returns the setting to the Windows default (Programs) when another program or tweak script changed it. Dialed never sets any other value.',
+    whenItHelps: 'When an optimizer or script changed it to a custom value. Those values have no documented gaming benefit, and some make the program in front get less time, not more.',
+    leaveItIf: 'It already reads Programs, or you set something else on purpose for a server-style workload.',
+    undo: 'Undo puts back the exact previous value.',
+    measureFirst: false, destination: null, actionLabel: 'Return to Windows default', userSettingId: 'processor-scheduling', oneWay: true, requiresAdmin: true,
   },
   {
     id: 'usb-selective-suspend', group: 'Input', title: 'USB selective suspend', capabilityIds: ['power:usb-selective-suspend'], perItem: false,

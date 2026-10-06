@@ -113,3 +113,39 @@ test('the suggested-content policy can only be removed from the card, never turn
   await journal.rollbackAuditEntry(directory, removed.entry.id, adapters);
   assert.deepEqual(state, { exists: true, kind: 'DWord', value: 1 });
 });
+
+test('processor scheduling: both default values read as Programs, anything else is flagged, and Dialed only writes the default', async () => {
+  const dword = (value) => ({ exists: true, kind: 'DWord', value });
+  for (const value of [2, 38]) {
+    assert.equal(settings.effectiveEnabled('processor-scheduling', dword(value)), true, `value ${value}`);
+    assert.equal(settings.differsFromWindowsDefault('processor-scheduling', dword(value)), false);
+    assert.equal(settings.describeUserSetting('processor-scheduling', dword(value)), 'Programs (Windows default)');
+  }
+  assert.equal(settings.describeUserSetting('processor-scheduling', { exists: false }), 'Programs (Windows default)');
+  assert.equal(settings.describeUserSetting('processor-scheduling', dword(24)), 'Background services');
+  for (const value of [24, 40, 42, 22]) {
+    assert.equal(settings.effectiveEnabled('processor-scheduling', dword(value)), false, `value ${value}`);
+    assert.equal(settings.differsFromWindowsDefault('processor-scheduling', dword(value)), true);
+  }
+  assert.equal(settings.describeUserSetting('processor-scheduling', dword(40)), 'Set to 40 by another program or tool');
+  assert.equal(settings.describeUserSetting('game-mode', dword(1)), null);
+  assert.equal(settings.USER_SETTINGS['processor-scheduling'].enableOnly, true);
+  const main = require('node:fs').readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
+  assert.match(main, /if \(USER_SETTINGS\[settingId\]\.enableOnly && !enabled\) throw new Error\('Dialed only returns this setting to the Windows default\./);
+
+  // A value set by a tweak script goes back to 2, verified, and Undo restores the exact value.
+  const directory = tempDir('dialed-outside-');
+  const state = dword(40);
+  const adapters = {
+    readUserSetting: async (settingId) => ({ settingId, ...state, value: state.exists ? state.value : null, enabled: settings.effectiveEnabled(settingId, state) }),
+    writeUserSettingValue: async (_id, value) => { Object.assign(state, { exists: true, kind: 'DWord', value }); return { output: {}, stdout: '', stderr: '', exitCode: 0 }; },
+    removeUserSettingValue: async () => { throw new Error('never removed'); },
+    isCurrentProcessElevated: async () => true,
+  };
+  const changed = await journal.setUserSetting(directory, 'processor-scheduling', true, adapters);
+  assert.equal(changed.success, true);
+  assert.equal(changed.entry.capabilityId, 'system:processor-scheduling');
+  assert.deepEqual(state, dword(2));
+  await journal.rollbackAuditEntry(directory, changed.entry.id, adapters);
+  assert.deepEqual(state, dword(40));
+});

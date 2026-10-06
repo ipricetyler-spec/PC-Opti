@@ -820,3 +820,17 @@ Upkeep (was Maintenance): shader caches first (the one task worth doing on purpo
 update), then temporary files, crash dumps and TRIM. The search, reversibility filter and sort are
 gone: every task is irreversible and there are at most a handful. The All tweaks group is renamed
 Upkeep too. npm test 857/857, test:ts 142/142, lint, UI fixtures pass.
+## 2026-10-06 — Processor scheduling check
+
+New card in All tweaks › Windows & privacy (capability system:processor-scheduling, machine scope,
+administrator, S2). Reads HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl\Win32PrioritySeparation.
+2 (as installed) and 38 (what System Properties writes for "Programs") both read "Programs (Windows
+default)"; 24 reads "Background services"; anything else "Set to N by another program or tool" and is
+flagged as changed outside Dialed. The only action is "Return to Windows default" (writes 2, verified);
+the main process refuses anything else, and Undo restores the exact previous value through the
+existing restore-user-setting path. No benefit is claimed for any value. Owner's PC (read-only, earlier):
+not read yet with the new card.
+Found and fixed: a one-way card that was also changed outside Dialed showed two identical "Return to
+Windows default" buttons; the card's own button now steps aside, as the on/off toggle already did.
+Tests: values, wording, the main-process guard, apply + verify + exact undo with fakes; UI check shows
+the value in words and one button. npm test 858/858, lint, UI fixtures pass.

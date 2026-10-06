@@ -65,6 +65,10 @@ const EXECUTION_AUTHORITY_BY_CAPABILITY = Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
   }),
+  'system:processor-scheduling': Object.freeze({
+    mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
+    enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
+  }),
   'graphics:multiplane-overlay': Object.freeze({
     mode: EXECUTION_AUTHORITY_MODES.CURRENT_PROCESS_ADMIN,
     enforcement: 'src/main/journal/index.cjs setUserSetting and the restore-user-setting rollback require a fresh current-process Administrator check for every machine-scope setting before apply and rollback.',
@@ -1117,6 +1121,37 @@ const CAPABILITIES = Object.freeze([
     publicAvailability: 'ENABLED',
   },
   {
+    id: 'system:processor-scheduling',
+    actionPattern: 'settings:machine:processor-scheduling',
+    title: 'Processor scheduling',
+    category: 'Windows',
+    description: 'Shows whether Windows favours the program in front (Programs, the Windows default) and, when another tool changed it, returns it to that default.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['Dialed running as administrator', 'Existing value stored as a DWORD', 'The value differs from the Windows default', 'Explicit confirmation'],
+    detectionMethod: 'Machine-wide Registry read of HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl\\Win32PrioritySeparation',
+    currentStateMethod: 'Exact value re-read immediately before and after the write; 2 and 38 both mean Programs',
+    recommendedStateMethod: 'The Windows default (Programs). Dialed never writes any other value.',
+    expectedBenefit: 'None claimed. Values from tweak scripts have no measured benefit; this only undoes a change made outside Dialed.',
+    evidenceLevel: 'Observed Registry value readback',
+    confidence: 'High for configured state',
+    riskLevel: 'Low',
+    safetyClass: 'S2',
+    privilegeRequirement: 'Administrator',
+    persistence: 'Until changed again; Windows applies it without a restart',
+    rebootRequirement: 'No restart required',
+    mutationScope: 'One DWORD value in the machine-wide hive: HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl\\Win32PrioritySeparation',
+    rollbackMethod: 'Restore the exact previous value',
+    rollbackLimitations: 'Refused if the value changed after Dialed wrote it. Requires administrator rights.',
+    verificationMethod: 'Re-read the exact value after apply and restore',
+    measurableSuccessCriteria: 'The value reads 2 after the change and the captured value after restore',
+    knownConflicts: ['System Properties > Advanced > Performance > Advanced > Processor scheduling', 'Tweak scripts and other optimizers'],
+    gamingConsiderations: 'Programs is what Windows uses for games by default. Other values do not have a documented gaming benefit.',
+    securityImplications: 'The Registry location and the only value written come from a fixed main-process table; the renderer only asks for the default.',
+    unavailableReason: 'Not running as administrator, non-DWORD existing value, already the Windows default, or Registry error',
+    profiles: ['public', 'owner'],
+    publicAvailability: 'ENABLED',
+  },
+  {
     id: 'graphics:hardware-gpu-scheduling',
     actionPattern: 'settings:machine:gpu-scheduling',
     title: 'Hardware-accelerated GPU scheduling',
@@ -1911,6 +1946,7 @@ function capabilityForAction(actionId) {
   if (id === 'settings:machine:no-auto-restart') return capabilityById('policy:no-auto-restart-signed-in');
   if (id === 'settings:machine:consumer-features') return capabilityById('policy:disable-windows-consumer-features');
   if (id === 'settings:machine:gpu-scheduling') return capabilityById('graphics:hardware-gpu-scheduling');
+  if (id === 'settings:machine:processor-scheduling') return capabilityById('system:processor-scheduling');
   if (id === 'settings:machine:mpo') return capabilityById('graphics:multiplane-overlay');
   if (id === 'settings:machine:global-timer-resolution') return capabilityById('timing:global-timer-resolution');
   if (/^retrim-drive:[A-Z]$/.test(id)) return capabilityById('maintenance:retrim-drive');

@@ -118,6 +118,15 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: false, destination: { tab: 'startup', view: 'background' }, actionLabel: 'Review programs',
   },
   {
+    id: 'close-before-game', group: 'Startup & background', title: 'Close before a game', capabilityIds: ['process:close-chosen-programs'], perItem: true,
+    summary: 'Close the programs you picked, together, before you play, and reopen them afterwards.',
+    whatChanges: 'Asks each chosen program to close; any still open after 5 seconds are ended like End task in Task Manager. Windows, security software, anti-cheat and Dialed are never listed.',
+    whenItHelps: 'When launchers, browsers, RGB or updater programs use processor time or memory while you play.',
+    leaveItIf: 'A program is one your game needs, such as its launcher, or one you use while playing, like voice chat.',
+    undo: 'Not undoable like a setting: Reopen starts the programs fresh, and unsaved work in an ended program is lost.',
+    measureFirst: false, destination: { tab: 'startup', view: 'background' }, actionLabel: 'Choose programs',
+  },
+  {
     id: 'consumer-features', group: 'Windows & privacy', title: 'Windows suggested apps and content', capabilityIds: ['policy:disable-windows-consumer-features'], perItem: false,
     summary: 'Stop Windows installing suggested apps and showing promotional content. Windows Enterprise and Education only.',
     whatChanges: 'Sets the documented Windows policy that turns off "consumer experiences": suggested apps and promotional tiles.',

@@ -104,7 +104,10 @@ declare global {
       listFullscreenOptimizations: () => Promise<import('./types').FullscreenOptimizationItem[]>;
       chooseFullscreenOptimizationsApp: () => Promise<{ canceled: boolean; item?: import('./types').FullscreenOptimizationItem }>;
       setFullscreenOptimizations: (targetId: string, disableOptimizations: boolean) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
-      readNvidiaSettings?: () => Promise<{ available: boolean; rows: Array<{ id: string; label: string; value: string; differs: boolean; defaultText: string | null }>; notes: string[] }>;
+      listClosablePrograms?: () => Promise<Array<{ path: string; name: string; processes: number; hasWindow: boolean }>>;
+    closePrograms?: (paths: string[]) => Promise<{ results: Array<{ path: string; name: string; outcome: 'CLOSED' | 'ENDED' | 'STILL_RUNNING' }> }>;
+    reopenPrograms?: (paths: string[]) => Promise<{ reopened: string[] }>;
+    readNvidiaSettings?: () => Promise<{ available: boolean; rows: Array<{ id: string; label: string; value: string; differs: boolean; defaultText: string | null }>; notes: string[] }>;
     readUserSettings: () => Promise<Partial<Record<'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling' | 'multimedia-scheduler' | 'network-power', { enabled: boolean | null; manageable: boolean; detail?: string; unsupported?: string }>>>;
       setUserSetting: (settingId: 'game-mode' | 'background-recording' | 'gpu-scheduling' | 'mpo' | 'global-timer-resolution' | 'mouse-acceleration' | 'ultimate-plan' | 'cpu-minimum-state' | 'block-background-apps' | 'exclude-driver-updates' | 'no-auto-restart' | 'windowed-games' | 'usb-selective-suspend' | 'consumer-features' | 'processor-scheduling' | 'multimedia-scheduler' | 'network-power', enabled: boolean) => Promise<{ success: boolean; entry: AuditJournalEntry; result?: unknown; error?: string }>;
       readDisplayModes: () => Promise<import('./types').DisplayModeReport>;

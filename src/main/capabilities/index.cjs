@@ -1129,6 +1129,37 @@ const CAPABILITIES = Object.freeze([
     publicAvailability: 'ENABLED',
   },
   {
+    id: 'process:close-chosen-programs',
+    actionPattern: 'process:close-chosen-programs',
+    title: 'Close programs before a game',
+    category: 'Processes',
+    description: 'Closes programs the reader picked by name, after one review, and reopens them on request.',
+    supportedWindows: ['Windows 10', 'Windows 11'],
+    prerequisites: ['Programs chosen by the reader from a fresh listing of the signed-in session', 'Explicit confirmation naming each program'],
+    detectionMethod: 'Get-Process in the signed-in session, grouped by program file; Windows folder, security software, anti-cheat and Dialed excluded',
+    currentStateMethod: 'A fresh listing immediately before closing; only programs in it are closed',
+    recommendedStateMethod: 'None; the reader decides which programs to close',
+    expectedBenefit: 'Frees processor time and memory used by programs the reader does not need while playing. No FPS or latency figure is promised.',
+    evidenceLevel: 'Observed process list before and after',
+    confidence: 'High that the chosen programs stopped; the effect on a game depends on what they were doing',
+    riskLevel: 'Low',
+    safetyClass: 'S3',
+    privilegeRequirement: 'Access to the chosen current-session programs',
+    persistence: 'Until the program is started again',
+    rebootRequirement: 'None',
+    mutationScope: 'Only the chosen programs, matched by full file path in the signed-in session',
+    rollbackMethod: 'None as a setting; Reopen starts the programs again',
+    rollbackLimitations: 'What a program had open is not restored. A program that does not close within five seconds is ended like Task Manager\'s End task, and unsaved work in it is lost.',
+    verificationMethod: 'Re-list the chosen programs after closing',
+    measurableSuccessCriteria: 'Each chosen program no longer runs',
+    knownConflicts: ['Programs that restart themselves', 'Launchers a game needs, such as Steam or Riot Client'],
+    gamingConsiderations: 'Anti-cheat is never listed. Closing a launcher a game depends on can close or block the game.',
+    securityImplications: 'File paths are matched against a fresh main-process listing; reopening uses Explorer so programs do not inherit administrator rights.',
+    unavailableReason: 'No programs chosen, or none of them running',
+    profiles: ['public', 'owner'],
+    publicAvailability: 'ENABLED',
+  },
+  {
     id: 'network:adapter-power-saving',
     actionPattern: 'network:adapter-power-saving',
     title: 'Network adapter power saving',
@@ -2019,6 +2050,7 @@ function capabilityForAction(actionId) {
   if (id === 'settings:machine:processor-scheduling') return capabilityById('system:processor-scheduling');
   if (id === 'settings:machine:multimedia-scheduler') return capabilityById('system:multimedia-scheduler');
   if (id === 'network:adapter-power-saving') return capabilityById('network:adapter-power-saving');
+  if (id === 'process:close-chosen-programs') return capabilityById('process:close-chosen-programs');
   if (id === 'settings:machine:mpo') return capabilityById('graphics:multiplane-overlay');
   if (id === 'settings:machine:global-timer-resolution') return capabilityById('timing:global-timer-resolution');
   if (/^retrim-drive:[A-Z]$/.test(id)) return capabilityById('maintenance:retrim-drive');

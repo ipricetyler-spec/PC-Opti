@@ -82,6 +82,9 @@ const { readMouseAcceleration } = require('../src/main/mouse-acceleration/index.
 const multimediaScheduler = require('../src/main/multimedia-scheduler/index.cjs');
 const networkPower = require('../src/main/network-power/index.cjs');
 const nvidiaSettings = require('../src/main/nvidia-settings/index.cjs');
+const closeApps = require('../src/main/close-apps/index.cjs');
+// Programs Dialed closed in this session; only these can be reopened.
+const closedThisSession = new Set();
 const powerTweaks = require('../src/main/power-tweaks/index.cjs');
 const windowedGames = require('../src/main/windowed-games/index.cjs');
 const { openProtectedDataRoot } = require('../src/main/protected-data/index.cjs');
@@ -1041,6 +1044,24 @@ ipcMain.handle('pc-opti:activate-power-plan', async (_event, guid) => {
   assertCapabilityAvailable('power:switch-plan');
   assertShortString(guid, 'Power plan id', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   return serializeMutation(() => activatePowerPlan(app.getPath('userData'), guid));
+});
+
+// Close before a game: list, close the chosen ones after the renderer's review, reopen.
+ipcMain.handle('pc-opti:list-closable-programs', async () => {
+  assertCapabilityAvailable('process:close-chosen-programs');
+  return closeApps.listClosablePrograms(path.dirname(process.execPath));
+});
+ipcMain.handle('pc-opti:close-programs', async (_event, paths) => {
+  assertCapabilityAvailable('process:close-chosen-programs');
+  return serializeMutation(async () => {
+    const result = await closeApps.closePrograms(paths, path.dirname(process.execPath));
+    for (const item of result.results) if (item.outcome !== 'STILL_RUNNING') closedThisSession.add(item.path);
+    return result;
+  });
+});
+ipcMain.handle('pc-opti:reopen-programs', async (_event, paths) => {
+  assertCapabilityAvailable('process:close-chosen-programs');
+  return closeApps.reopenPrograms(paths, closedThisSession);
 });
 
 // NVIDIA's global driver settings, read through NVIDIA's driver interface. Read-only.

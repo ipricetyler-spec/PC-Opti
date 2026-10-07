@@ -901,3 +901,10 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - Tweaks › Graphics card "NVIDIA driver settings" opens a folded section that reads only when opened. Notes appear only for G-SYNC with vertical sync forced off, G-SYNC without a cap, G-SYNC off, and a disabled shader cache.
 - Checks: npm test 872/872, test:ts 146/146, lint, test:ui:fixtures pass (one intermittent BIOS skip-link focus failure did not recur on rerun).
 - Not verified: in the installed app; whether the driver's G-SYNC global value matches what NVIDIA Control Panel shows per monitor.
+
+## 2026-10-06 — Close before a game
+
+- Tweaks › Background apps: pick running programs (remembered), close them together after one review naming each, reopen afterwards. Programs still open after 5 seconds are ended like End task; the review says so first. Reopen goes through Explorer so programs do not inherit administrator rights. Windows-folder programs, security software, anti-cheat, Dialed, NVIDIA's driver container and Edge WebView2 are never listed; only paths in a fresh listing are closed. Not journaled as a setting: the capability says it cannot be undone like one.
+- The listing ran against the owner's PC (read-only). Nothing was closed or reopened on the owner's PC.
+- Checks: npm test 876/876, test:ts 146/146, lint, clean-room guard, test:ui:fixtures all pass (new check-close-before-game-ui).
+- Not verified: a real close, end and reopen; programs that restart themselves or ignore a close request.

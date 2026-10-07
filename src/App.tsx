@@ -12,6 +12,7 @@ import { DriftMonitor } from './components/DriftMonitor';
 import { LocalAuditHistory } from './components/LocalAuditHistory';
 import { RecoveryStepsCard } from './components/RecoveryStepsCard';
 import { NvidiaSettingsCheck } from './components/NvidiaSettingsCheck';
+import { CloseBeforeGame } from './components/CloseBeforeGame';
 import { Sidebar } from './components/Sidebar';
 import type { AppTab } from './components/Sidebar';
 import { ThemePicker } from './components/ThemePicker';
@@ -1425,7 +1426,7 @@ export default function App() {
       </details>
     </div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
-    {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}
+    {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><CloseBeforeGame /><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}
     {activeTab === 'startup' && optimizeView === 'windows' && <div className="space-y-6">{capabilityIds.has('power:switch-plan') && <PowerPlanCard onChanged={() => void loadHistory()} />}<SafePolicies policies={policies} errors={policyErrors} loading={isPolicyLoading} activePolicyId={activePolicyId} actionError={policyActionError} onRefresh={loadPolicies} onEnable={enableConsumerFeaturesPolicy} /></div>}
     {activeTab === 'startup' && optimizeView === 'maintenance' && (snapshot ? <div id="maintenance-queue" className="scroll-mt-6"><MaintenanceQueue actions={queue} activeActionId={activeActionId} error={maintenanceError} onExecute={runMaintenance} /></div> : <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-400"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-300" />A verified scan is required before reviewing maintenance actions.</div><button onClick={() => setActiveTab('overview')} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950"><CheckCircle2 className="h-3.5 w-3.5" />Open Scan</button></section>)}
     </TabPanel>}

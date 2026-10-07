@@ -64,7 +64,7 @@ async function main() {
     assert.deepEqual(await network.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Turn power saving off']);
     const mmcss = page.locator('#tweak-multimedia-scheduler');
     await mmcss.getByText('5 of 6 values changed by another program or tool').waitFor();
-    assert.deepEqual(await mmcss.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default', 'Keep my setting']);
+    assert.deepEqual(await mmcss.getByRole('button').filter({ hasNotText: /Details/ }).allInnerTexts(), ['Return to Windows default']);
     // Restore › History carries the steps for when Windows will not start, and saves them as a file.
     await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Restore', exact: true }).click();
     await page.getByText("If Windows won't start", { exact: true }).click();

@@ -196,7 +196,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'When a script changed them and you want Windows behaviour back. These values only reach programs that ask the multimedia scheduler for priority, mostly audio and video playback; most games never do, so tweak-list values have no measured gaming benefit.',
     leaveItIf: 'You set them on purpose, for example following a pro-audio guide for SystemResponsiveness.',
     undo: 'Undo puts back the exact previous values of the ones Dialed changed.',
-    measureFirst: false, destination: null, actionLabel: 'Return to Windows defaults', userSettingId: 'multimedia-scheduler', oneWay: true, requiresAdmin: true, requiresRestart: true, recommendWhenChanged: true,
+    measureFirst: false, destination: null, actionLabel: 'Return to Windows defaults', userSettingId: 'multimedia-scheduler', oneWay: true, requiresAdmin: true, requiresRestart: true,
   },
   {
     id: 'usb-selective-suspend', group: 'Input', title: 'USB selective suspend', capabilityIds: ['power:usb-selective-suspend'], perItem: false,
@@ -232,7 +232,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'Only when you see flicker, black flashes or stutter, most often with NVIDIA cards and two monitors at different refresh rates. It fixes those glitches; it does not make games faster.',
     leaveItIf: 'You have no flicker or stutter. With MPO off, video playback and windowed apps can use slightly more graphics power. In true exclusive fullscreen the game bypasses this layering, so MPO has little effect either way; many games labelled "fullscreen" actually run borderless, where it still applies.',
     undo: 'Undo puts back the exact previous value. Restart again afterwards.',
-    measureFirst: false, destination: null, actionLabel: 'Turn off', userSettingId: 'mpo', suggested: 'on', requiresAdmin: true, requiresRestart: true,
+    measureFirst: false, destination: null, actionLabel: 'Turn off', userSettingId: 'mpo', requiresAdmin: true, requiresRestart: true,
   },
   {
     id: 'windowed-games', group: 'Graphics', title: 'Optimizations for windowed games', capabilityIds: ['graphics:windowed-game-optimizations'], perItem: false,
@@ -451,6 +451,8 @@ export function suggestionProgress(cards: TweakCardState[], userSettings: Partia
   const toTick: string[] = [];
   const keptDiffering: string[] = [];
   for (const card of cards) {
+    // Experiments are kept only when the reader's own runs show a benefit, so they are never recommended.
+    if (card.definition.measureFirst) continue;
     const suggested = card.definition.suggested ?? (card.definition.recommendWhenChanged ? 'on' : undefined);
     const enabled = userSettings[card.definition.userSettingId ?? card.definition.id]?.enabled;
     if (!suggested || typeof enabled !== 'boolean') continue;

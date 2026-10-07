@@ -913,3 +913,8 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 
 - release:native (broker 13edfea5…, helper 3286a063…), build, SBOM, license inventory, signed electron-builder NSIS; candidate:verify SIGNED_INSTALLER_CANDIDATE; silent install exit 0 to C:\Program Files\Dialed; 96 of 96 installed files match the build by SHA-256.
 - Not verified: the new features driven in the installed app.
+
+## 2026-10-07 — Recommended no longer lists MPO, experiments or the multimedia scheduler
+
+- Owner's review listed MPO (off on purpose for flicker), global timer resolution (an experiment) and the multimedia scheduler. MPO lost its 'suggest on' (it fixes a problem, like USB selective suspend); measure-first experiments are never recommended; the multimedia scheduler return is no longer recommended (no measured benefit either way). Processor scheduling stays recommended when changed.
+- Checks: npm test 876/876, test:ts 147/147, lint, test:ui:fixtures pass. Not yet in the installed app.

@@ -95,8 +95,19 @@ test('suggestion progress counts only settings Windows reported, and ticks only 
 test('return-to-default fixes are recommended only when another tool changed them', async () => {
   const { suggestionProgress } = await import('../src/lib/tweaks');
   const fixes = TWEAKS.filter((definition) => definition.recommendWhenChanged);
-  assert.deepEqual(fixes.map((definition) => definition.id), ['processor-scheduling', 'multimedia-scheduler']);
+  assert.deepEqual(fixes.map((definition) => definition.id), ['processor-scheduling']);
   const cards = fixes.map((definition) => ({ definition, state: null, changes: [], undoEntry: null }));
-  const progress = suggestionProgress(cards, { 'processor-scheduling': { enabled: false }, 'multimedia-scheduler': { enabled: true } }, () => true);
-  assert.deepEqual([progress.toTick, progress.matching, progress.known], [['processor-scheduling'], 1, 2]);
+  const progress = suggestionProgress(cards, { 'processor-scheduling': { enabled: false } }, () => true);
+  assert.deepEqual([progress.toTick, progress.matching, progress.known], [['processor-scheduling'], 0, 1]);
+});
+
+// The owner's review listed MPO (off on purpose, for flicker), global timer resolution (an
+// experiment) and the multimedia scheduler (no measured benefit either way). None is recommended.
+test('fixes for a problem, experiments and no-benefit values are never recommended', async () => {
+  const { suggestionProgress } = await import('../src/lib/tweaks');
+  const ids = ['mpo', 'global-timer-resolution', 'multimedia-scheduler', 'usb-selective-suspend'];
+  const cards = TWEAKS.filter((definition) => ids.includes(definition.id)).map((definition) => ({ definition, state: null, changes: [], undoEntry: null }));
+  const settings = { mpo: { enabled: false }, 'global-timer-resolution': { enabled: true }, 'multimedia-scheduler': { enabled: false }, 'usb-selective-suspend': { enabled: false } };
+  const progress = suggestionProgress(cards, settings, () => true);
+  assert.deepEqual([progress.toTick, progress.known], [[], 0]);
 });

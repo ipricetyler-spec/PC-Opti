@@ -908,3 +908,8 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - The listing ran against the owner's PC (read-only). Nothing was closed or reopened on the owner's PC.
 - Checks: npm test 876/876, test:ts 146/146, lint, clean-room guard, test:ui:fixtures all pass (new check-close-before-game-ui).
 - Not verified: a real close, end and reopen; programs that restart themselves or ignore a close request.
+
+## 2026-10-06 — Packaged and installed b5ee86a
+
+- release:native (broker 13edfea5…, helper 3286a063…), build, SBOM, license inventory, signed electron-builder NSIS; candidate:verify SIGNED_INSTALLER_CANDIDATE; silent install exit 0 to C:\Program Files\Dialed; 96 of 96 installed files match the build by SHA-256.
+- Not verified: the new features driven in the installed app.

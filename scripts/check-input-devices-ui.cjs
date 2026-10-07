@@ -288,7 +288,8 @@ async function main() {
 
     await openSection(page, 'Input devices');
     const section = page.getByRole('region', { name: 'Input devices' });
-    await section.getByRole('button', { name: 'Scan input devices' }).click();
+    // Opening the page scans by itself; nothing to click first.
+    await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
     const deviceList = section.getByLabel('Connected input devices');
     await deviceList.getByRole('button', { name: /Fixture Pro Mouse/ }).waitFor();
     assert.equal(await section.getByText('AURA LED Controller', { exact: true }).count(), 0);
@@ -657,7 +658,7 @@ async function main() {
         assert.equal(await page.getByRole('button', { name: /Create profile|Duplicate profile/ }).count(), 0);
       }
       if (workspace === 'Input devices') {
-        await section.getByRole('button', { name: 'Scan input devices' }).click();
+        await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
         await section.getByRole('tab', { name: 'Polling rate' }).click();
         await section.getByRole('button', { name: 'Refresh devices' }).waitFor();
         await section.getByText(/Rate changes need a newer version of Dialed/).first().waitFor();

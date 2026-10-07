@@ -126,6 +126,8 @@ export function InputDevicesCenter() {
   const showDriverLifecycle = Boolean(selected && advanced);
   const driverInstallAction: InputDriverLifecycleAction = driverLifecycle?.status === 'READY_FOR_PREFLIGHT' || driverLifecycle?.status === 'REMOVED' || driverLifecycle?.status === 'NOT_APPLIED' ? 'INSTALL' : 'ATTACH';
 
+  // Scanning only reads USB connections, so the page reads them on opening instead of waiting for a click.
+  useEffect(() => { if (api?.scanInputDevices) scan(); }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; void window.pcOptiNative?.cancelInputTest?.().catch(() => {}); }; }, []);
   useEffect(() => {
     if (!focusRateCheck.current || setupOpen || busy || !rateCheckButton.current || rateCheckButton.current.disabled) return;

@@ -918,3 +918,7 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 
 - Owner's review listed MPO (off on purpose for flicker), global timer resolution (an experiment) and the multimedia scheduler. MPO lost its 'suggest on' (it fixes a problem, like USB selective suspend); measure-first experiments are never recommended; the multimedia scheduler return is no longer recommended (no measured benefit either way). Processor scheduling stays recommended when changed.
 - Checks: npm test 876/876, test:ts 147/147, lint, test:ui:fixtures pass. Not yet in the installed app.
+
+## 2026-10-07 — Input devices scans on opening
+
+- The Input page now reads USB connections when it opens (read-only), instead of showing an empty page until Scan is clicked. check-input-devices-ui waits for the automatic scan. npm test 876/876, test:ts 147/147, lint, test:ui:fixtures pass. Not yet in the installed app.

@@ -14,7 +14,8 @@ export type TweakGroup = 'Power' | 'Startup & background' | 'Windows & privacy' 
 export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Windows & privacy', 'Input', 'Graphics', 'Experiments', 'Upkeep'];
 
 export type TweakDestination =
-  | { tab: 'startup'; view: 'startup' | 'background' | 'windows' | 'timing' | 'maintenance' | 'bios' }
+  | { tab: 'startup'; view: 'startup' | 'background' | 'timing' | 'maintenance' | 'bios' }
+  | { tab: 'power-plan' }
   | { tab: 'game-settings'; view: 'profiles' }
   | { tab: 'gpu' }
   | { tab: 'nvidia' };
@@ -79,7 +80,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'On desktops left on a power-saving plan, a higher-performance plan can keep clocks up during games.',
     leaveItIf: 'You are on a laptop running on battery, or your PC maker\'s own plan is active and working well. On most modern desktop CPUs, Balanced already ramps up quickly.',
     undo: 'Undo switches back to the plan that was active before, if it still exists.',
-    measureFirst: false, destination: { tab: 'startup', view: 'windows' }, actionLabel: 'Review plans',
+    measureFirst: false, destination: { tab: 'power-plan' }, actionLabel: 'Review plans',
   },
   {
     id: 'ultimate-plan', group: 'Power', title: 'Ultimate Performance plan', capabilityIds: ['power:ultimate-plan'], perItem: false,
@@ -133,7 +134,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'Keeps unwanted apps from appearing and running in the background. This is a tidiness and privacy setting, not an FPS setting.',
     leaveItIf: 'You like Windows suggestions. Microsoft documents this policy for Enterprise and Education only; Home and Pro ignore it.',
     undo: 'Undo restores the exact previous policy value, or removes it if it was not set.',
-    measureFirst: false, destination: { tab: 'startup', view: 'windows' }, actionLabel: 'Review policy', userSettingId: 'consumer-features',
+    measureFirst: false, destination: null, actionLabel: 'Turn on', userSettingId: 'consumer-features',
   },
   {
     id: 'game-mode', group: 'Windows & privacy', title: 'Game Mode', capabilityIds: ['gaming:game-mode'], perItem: false,

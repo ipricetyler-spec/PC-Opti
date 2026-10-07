@@ -1,5 +1,5 @@
 import { ErrorText } from './ErrorText';
-import { AppWindow, ExternalLink, Gamepad2, MonitorCog, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
+import { AppWindow, ExternalLink, Gamepad2, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { OptionalAppCandidate, OptionalAppInventory, SystemScanSnapshot } from '../types';
 import { useConfirm } from './ConfirmContext';
@@ -9,25 +9,14 @@ interface WindowsControlsCenterProps {
   snapshot: SystemScanSnapshot | null;
 }
 
+// Only pages Dialed has no control for. Game Mode, captures, GPU scheduling and startup apps are
+// changed directly on their Tweaks cards, so shortcuts to them here were a second place for each.
 const SETTINGS_PAGES = [
-  { id: 'game-mode' as const, title: 'Game Mode', detail: 'Lets Windows prioritise the game you are playing. On by default; most people should leave it on.', icon: Gamepad2 },
   { id: 'game-bar' as const, title: 'Game Bar', detail: 'The Win+G overlay. Keep it if you use Xbox chat, widgets or clip recording.', icon: Gamepad2 },
-  { id: 'captures' as const, title: 'Captures', detail: 'Background recording and clip settings. Turning recording off frees a little work, but do not expect a big FPS change.', icon: MonitorCog },
-  { id: 'graphics' as const, title: 'Graphics defaults', detail: 'GPU scheduling and which graphics card each app uses. The GPU section explains each one.', icon: MonitorCog },
-  { id: 'startup-apps' as const, title: 'Windows Startup apps', detail: 'The Windows version of Dialed\'s Startup apps page.', icon: AppWindow },
   { id: 'installed-apps' as const, title: 'Windows Installed apps', detail: 'Uninstall anything Dialed does not offer to remove.', icon: AppWindow },
 ];
 
-function evidenceText(snapshot: SystemScanSnapshot | null, pageId: typeof SETTINGS_PAGES[number]['id']) {
-  if (!snapshot) return 'Scan this PC to see the current setting.';
-  if (pageId === 'captures') {
-    const evidence = snapshot.diagnostics.gameDvr;
-    return evidence.status === 'AVAILABLE' ? `Observed: ${evidence.value.state}.` : `Could not read the current setting: ${evidence.reason}`;
-  }
-  if (pageId === 'graphics') {
-    const evidence = snapshot.diagnostics.hardwareGpuScheduling;
-    return evidence.status === 'AVAILABLE' ? `GPU scheduling: ${evidence.value.state}.` : `Could not read GPU scheduling: ${evidence.reason}`;
-  }
+function evidenceText(_snapshot: SystemScanSnapshot | null, _pageId: typeof SETTINGS_PAGES[number]['id']) {
   return 'You change this in Windows; Dialed only opens the page.';
 }
 

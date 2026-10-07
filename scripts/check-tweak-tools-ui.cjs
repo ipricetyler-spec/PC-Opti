@@ -34,7 +34,7 @@ async function main() {
     await openSection(page, 'Tweaks');
     const tabs = page.getByRole('tablist', { name: 'Optimize categories' });
     await tabs.getByRole('tab').first().waitFor();
-    assert.deepEqual(await tabs.getByRole('tab').allInnerTexts(), ['All tweaks', 'Startup', 'Background apps', 'Windows', 'Upkeep', 'BIOS'], 'Tweaks has six tabs');
+    assert.deepEqual(await tabs.getByRole('tab').allInnerTexts(), ['All tweaks', 'Startup', 'Background apps', 'Upkeep', 'BIOS'], 'Tweaks has five tabs; the power plan opens from its card');
     const perProgram = page.locator('#per-program-graphics');
     const bootTiming = page.locator('#boot-timing');
     assert.equal(await perProgram.getAttribute('open'), null, 'Folded until asked for.');
@@ -45,6 +45,9 @@ async function main() {
     await page.waitForFunction(() => { const r = document.getElementById('per-program-graphics')?.getBoundingClientRect(); return Boolean(r && r.top < window.innerHeight && r.bottom > 0); });
     await page.locator('#tweak-dynamic-tick').getByRole('button', { name: 'Review experiment', exact: true }).click();
     await page.waitForFunction(() => document.getElementById('boot-timing')?.hasAttribute('open'));
+    // The power plan picker opens in place from its card; there is no separate Windows tab.
+    await page.locator('#tweak-power-plan').getByRole('button', { name: 'Review plans', exact: true }).click();
+    await page.waitForFunction(() => document.getElementById('power-plan')?.hasAttribute('open'));
     // NVIDIA driver settings: folded and unread until its card opens it, then a read-only table.
     assert.equal(await page.evaluate(() => window.__nvidia || 0), 0, 'The NVIDIA driver is not read until asked.');
     await page.locator('#tweak-nvidia-settings').getByRole('button', { name: 'Check settings', exact: true }).click();
@@ -73,7 +76,7 @@ async function main() {
     await page.getByRole('button', { name: 'Save these steps', exact: true }).click();
     assert.equal((await saved).suggestedFilename(), 'If Windows will not start - Dialed.txt');
     assert.deepEqual(errors, []);
-    console.log('Tweak tools checks passed: six tabs, GPU tools, NVIDIA settings and boot timing open from their cards.');
+    console.log('Tweak tools checks passed: five tabs, GPU tools, NVIDIA settings and boot timing open from their cards.');
   } finally { await browser.close(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

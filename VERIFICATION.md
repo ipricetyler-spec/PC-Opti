@@ -934,3 +934,8 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - Measure: Saved tests no longer has its own 'Start test' form (a second way to start the tests Test a change starts); the Finished tests list links to its notes, export and import; the separate link line is gone.
 - Built-in app removal moved from Home › Scan details › Windows controls to a Tweaks card (Windows & privacy) that opens it in place; Home keeps only the Windows Settings shortcuts.
 - Checks: npm test 876/876, test:ts 147/147, lint, clean-room guard, test:ui:fixtures pass (games check now opens removal from Tweaks and seeds a saved test directly). Not yet in the installed app.
+
+## 2026-10-08 — Packaged and installed 8a62f8e
+
+- release:native (helper 265b1e97…), build, SBOM, license inventory, signed NSIS; candidate:verify SIGNED_INSTALLER_CANDIDATE; silent install exit 0; 96 of 96 installed files match the build by SHA-256.
+- Not verified: the changes since b5ee86a driven in the installed app.

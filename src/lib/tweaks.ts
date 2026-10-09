@@ -16,6 +16,7 @@ export const TWEAK_GROUPS: TweakGroup[] = ['Power', 'Startup & background', 'Win
 export type TweakDestination =
   | { tab: 'startup'; view: 'startup' | 'background' | 'timing' | 'maintenance' | 'bios' }
   | { tab: 'power-plan' }
+  | { tab: 'built-in-apps' }
   | { tab: 'game-settings'; view: 'profiles' }
   | { tab: 'gpu' }
   | { tab: 'nvidia' };
@@ -126,6 +127,15 @@ export const TWEAKS: TweakDefinition[] = [
     leaveItIf: 'A program is one your game needs, such as its launcher, or one you use while playing, like voice chat.',
     undo: 'Not undoable like a setting: Reopen starts the programs fresh, and unsaved work in an ended program is lost.',
     measureFirst: false, destination: { tab: 'startup', view: 'background' }, actionLabel: 'Choose programs',
+  },
+  {
+    id: 'built-in-apps', group: 'Windows & privacy', title: 'Remove built-in apps', capabilityIds: ['windows:optional-app-remove-current-user'], perItem: true,
+    summary: 'Remove optional Microsoft Store apps that came with Windows, one at a time, for your account.',
+    whatChanges: 'Removes one app you choose from a short list of optional apps, for your Windows account only. Games, Xbox services, security software and drivers are never on the list.',
+    whenItHelps: 'Tidiness: fewer apps you never use. It is not an FPS change.',
+    leaveItIf: 'You use the app, or share the PC and are unsure.',
+    undo: 'Dialed cannot undo a removal. You can reinstall the app from the Microsoft Store.',
+    measureFirst: false, destination: { tab: 'built-in-apps' }, actionLabel: 'Choose apps',
   },
   {
     id: 'consumer-features', group: 'Windows & privacy', title: 'Windows suggested apps and content', capabilityIds: ['policy:disable-windows-consumer-features'], perItem: false,

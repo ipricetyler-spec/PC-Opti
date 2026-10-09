@@ -96,7 +96,9 @@ function RunList({ runs, flags }: { runs: PresentMonCaptureEntry[]; flags: Map<s
   </ul>;
 }
 
-export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPrefillUsed, onApplyTweak, onUndoEntry, onEvidenceChange, onImportPreview, onOpenRecordings }: {
+export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPrefillUsed, onApplyTweak, onUndoEntry, onEvidenceChange, onImportPreview, onOpenRecordings, onOpenSavedTests }: {
+  /** Notes, runs, export and import for these same tests. */
+  onOpenSavedTests?: () => void;
   tweaks: TestableTweak[];
   history: AuditJournalEntry[];
   snapshot: SystemScanSnapshot | null;
@@ -459,9 +461,10 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
         <ul className="mt-2 space-y-1">{running.map((item) => <li key={item.id}><button type="button" className="text-cyan-300 underline underline-offset-2" onClick={() => { setSelectedId(item.id); setCreating(false); }}>{item.source.title} in {item.game}</button> · {STEP_LABELS[testStep(item, sessionState.sessions.find((saved) => saved.id === item.sessionId) ?? null)]}</li>)}</ul>
       </div>}
       {finished.length > 0 && <div className="mt-3 rounded-lg border border-slate-700 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-slate-200">Finished tests</p>
+        <p className="flex flex-wrap items-baseline justify-between gap-2"><span className="font-semibold text-slate-200">Finished tests</span>{onOpenSavedTests && <button type="button" className="text-cyan-300 underline underline-offset-2" onClick={onOpenSavedTests}>Notes, export and import</button>}</p>
         <ul aria-label="Finished tests" className="mt-2 divide-y divide-slate-800">{finished.map((row) => <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-1.5"><button type="button" className="text-left text-cyan-300 underline underline-offset-2" onClick={() => { setSelectedId(row.id); setCreating(false); }}>{row.title} in {row.game}</button><span><span className="font-semibold text-slate-100">{row.verdict}</span><span className="text-slate-500"> · {row.decision} · {new Date(row.finishedAt).toLocaleDateString()}</span></span></li>)}</ul>
       </div>}
+      {finished.length === 0 && onOpenSavedTests && <p className="mt-3 text-xs text-slate-400">Notes, export and import for earlier tests: <button type="button" className="text-cyan-300 underline underline-offset-2" onClick={onOpenSavedTests}>Saved tests</button></p>}
       <div className="mt-5 space-y-4">
         <fieldset>
           <legend className="text-sm font-semibold text-slate-100">1. What do you want to test?</legend>

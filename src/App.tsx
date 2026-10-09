@@ -138,6 +138,7 @@ async function readBootNotice(): Promise<string | null> {
 }
 const StartupCenter = lazy(() => loadTweaks().then((module) => ({ default: module.StartupCenter })));
 const ProcessBalancer = lazy(() => loadTweaks().then((module) => ({ default: module.ProcessBalancer })));
+const WindowsControlsCenter = lazy(() => import('./components/WindowsControlsCenter').then((module) => ({ default: module.WindowsControlsCenter })));
 const GameSessionMode = lazy(() => loadTweaks().then((module) => ({ default: module.GameSessionMode })));
 const PowerPlanCard = lazy(() => loadTweaks().then((module) => ({ default: module.PowerPlanCard })));
 const MaintenanceQueue = lazy(() => loadTweaks().then((module) => ({ default: module.MaintenanceQueue })));
@@ -159,8 +160,8 @@ export default function App() {
   const [optimizeView, setOptimizeView] = useState<'all' | 'startup' | 'background' | 'maintenance' | 'bios'>('all');
   // Boot timing and per-program graphics live at the end of All tweaks, folded until opened.
   // Each folded section loads its data only once opened: both read Windows state that the rest of All tweaks does not need.
-  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean; 'nvidia-settings': boolean; 'power-plan': boolean }>({ 'boot-timing': false, 'per-program-graphics': false, 'nvidia-settings': false, 'power-plan': false });
-  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings' | 'power-plan') => {
+  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean; 'nvidia-settings': boolean; 'power-plan': boolean; 'built-in-apps': boolean }>({ 'boot-timing': false, 'per-program-graphics': false, 'nvidia-settings': false, 'power-plan': false, 'built-in-apps': false });
+  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings' | 'power-plan' | 'built-in-apps') => {
     setOptimizeView('all'); setActiveTab('startup'); setTweakToolsOpen((current) => ({ ...current, [section]: true }));
     // After the section opens and lays out; a smooth scroll started earlier was cancelled by that layout.
     window.setTimeout(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })), 120);
@@ -718,6 +719,7 @@ export default function App() {
     if (destination.tab === 'gpu') { openTweakTools('per-program-graphics'); return; }
     if (destination.tab === 'nvidia') { openTweakTools('nvidia-settings'); return; }
     if (destination.tab === 'power-plan') { openTweakTools('power-plan'); return; }
+    if (destination.tab === 'built-in-apps') { openTweakTools('built-in-apps'); return; }
     if (destination.tab === 'game-settings') { setGameView(destination.view); setActiveTab('game-settings'); return; }
     if (destination.view === 'timing') { openTweakTools('boot-timing'); return; }
     setOptimizeView(destination.view); setActiveTab('startup');
@@ -1420,6 +1422,10 @@ export default function App() {
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Power plan</summary>
         {tweakToolsOpen['power-plan'] && <div className="mt-4"><PowerPlanCard onChanged={() => void loadHistory()} /></div>}
       </details>}
+      {capabilityIds.has('windows:optional-app-remove-current-user') && <details id="built-in-apps" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['built-in-apps'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'built-in-apps': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Remove built-in apps</summary>
+        {tweakToolsOpen['built-in-apps'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><WindowsControlsCenter snapshot={snapshot} show="removal" /></Suspense>}
+      </details>}
       {window.pcOptiNative?.readNvidiaSettings && <details id="nvidia-settings" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['nvidia-settings'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'nvidia-settings': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">NVIDIA driver settings</summary>
         {tweakToolsOpen['nvidia-settings'] && <NvidiaSettingsCheck />}
@@ -1430,12 +1436,12 @@ export default function App() {
       </details>
     </div>}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
-    {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><CloseBeforeGame /><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /></div>}
+    {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><CloseBeforeGame /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /><details className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={gameSession.session.status !== 'idle' || undefined}><summary className="cursor-pointer text-sm font-semibold text-slate-100">Slow them down only while a game is open</summary><div className="mt-4"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /></div></details></div>}
     {activeTab === 'startup' && optimizeView === 'maintenance' && (snapshot ? <div id="maintenance-queue" className="scroll-mt-6"><MaintenanceQueue actions={queue} activeActionId={activeActionId} error={maintenanceError} onExecute={runMaintenance} /></div> : <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-400"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-300" />A verified scan is required before reviewing maintenance actions.</div><button onClick={() => setActiveTab('overview')} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950"><CheckCircle2 className="h-3.5 w-3.5" />Open Scan</button></section>)}
     </TabPanel>}
     {(activeTab === 'performance-lab' || activeTab === 'network-quality') && <TabRow<'test' | 'results' | 'network-quality'> ariaLabel="Measure views" items={[{ id: 'test', label: 'Test a change' }, { id: 'network-quality', label: 'Network' }]} value={activeTab === 'network-quality' ? 'network-quality' : measureView} onChange={(view) => { if (view === 'network-quality') setActiveTab('network-quality'); else { setMeasureView(view); setActiveTab('performance-lab'); } }} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
     {(activeTab === 'performance-lab' || activeTab === 'network-quality') && <TabPanel ariaLabel="Measure views" value={activeTab === 'network-quality' ? 'network-quality' : measureView}>
-    {activeTab === 'performance-lab' && measureView === 'test' && <Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}><TestAChange tweaks={testableTweaks} history={history} snapshot={snapshot} evidence={benchmarkEvidence} prefill={testPrefill} onPrefillUsed={clearTestPrefill} onApplyTweak={applyTweakForTest} onUndoEntry={undoEntryForTest} onEvidenceChange={setBenchmarkEvidence} onImportPreview={(preview) => { setSessionContext(null); acceptNativePresentMonImport(preview); setMeasureView('results'); }} onOpenRecordings={() => setMeasureView('results')} /></Suspense>}
+    {activeTab === 'performance-lab' && measureView === 'test' && <Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}><TestAChange onOpenSavedTests={() => { setSavedTestsOpen(true); setMeasureView('results'); }} tweaks={testableTweaks} history={history} snapshot={snapshot} evidence={benchmarkEvidence} prefill={testPrefill} onPrefillUsed={clearTestPrefill} onApplyTweak={applyTweakForTest} onUndoEntry={undoEntryForTest} onEvidenceChange={setBenchmarkEvidence} onImportPreview={(preview) => { setSessionContext(null); acceptNativePresentMonImport(preview); setMeasureView('results'); }} onOpenRecordings={() => setMeasureView('results')} /></Suspense>}
     {activeTab === 'performance-lab' && measureView === 'results' && <Suspense fallback={<p className="text-sm text-slate-400">Loading measurement tools…</p>}><BenchmarkEvidence snapshot={snapshot} focusedExperimentId={focusedExperimentId} sessionContext={sessionContext} evidence={benchmarkEvidence} loading={isBenchmarkLoading} error={benchmarkError} presentMonImport={presentMonImport} onRefresh={loadBenchmarkEvidence} onImport={importBenchmarkEvidence} onNativeImportPreview={(preview) => { setSessionContext(null); acceptNativePresentMonImport(preview); }} onPreparePresentMonImport={preparePresentMonImport} onCancelPresentMonImport={() => setPresentMonImport(null)} onDelete={deleteBenchmarkEvidence} /></Suspense>}
     {/* Saved tests are otherwise reached only from a finished result, which left people with
         no finished test unable to export, import or tidy up the ones they have. */}
@@ -1443,7 +1449,6 @@ export default function App() {
       <summary className="cursor-pointer text-sm font-semibold text-slate-100">Test a display or graphics-card setting</summary>
       {displaySetupOpen && <div className="mt-4"><Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}><DisplaySetupGuide onOpenMeasure={() => { setMeasureView('test'); setActiveTab('performance-lab'); document.getElementById('main-content')?.scrollIntoView({ block: 'start' }); }} onTest={(prefill) => openTest(prefill)} snapshot={snapshot} discovery={installedGameDiscovery} /></Suspense></div>}
     </details>}
-    {activeTab === 'performance-lab' && measureView === 'test' && <p className="mt-4 text-xs text-slate-400">Export, import or tidy up earlier tests: <button type="button" className="text-cyan-300 underline underline-offset-2" onClick={() => { setSavedTestsOpen(true); setMeasureView('results'); }}>Saved tests</button></p>}
     {activeTab === 'performance-lab' && measureView === 'results' && <details open={savedTestsOpen || undefined} onToggle={(event) => setSavedTestsOpen(event.currentTarget.open)} className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><summary className="cursor-pointer text-sm font-semibold text-slate-100">Saved tests: notes, decisions, export and import</summary><div className="mt-4"><ExperimentSessions history={history} evidence={benchmarkEvidence} onNavigate={(destination, evidenceId) => { if (destination === 'history') { setFocusedAuditId(evidenceId || null); setVerifyView('history'); setActiveTab('drift'); } else if (destination === 'measure') { setActiveTab('performance-lab'); } else { setOptimizeView('all'); setActiveTab('startup'); } }} onCompare={openComparison} /></div></details>}
     {activeTab === 'network-quality' && <Suspense fallback={<p className="text-sm text-slate-400">Loading connection tools…</p>}><NetworkQualityLab snapshot={snapshot} onOpenScan={() => setActiveTab('overview')} /></Suspense>}
     </TabPanel>}

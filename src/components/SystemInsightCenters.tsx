@@ -107,7 +107,7 @@ export function SystemInsightCenters({ snapshot, inventory, appsLoading, appsErr
       </div>
     </div> : null}
 
-    {center === 'windows' ? <div id={panelId('windows')} role="tabpanel" aria-labelledby={tabId('windows')}><WindowsControlsCenter snapshot={snapshot} /></div> : null}
+    {center === 'windows' ? <div id={panelId('windows')} role="tabpanel" aria-labelledby={tabId('windows')}><WindowsControlsCenter snapshot={snapshot} show="shortcuts" /></div> : null}
 
     {center === 'reliability' ? <div id={panelId('reliability')} role="tabpanel" aria-labelledby={tabId('reliability')} className="mt-4 grid gap-3 lg:grid-cols-2">
       <EvidenceCard title="Scan result" value={snapshot ? snapshot.metadata.errors.length === 0 ? 'Complete' : `Complete with ${snapshot.metadata.errors.length} data gap${snapshot.metadata.errors.length === 1 ? '' : 's'}` : 'Not run'} detail={snapshot ? `${snapshot.metadata.executionTimeMs} ms · ${snapshot.metadata.elevated ? 'administrator' : 'standard-user'} evidence` : 'Scan this PC first.'} tone={snapshot && snapshot.metadata.errors.length === 0 ? 'good' : 'warn'} />

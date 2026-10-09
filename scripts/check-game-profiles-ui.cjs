@@ -217,7 +217,11 @@ async function main() {
     await page.getByRole('tab', { name: 'Scan details', exact: true }).click();
     await page.getByRole('heading', { name: 'What Dialed found on this PC' }).waitFor();
     await page.getByRole('tab', { name: 'Windows controls' }).click();
-    await page.locator('summary', { hasText: 'Remove built-in apps' }).click();
+    // Home keeps only the Windows Settings shortcuts; built-in app removal lives in Tweaks.
+    await page.getByRole('heading', { name: 'Shortcuts to the matching Windows Settings pages' }).waitFor();
+    assert.equal(await page.getByText('Only a short list of optional Microsoft Store apps').count(), 0);
+    await openSection(page, 'Tweaks');
+    await page.locator('#tweak-built-in-apps').getByRole('button', { name: 'Choose apps', exact: true }).click();
     await page.getByRole('heading', { name: 'Only a short list of optional Microsoft Store apps' }).waitFor();
     await page.getByText('Microsoft News', { exact: true }).waitFor();
     const controlsLayout = await page.locator('main').evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth, pageWidth: document.documentElement.clientWidth, pageScroll: document.documentElement.scrollWidth }));
@@ -263,11 +267,8 @@ async function main() {
     fs.writeFileSync(path.join(out,'workspace-matrix-report.json'),JSON.stringify({fixtureOnly:true,sourceSha256:configs.sha256(fs.readFileSync(path.join(__dirname,'../src/App.tsx'))),checks:workspaceMatrix},null,2));
     // Saved tests are opened from Measure; after a reload the app starts on Home again.
     const openSavedTests = async () => { await openSection(page, 'Measure'); await page.getByRole('button',{name:'Saved tests',exact:true}).click(); };
-    await openSavedTests();
-    await page.getByLabel('Game or scene',{exact:true}).fill('Fixture replay');
-    await page.getByLabel('The one change you are testing',{exact:true}).fill('One fixture change');
-    await page.getByRole('button',{name:'Start test',exact:true}).click();
-    assert.ok(await page.evaluate(() => localStorage.getItem('dialed-experiment-sessions:v1')), JSON.stringify({errors, text:await page.getByRole('region',{name:'Saved tests'}).textContent()}));
+    // Tests start under Test a change; seed one saved test as that flow would store it.
+    await page.evaluate(() => localStorage.setItem('dialed-experiment-sessions:v1', JSON.stringify([{ id: 'session-fixture-1', workload: 'Fixture replay', changeDescription: 'One fixture change', createdAt: new Date().toISOString(), baselineId: '', candidateId: '', auditId: '', decision: 'UNDECIDED' }])));
     await page.reload();
     await openSavedTests();
     await page.getByLabel('Open a saved test',{exact:true}).waitFor();

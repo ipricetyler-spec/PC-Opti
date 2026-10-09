@@ -3,10 +3,11 @@ import { AppWindow, ExternalLink, Gamepad2, RefreshCw, ShieldAlert, Trash2 } fro
 import { useEffect, useState } from 'react';
 import type { OptionalAppCandidate, OptionalAppInventory, SystemScanSnapshot } from '../types';
 import { useConfirm } from './ConfirmContext';
-import { ShowDetails } from './ShowDetails';
 
 interface WindowsControlsCenterProps {
   snapshot: SystemScanSnapshot | null;
+  /** Home shows the Windows Settings shortcuts; Tweaks shows built-in app removal. */
+  show: 'shortcuts' | 'removal';
 }
 
 // Only pages Dialed has no control for. Game Mode, captures, GPU scheduling and startup apps are
@@ -20,7 +21,7 @@ function evidenceText(_snapshot: SystemScanSnapshot | null, _pageId: typeof SETT
   return 'You change this in Windows; Dialed only opens the page.';
 }
 
-export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) {
+export function WindowsControlsCenter({ snapshot, show }: WindowsControlsCenterProps) {
   const [inventory, setInventory] = useState<OptionalAppInventory | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) 
     }
   };
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (show === 'removal') void refresh(); }, [show]);
 
   const openSettings = async (pageId: typeof SETTINGS_PAGES[number]['id']) => {
     if (!window.pcOptiNative) return;
@@ -84,7 +85,7 @@ export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) 
   };
 
   return <div className="mt-4 space-y-4">
-    <section className="rounded-xl border border-slate-800 bg-slate-950/45 p-4">
+    {show === 'shortcuts' && <section className="rounded-xl border border-slate-800 bg-slate-950/45 p-4">
       <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Windows settings</p><h3 className="mt-1 text-sm font-semibold text-slate-100">Shortcuts to the matching Windows Settings pages</h3><p className="mt-1 text-[11px] leading-relaxed text-slate-500">Each opens the page in Windows Settings, with what Dialed found on this PC. Dialed changes nothing from here.</p></div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{SETTINGS_PAGES.map((page) => {
         const Icon = page.icon;
@@ -95,10 +96,10 @@ export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) 
           <button type="button" onClick={() => openSettings(page.id)} disabled={!window.pcOptiNative} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-[11px] font-semibold text-violet-200 disabled:opacity-40"><ExternalLink className="h-3.5 w-3.5" />Open Windows Settings</button>
         </article>;
       })}</div>
-    </section>
+      {error ? <p role="alert" className="mt-3 text-xs text-rose-200"><ErrorText text={error} /></p> : null}
+    </section>}
 
-    <ShowDetails label="Remove built-in apps">
-    <section className="rounded-xl border border-amber-500/20 bg-slate-950/45 p-4">
+    {show === 'removal' && <section className="rounded-xl border border-amber-500/20 bg-slate-950/45 p-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-300">Remove built-in apps</p><h3 className="mt-1 text-sm font-semibold text-slate-100">Only a short list of optional Microsoft Store apps</h3><p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-500">Remove optional apps one at a time, after seeing exactly what will go. Nothing is picked for you. Games, Xbox services, security software and drivers are never on the list.</p></div><button type="button" onClick={refresh} disabled={loading || Boolean(activeId)} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-[11px] font-semibold text-slate-300 disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{loading ? 'Reading apps…' : 'Refresh'}</button></div>
       <div className="mt-3 flex gap-2 rounded-lg border border-rose-500/20 bg-rose-950/10 p-3 text-[11px] leading-relaxed text-rose-100/80"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" /><span><strong>Dialed cannot undo a removal.</strong> Microsoft Store Library may offer reinstallation, but availability, prior app data, preferences, and integrations are not guaranteed to return.</span></div>
       {error ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={error} /></p> : null}
@@ -111,7 +112,6 @@ export function WindowsControlsCenter({ snapshot }: WindowsControlsCenterProps) 
       </article>)}</div>
       {!loading && inventory && inventory.items.length === 0 ? <p className="mt-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-500">None of the removable apps are installed.</p> : null}
       {inventory ? <p data-technical-detail className="mt-3 text-[11px] leading-relaxed text-slate-600">{inventory.items.length} eligible package{inventory.items.length === 1 ? '' : 's'} · {inventory.limitations}</p> : null}
-    </section>
-    </ShowDetails>
+    </section>}
   </div>;
 }

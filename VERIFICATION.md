@@ -927,3 +927,10 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 
 - Probed every section and tab against a fixture and listed what each renders. Removed: the Tweaks › Windows tab (its policy list was a second control for the 'Windows suggested apps' card, which now toggles in place; the power plan picker opens from its card like the GPU and boot timing tools); four Windows Settings shortcuts under Home › Scan details › Windows controls that repeated Tweaks cards (Game Mode, Captures, Graphics defaults with a stale 'GPU section' reference, Startup apps). Kept: Home's Worth doing (health pointers), Restore › Outside changes (whole-PC snapshot drift).
 - Checks: npm test 876/876, test:ts 147/147, lint, test:ui:fixtures pass; the Tweaks check now asserts five tabs and that the power plan opens from its card. Not yet in the installed app.
+
+## 2026-10-08 — Redundancy pass, judgment calls
+
+- Background apps: Game session now sits under Slow down background apps as 'Slow them down only while a game is open' (open while a session runs); two tools remain, close or slow down.
+- Measure: Saved tests no longer has its own 'Start test' form (a second way to start the tests Test a change starts); the Finished tests list links to its notes, export and import; the separate link line is gone.
+- Built-in app removal moved from Home › Scan details › Windows controls to a Tweaks card (Windows & privacy) that opens it in place; Home keeps only the Windows Settings shortcuts.
+- Checks: npm test 876/876, test:ts 147/147, lint, clean-room guard, test:ui:fixtures pass (games check now opens removal from Tweaks and seeds a saved test directly). Not yet in the installed app.

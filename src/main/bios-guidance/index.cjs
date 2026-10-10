@@ -41,7 +41,11 @@ if (Test-Path -LiteralPath $smi) {
     if ($parts.Count -ge 5) { $nvidia = @{ memoryMiB = [int]$parts[0]; genCurrent = [int]$parts[1]; genMax = [int]$parts[2]; widthCurrent = [int]$parts[3]; widthMax = [int]$parts[4]; bar1MiB = $bar1 } }
   } catch { $errors.Add('NVIDIA link inventory unavailable.') }
 }
-@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
+$secureBoot = $null
+try { $secureBoot = [bool](Confirm-SecureBootUEFI -ErrorAction Stop) } catch {}
+$tpm = $null
+try { $t = Get-CimInstance -Namespace 'root\\cimv2\\Security\\MicrosoftTpm' -ClassName Win32_Tpm -OperationTimeoutSec 3 -ErrorAction Stop | Select-Object -First 1; if ($t) { $tpm = @{ enabled = [bool]$t.IsEnabled_InitialValue; specVersion = [string]$t.SpecVersion } } } catch {}
+@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; secureBoot = $secureBoot; tpm = $tpm; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
 `;
 
 const list = (value) => Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [];
@@ -76,6 +80,13 @@ function observedFor(profile, hardware) {
     if (running > standard) return `Windows reports the memory running at ${running} MT/s, above the modules' standard ${standard} MT/s. A memory profile or a manual setting appears to be active; Windows cannot tell which.`;
     return `Windows reports the memory running at ${running} MT/s, the modules' standard speed. No memory profile appears to be active.`;
   }
+  if (profile.kind === 'firmware' && hardware.bios.version) return `This PC reports BIOS version ${hardware.bios.version}${hardware.bios.date ? `, dated ${hardware.bios.date}` : ''}. Dialed does not check whether a newer one exists.`;
+  if (profile.kind === 'security' && (hardware.secureBoot !== null || hardware.tpm)) {
+    const parts = [];
+    if (hardware.secureBoot !== null) parts.push(`Secure Boot is ${hardware.secureBoot ? 'on' : 'off'}`);
+    if (hardware.tpm) parts.push(`the TPM is ${hardware.tpm.enabled ? 'on' : 'off'}${hardware.tpm.version ? `, version ${hardware.tpm.version}` : ''}`);
+    return `Windows reports that ${parts.join(' and ')}. IOMMU is not visible from here.`;
+  }
   const nvidia = hardware.nvidia;
   if (profile.kind === 'rebar' && profile.gpuVendor === 'nvidia' && nvidia?.bar1MiB && nvidia.memoryMiB) {
     if (nvidia.bar1MiB >= nvidia.memoryMiB * 0.9) return `The graphics card reports a ${nvidia.bar1MiB} MiB BAR window, about the size of its ${nvidia.memoryMiB} MiB of memory. That is what Resizable BAR looks like when it is active.`;
@@ -107,6 +118,11 @@ function normalizeInventory(raw = {}) {
     })),
     gpus: list(raw.gpus).map(known).filter(Boolean).slice(0, 8),
     nvidia: normalizeNvidia(raw.nvidia),
+    // Null when Windows did not answer (for example Legacy boot has no Secure Boot state to read).
+    secureBoot: typeof raw.secureBoot === 'boolean' ? raw.secureBoot : null,
+    tpm: raw.tpm && typeof raw.tpm === 'object' && typeof raw.tpm.enabled === 'boolean'
+      ? { enabled: raw.tpm.enabled, version: /^\d\.\d/.test(text(raw.tpm.specVersion)) ? text(raw.tpm.specVersion).slice(0, 3) : '' }
+      : null,
     errors: list(raw.errors).map(text).filter(Boolean).slice(0, 16),
   };
 }
@@ -170,6 +186,7 @@ function buildBiosPlan(raw, { now = new Date() } = {}) {
 
   const recommendations = !match.supported ? [] : PROFILES.filter((profile) => {
     if (!profile.platforms.includes(match.platform)) return false;
+    if (profile.cpuPattern && !profile.cpuPattern.test(hardware.cpu.name)) return false;
     if (profile.cpuModel && !new RegExp(`\\bAMD Ryzen 7 ${profile.cpuModel}\\b`, 'i').test(hardware.cpu.name.replace(/\((?:R|TM)\)/gi, ''))) return false;
     if (profile.kind === 'memory') return hardware.memory.length > 0 && hardware.memory.every((item) => profile.memoryType === 'ddr4-or-ddr5' ? [26, 34].includes(item.memoryType) : item.memoryType === profile.memoryType);
     if (profile.gpuVendor === 'nvidia') return hardware.gpus.some((gpu) => /\b(?:GeForce\s+)?RTX\s*[345]0\d{2}\b/i.test(gpu) && !/laptop/i.test(gpu));
@@ -183,17 +200,17 @@ function buildBiosPlan(raw, { now = new Date() } = {}) {
     target: profile.target, benefit: profile.benefit, tradeoff: profile.tradeoff,
     checks: [...profile.checks, 'Confirm all control names and prerequisites in the exact model / revision manual before changing a setting.'],
     steps: [...profile.steps], verify: profile.verify, undo: profile.undo,
-    menuHint: profile.kind === 'memory' ? board.memoryMenu : 'Locate these controls in the exact board manual; their position can change with BIOS version.',
+    menuHint: profile.kind === 'memory' ? board.memoryMenu : board.menus?.[profile.kind] ?? 'Locate these controls in the exact board manual; their position can change with BIOS version.',
     sources: [...new Set([...profile.sourceIds, ...(profile.kind === 'memory' ? board.sourceIds : [])])].map((id) => ({ ...SOURCES[id], reviewedAt: SOURCES[id].reviewedAt || REVIEWED_AT })).concat(model ? [{ title: model.title, url: model.url, reviewedAt: REVIEWED_AT }] : []),
   }));
-  if (match.supported && !recommendations.some((item) => /memory|expo|xmp/.test(item.id))) warnings.push('Memory type or module inventory has no matching profile rule; no memory setting is inferred.');
+  if (match.supported && !recommendations.some((item) => ['am5-expo', 'am4-memory-profile', 'intel-xmp'].includes(item.id))) warnings.push('Memory type or module inventory has no matching profile rule; no memory setting is inferred.');
   return {
-    schemaVersion: '1.0.0', catalogVersion: '2026.09.05', reviewedAt: REVIEWED_AT, reviewAfter: REVIEW_AFTER,
+    schemaVersion: '1.0.0', catalogVersion: '2026.10.10', reviewedAt: REVIEWED_AT, reviewAfter: REVIEW_AFTER,
     generatedAt: Number.isFinite(date.getTime()) ? date.toISOString() : null, fingerprint,
     hardware, match: { ...match, boardName: board?.name || null, supportUrl: model?.url || board?.supportUrl || null, supportMatch: model ? 'MODEL' : board ? 'VENDOR' : null },
     status: !match.supported ? 'NO_REVIEWED_MATCH' : 'GUIDANCE_AVAILABLE', reviewStatus,
     preparation: [...PREPARATION], preparationSources: [{ ...SOURCES.recovery, reviewedAt: REVIEWED_AT }], warnings,
-    limitations: 'Dialed does not read BIOS settings. "Observed" lines are what Windows reports (memory speed, the graphics card\'s BAR window and PCIe link), which can match a setting without proving it. CPU offsets, boot mode, encryption status and cooling limits are not visible. Recommendations are manual candidates, not a diagnosis. No hardware data is sent anywhere.',
+    limitations: 'Dialed does not read BIOS settings. "Observed" lines are what Windows reports (memory speed, BIOS version, Secure Boot and TPM state, the graphics card\'s BAR window and PCIe link), which can match a setting without proving it. CPU offsets, boot mode, encryption status and cooling limits are not visible. Recommendations are manual candidates, not a diagnosis. No hardware data is sent anywhere.',
     recommendations,
   };
 }

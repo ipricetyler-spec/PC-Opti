@@ -945,3 +945,10 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - Drove the installed app by UI Automation: all seven sections and every tab opened and read; NVIDIA settings, power plan and built-in apps sections opened from their cards. Nothing was confirmed or changed. Seen live: Input devices scanned on opening (Razer measured about 1,010 reports/s on Oct 8); 4 of 4 match the recommendation, so no recommended button; NVIDIA table shows four changed settings.
 - Found and fixed: Home counted 56 'apps that start with Windows', 53 of them scheduled tasks, mostly Windows' own (\Microsoft\Windows\ tasks are no longer listed); Home suggested 'Run TRIM' for every healthy SSD (removed; Upkeep still offers it); stale wording ('Open GPU', 'Game session above'); the close list offered AMD driver software and the touch keyboard (now excluded).
 - Checks: npm test 876/876, test:ts 147/147, lint. NOT yet run: test:ui:fixtures (held back because a game was running on the owner's PC). Not in the installed app.
+
+## 2026-10-10 — BIOS guide expanded (catalog 2026.10.10)
+
+- Four new guidance-only checks: Memory Context Restore for AM5 start-up time (ASUS ROG forum moderator post), whether a newer BIOS is worth installing (ASUS EZ Flash 3 and FlashBack FAQs), TPM 2.0 / Secure Boot / IOMMU for anti-cheat (Riot support pages), and, under advanced tuning, the board's X3D gaming mode (TechSpot 12-game test). Each source was opened and read on 2026-10-10. ASUS menu paths are given only where ASUS documents them; other makers keep the manual fallback.
+- The plan now reads Secure Boot state, TPM state and BIOS version for Observed lines. Built against the owner's PC (read-only): 12 entries, Secure Boot on, TPM on 2.0, BIOS 1686 dated 2026-06-24.
+- A regression the tests caught and fixed: the new entry's id contained 'memory' and silenced the 'no matching memory profile' warning.
+- Checks: npm test 877/877, test:ts 147/147, lint. NOT yet run: test:ui:fixtures (held while a game was running). Not in the installed app.

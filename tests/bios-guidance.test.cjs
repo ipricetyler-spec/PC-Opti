@@ -25,7 +25,7 @@ test('AM5 X3D plan matches CPU + board + DDR5 + GPU without claiming BIOS settin
   const plan = build(fixture());
   assert.equal(plan.status, 'GUIDANCE_AVAILABLE');
   assert.equal(plan.match.platform, 'am5');
-  assert.deepEqual(ids(plan), ['am5-expo', 'amd-stock-boost', 'nvidia-rebar', 'amd-curve-review', 'cooling-baseline', 'thermal-9800x3d', 'stock-scheduling', 'pcie-link-check']);
+  assert.deepEqual(ids(plan), ['am5-expo', 'amd-stock-boost', 'nvidia-rebar', 'amd-curve-review', 'am5-memory-context-restore', 'firmware-update-review', 'anti-cheat-security', 'am5-x3d-game-mode', 'cooling-baseline', 'thermal-9800x3d', 'stock-scheduling', 'pcie-link-check']);
   assert.ok(plan.recommendations.every((item) => item.currentState === 'Not read from BIOS' && item.status === 'CHECK_COMPATIBILITY'));
   assert.equal(plan.recommendations.find((item) => item.id === 'amd-curve-review').advanced, true);
 });
@@ -56,7 +56,7 @@ for (const [cpu, product, platform] of [
 
 test('AM4 + DDR4 + Radeon uses AM4 memory and SAM, not AM5 EXPO', () => {
   const plan = build(fixture({ cpu: [{ name: 'AMD Ryzen 7 5800X3D' }], board: [{ manufacturer: 'ASUS', product: 'TUF GAMING B550-PLUS' }], memory: [{ memoryType: 26, partNumber: 'DDR4' }], gpus: ['AMD Radeon RX 6800 XT'] }));
-  assert.deepEqual(ids(plan), ['am4-memory-profile', 'amd-stock-boost', 'amd-sam', 'amd-curve-review', 'cooling-baseline', 'stock-scheduling', 'pcie-link-check']);
+  assert.deepEqual(ids(plan), ['am4-memory-profile', 'amd-stock-boost', 'amd-sam', 'amd-curve-review', 'firmware-update-review', 'anti-cheat-security', 'cooling-baseline', 'stock-scheduling', 'pcie-link-check']);
 });
 
 test('SAM excludes unreviewed older chipsets and excluded 3400G CPU', () => {
@@ -176,9 +176,9 @@ test('non-Windows, malformed, empty, excessive and failed reads return no recomm
   assert.ok(!JSON.stringify(failed).includes('SECRET'));
 });
 
-test('all recipes have first-party citations, prerequisites, tradeoffs and manual recovery', () => {
+test('all recipes cite a maker or independent testing, with prerequisites, tradeoffs and manual recovery', () => {
   assert.equal(new Set(PROFILES.map((profile) => profile.id)).size, PROFILES.length);
-  assert.equal(PROFILES.length, 13);
+  assert.equal(PROFILES.length, 17);
   for (const profile of PROFILES) {
     for (const field of ['title', 'target', 'benefit', 'tradeoff', 'verify', 'undo']) assert.ok(profile[field].length > 12);
     assert.ok(profile.checks.length && profile.steps.length && profile.sourceIds.length);
@@ -186,7 +186,7 @@ test('all recipes have first-party citations, prerequisites, tradeoffs and manua
       assert.ok(SOURCES[id]);
       const url = new URL(SOURCES[id].url);
       assert.equal(url.protocol, 'https:');
-      assert.ok(['amd.com', 'intel.com', 'asus.com', 'msi.com', 'gigabyte.com', 'asrock.com', 'nvidia.custhelp.com', 'learn.microsoft.com'].some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`)));
+      assert.ok(['amd.com', 'intel.com', 'asus.com', 'msi.com', 'gigabyte.com', 'asrock.com', 'nvidia.custhelp.com', 'learn.microsoft.com', 'riotgames.com', 'techspot.com'].some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`)));
     }
   }
 });
@@ -232,4 +232,21 @@ test('returned plan edits cannot change the reviewed catalog for later callers',
   assert.notEqual(build(fixture()).recommendations[0].steps[0], 'Modified caller data');
   assert.notEqual(build(fixture()).preparation[0], 'Modified preparation');
   assert.ok(Object.isFrozen(PROFILES[0].steps));
+});
+
+test('new checks report what Windows shows and stay off hardware they do not fit', () => {
+  const plan = build(fixture({ board: [{ manufacturer: 'ASUSTeK COMPUTER INC.', product: 'TUF GAMING X870-PLUS WIFI', revision: 'Rev 1.xx' }], secureBoot: true, tpm: { enabled: true, specVersion: '2.0, 0, 1.59' } }));
+  // A maker without a documented path keeps the manual fallback instead of a guessed one.
+  assert.match(build(fixture()).recommendations.find((entry) => entry.id === 'am5-memory-context-restore').menuHint, /exact board manual/);
+  const item = (id) => plan.recommendations.find((entry) => entry.id === id);
+  assert.match(item('anti-cheat-security').observed, /Secure Boot is on and the TPM is on, version 2\.0\. IOMMU is not visible/);
+  assert.match(item('firmware-update-review').observed, /does not check whether a newer one exists/);
+  assert.match(item('am5-memory-context-restore').menuHint, /DRAM Timing Control → Memory Context Restore/);
+  assert.equal(item('am5-x3d-game-mode').advanced, true);
+  // Unknown Secure Boot and TPM state gives no Observed line rather than a guess.
+  assert.equal(build(fixture()).recommendations.find((entry) => entry.id === 'anti-cheat-security').observed, null);
+  // The X3D mode is only for X3D processors.
+  const plain = build(fixture({ cpu: [{ name: 'AMD Ryzen 7 9700X 8-Core Processor', manufacturer: 'AuthenticAMD', socket: 'AM5' }] }));
+  assert.ok(!ids(plain).includes('am5-x3d-game-mode'));
+  for (const entry of plan.recommendations) assert.doesNotMatch(`${entry.benefit} ${entry.target}`, /guarantee|will increase|always faster/i);
 });

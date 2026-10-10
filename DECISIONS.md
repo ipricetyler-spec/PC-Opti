@@ -323,3 +323,6 @@ Dialed reads NVIDIA's global driver settings but does not write them. The only w
 building was a G-SYNC + vertical sync + frame cap set; the owner has a G-SYNC monitor and chooses not
 to use G-SYNC, and the other settings make small, game-dependent differences. Revisit only if users
 ask for the G-SYNC set.
+
+## BIOS guide sources widened (2026-10-10)
+ BIOS guide may cite the maker of the thing a check is about (Riot for Vanguard's requirements) and independent testing publications (TechSpot for the X3D mode figures), not only CPU, board and Microsoft pages. Menu paths are stated only where the board maker documents them. BIOS stays guidance-only.

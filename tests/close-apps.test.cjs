@@ -13,6 +13,8 @@ const LISTED = [
   { path: 'C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\msedgewebview2.exe', name: 'msedgewebview2', description: 'Microsoft Edge WebView2', window: false },
   { path: 'C:\\Program Files\\NVIDIA Corporation\\NvContainer\\nvcontainer.exe', name: 'nvcontainer', description: 'nvcontainer', window: false },
   { path: 'C:\\Program Files\\Dialed\\Dialed.exe', name: 'Dialed', description: 'Dialed', window: true },
+  { path: 'C:\\Program Files\\AMD\\CNext\\CNext\\RadeonSoftware.exe', name: 'RadeonSoftware', description: 'AMD Software: Host Application', window: false },
+  { path: 'C:\\Program Files\\Common Files\\microsoft shared\\ink\\TabTip.exe', name: 'TabTip', description: 'Touch Keyboard and Handwriting Panel', window: false },
   { path: 'relative\\x.exe', name: 'x', description: 'x', window: false },
 ];
 

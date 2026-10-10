@@ -86,7 +86,7 @@ export function ProcessBalancer({ items, errors, loading, activeProcessId, actio
 
       <section className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-xs leading-relaxed text-amber-100/80">
         <div className="flex items-center gap-2 font-semibold text-amber-300"><AlertTriangle className="h-4 w-4" /> Background processes only</div>
-        <p className="mt-2">Never use this on a game or launcher; it would slow the game down. Dialed cannot always tell which apps are games, so check each name. Game session above is safer: it never touches the game you pick.</p>
+        <p className="mt-2">Never use this on a game or launcher; it would slow the game down. Dialed cannot always tell which apps are games, so check each name. “Slow them down only while a game is open”, below, is safer: it never touches the game you pick.</p>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-xl">

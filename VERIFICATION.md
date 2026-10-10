@@ -939,3 +939,9 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 
 - release:native (helper 265b1e97…), build, SBOM, license inventory, signed NSIS; candidate:verify SIGNED_INSTALLER_CANDIDATE; silent install exit 0; 96 of 96 installed files match the build by SHA-256.
 - Not verified: the changes since b5ee86a driven in the installed app.
+
+## 2026-10-10 — Automated read-only pass on the installed app (8a62f8e), and four fixes
+
+- Drove the installed app by UI Automation: all seven sections and every tab opened and read; NVIDIA settings, power plan and built-in apps sections opened from their cards. Nothing was confirmed or changed. Seen live: Input devices scanned on opening (Razer measured about 1,010 reports/s on Oct 8); 4 of 4 match the recommendation, so no recommended button; NVIDIA table shows four changed settings.
+- Found and fixed: Home counted 56 'apps that start with Windows', 53 of them scheduled tasks, mostly Windows' own (\Microsoft\Windows\ tasks are no longer listed); Home suggested 'Run TRIM' for every healthy SSD (removed; Upkeep still offers it); stale wording ('Open GPU', 'Game session above'); the close list offered AMD driver software and the touch keyboard (now excluded).
+- Checks: npm test 876/876, test:ts 147/147, lint. NOT yet run: test:ui:fixtures (held back because a game was running on the owner's PC). Not in the installed app.

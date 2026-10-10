@@ -406,7 +406,7 @@ foreach ($target in $targets) {
   }
 }
 Get-ScheduledTask -ErrorAction SilentlyContinue |
-  Where-Object { $_.Settings.Enabled -and @($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count -gt 0 } |
+  Where-Object { $_.TaskPath -notlike '\Microsoft\Windows\*' -and $_.Settings.Enabled -and @($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count -gt 0 } |
   Select-Object -First 100 |
   ForEach-Object {
     $action = @($_.Actions)[0]

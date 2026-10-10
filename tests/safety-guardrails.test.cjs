@@ -933,7 +933,8 @@ test('full local build recommendations expose implemented maintenance actions', 
   }];
   const recommendations = buildLocalRecommendations(snapshot, 'public');
   assert.ok(recommendations.some((item) => item.actionId === 'clear-temp-files'));
-  assert.ok(recommendations.some((item) => item.actionId === 'retrim-drive:C'));
+  // A healthy SSD with TRIM on is not a suggestion; Upkeep still offers a manual retrim.
+  assert.equal(recommendations.some((item) => item.actionId === 'retrim-drive:C'), false);
 });
 
 test('public-profile recommendation panel links never point at a tab hidden in that profile', () => {

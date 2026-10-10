@@ -270,7 +270,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'On PCs with two graphics processors, such as most gaming laptops, when a game runs on the built-in one by mistake.',
     leaveItIf: 'Your PC has only one graphics processor. The choice then has no effect.',
     undo: 'Undo restores the previous choice for that program, or removes it if there was none.',
-    measureFirst: false, destination: { tab: 'gpu' }, actionLabel: 'Open GPU',
+    measureFirst: false, destination: { tab: 'gpu' }, actionLabel: 'Choose a program',
   },
   {
     id: 'nvidia-settings', group: 'Graphics', title: 'NVIDIA driver settings', capabilityIds: [], perItem: false,

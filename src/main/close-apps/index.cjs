@@ -9,7 +9,9 @@ const ANTI_CHEAT = new Set(Object.values(ANTI_CHEAT_PROCESS_NAMES_BY_PRODUCT).fl
 // Windows shell and input pieces that can live outside the Windows folder.
 const NEVER = new Set(['explorer', 'dwm', 'csrss', 'winlogon', 'sihost', 'ctfmon', 'textinputhost', 'searchhost', 'startmenuexperiencehost', 'shellexperiencehost', 'runtimebroker', 'applicationframehost', 'systemsettings', 'securityhealthsystray', 'msmpeng', 'nissrv', 'powershell', 'pwsh', 'conhost', 'cmd', 'windowsterminal', 'openconsole',
   // Graphics driver containers and the browser engine other apps run inside; closing them breaks other programs.
-  'nvcontainer', 'nvdisplay.container', 'msedgewebview2']);
+  'nvcontainer', 'nvdisplay.container', 'msedgewebview2',
+  // AMD's driver software, for the same reason as NVIDIA's, and the Windows touch keyboard.
+  'radeonsoftware', 'amdrsserv', 'amdrssrcext', 'amdow', 'cncmd', 'tabtip']);
 // Security software is never offered, whatever its file name.
 const SECURITY = /defender|antivirus|anti-virus|security|firewall/i;
 const GRACE_SECONDS = 5;

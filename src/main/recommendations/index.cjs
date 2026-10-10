@@ -175,22 +175,8 @@ function buildLocalRecommendations(inputSnapshot, profile = 'owner') {
         expectedBenefit: 'Free up space yourself, for example with Windows Storage settings.',
       }));
     }
-    if (drive.isSSD && drive.trimEnabled) {
-      results.push(recommendation(capabilities, {
-        id: `retrim-${drive.driveLetter}`,
-        title: `Run TRIM on ${drive.driveLetter}:`,
-        category: 'Storage',
-        observation: `${drive.driveLetter}: is an SSD with TRIM turned on.`,
-        rationale: 'Asks Windows to tell the SSD which space is free, which Windows also does on a schedule. Optional upkeep, not a speed boost.',
-        evidence: `metrics.storage.value[${drive.driveLetter}].isSSD = true and trimEnabled = true`,
-        paths: ['metrics.storage.value[].driveLetter', 'metrics.storage.value[].isSSD', 'metrics.storage.value[].trimEnabled'],
-        applicability: 'APPLICABLE',
-        confidence: 'Medium',
-        actionStatus: 'OPTIONAL_ACTION',
-        actionId: `retrim-drive:${drive.driveLetter}`,
-        capabilityId: 'maintenance:retrim-drive',
-      }));
-    }
+    // A healthy SSD with TRIM on needs nothing: Windows retrims on a schedule. Suggesting it for every
+    // drive on every scan filled Home's short list with a non-issue. Upkeep still offers it.
   }
 
   if (available(snapshot.diagnostics.pageFile)) {

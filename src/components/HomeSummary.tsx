@@ -1,10 +1,22 @@
 import { ErrorText } from './ErrorText';
+import { useState } from 'react';
 import { ArrowRight, CheckCircle2, Cpu, HardDrive, LoaderCircle, MemoryStick, Monitor, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
 import type { AuditHistoryRecovery, AuditJournalEntry, BenchmarkEvidenceState, LocalRecommendation, SystemScanSnapshot } from '../types';
 import { graphicsAdapters } from '../lib/displaySetup';
 import { TestsOnHome } from './TestsOnHome';
 
 type Target = LocalRecommendation['targetPanel'];
+
+// Suggestions the reader said are not for them; they stay in the full list under Scan details.
+const DISMISSED_KEY = 'dialed-home-dismissed:v1';
+export function readDismissedSuggestions(): Set<string> {
+  try { const value = JSON.parse(window.localStorage.getItem(DISMISSED_KEY) ?? '[]'); return new Set(Array.isArray(value) ? value.filter((item) => typeof item === 'string').slice(0, 100) : []); } catch { return new Set(); }
+}
+function saveDismissedSuggestions(ids: Set<string>) {
+  try { window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids])); } catch { /* shown again next time */ }
+}
+// Items about something that went wrong, or about Dialed's own recommendation, cannot be dismissed.
+const FIXED_KEYS = ['unfinished', 'failed', 'scan', 'regression', 'recommended'];
 
 export interface HomeItem {
   key: string;
@@ -31,8 +43,13 @@ const PRIORITY: Record<LocalRecommendation['actionStatus'], number> = { REVIEW: 
  * What Home asks you to do, most important first: a change that did not finish, a test
  * that showed things got worse, then the scan's suggestions. At most three are shown.
  */
-export function homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence, now = Date.now() }: {
+export function homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence, now = Date.now(), scanning = false, recommendedCount = 0, dismissed = new Set<string>() }: {
   now?: number;
+  /** The first scan is already running, so asking for one would be noise. */
+  scanning?: boolean;
+  /** Settings that differ from Dialed's recommendation on the Tweaks page. */
+  recommendedCount?: number;
+  dismissed?: Set<string>;
   snapshot: SystemScanSnapshot | null;
   history: AuditJournalEntry[];
   historyRecovery: AuditHistoryRecovery | null;
@@ -55,7 +72,7 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
       urgent: true,
     });
   }
-  if (!snapshot) {
+  if (!snapshot && !scanning) {
     items.push({ key: 'scan', title: 'Scan this PC', detail: 'Dialed needs a scan before it can suggest anything.', action: 'Scan now', target: { id: 'overview', label: 'Scan now', sectionId: null }, urgent: true });
   }
   const worse = benchmarkEvidence.comparisons.find((item) => item.classification === 'REGRESSION');
@@ -74,8 +91,12 @@ export function homeItems({ snapshot, history, historyRecovery, recommendations,
       target: { id: 'history', label: 'See why', sectionId: null, evidenceId: failed[0].id },
     });
   }
+  // One recommendation system: the Tweaks page's own count is offered here, ahead of scan suggestions.
+  if (recommendedCount > 0) {
+    items.push({ key: 'recommended', title: `${recommendedCount} setting${recommendedCount === 1 ? ' differs' : 's differ'} from Dialed's recommendation`, detail: 'Review them together on the Tweaks page. Nothing changes until you confirm, and each can be undone.', action: 'Review', target: { id: 'tweaks', label: 'Review', sectionId: null } });
+  }
   const suggestions = recommendations
-    .filter((item) => item.actionStatus !== 'NO_ACTION')
+    .filter((item) => item.actionStatus !== 'NO_ACTION' && !dismissed.has(item.id))
     .map((item, index) => ({ item, index }))
     .sort((left, right) => PRIORITY[left.item.actionStatus] - PRIORITY[right.item.actionStatus] || left.index - right.index)
     .map(({ item }) => item);
@@ -93,7 +114,8 @@ export function changesLine(undoable: number, setBack: number, anyHistory: boole
   return setBack ? `${main} · ${setBack} set back by Windows since` : `${main}.`;
 }
 
-export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest, setBackCount = 0 }: {
+export function HomeSummary({ snapshot, isScanning, scanError, history, historyRecovery, recommendations, benchmarkEvidence, onScan, onOpenScanDetails, onNavigate, onOpenRestore, onOpenSuggestions, onOpenTest, setBackCount = 0, recommendedCount = 0 }: {
+  recommendedCount?: number;
   snapshot: SystemScanSnapshot | null;
   isScanning: boolean;
   scanError: string | null;
@@ -110,9 +132,11 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
   /** Dialed changes that Windows or another program has since set back; their Undo would be refused. */
   setBackCount?: number;
 }) {
-  const items = homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence });
-  const suggestionCount = recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length;
-  const shownSuggestions = items.filter((item) => !['unfinished', 'failed', 'scan', 'regression'].includes(item.key)).length;
+  const [dismissed, setDismissed] = useState(readDismissedSuggestions);
+  const dismiss = (id: string | null) => setDismissed((current) => { const next = new Set(id === null ? [] : [...current, id]); saveDismissedSuggestions(next); return next; });
+  const items = homeItems({ snapshot, history, historyRecovery, recommendations, benchmarkEvidence, scanning: isScanning, recommendedCount, dismissed });
+  const suggestionCount = recommendations.filter((item) => item.actionStatus !== 'NO_ACTION' && !dismissed.has(item.id)).length;
+  const shownSuggestions = items.filter((item) => !FIXED_KEYS.includes(item.key)).length;
   const undoable = history.filter((entry) => entry.rollback.available).length;
   const memory = snapshot?.metrics.memory.status === 'AVAILABLE' ? snapshot.metrics.memory.value : null;
   const drives = snapshot?.metrics.storage.status === 'AVAILABLE' ? snapshot.metrics.storage.value : [];
@@ -155,9 +179,13 @@ export function HomeSummary({ snapshot, isScanning, scanError, history, historyR
             <p className={`flex items-center gap-1.5 text-sm font-semibold ${item.urgent ? 'text-amber-200' : 'text-slate-100'}`}>{item.urgent ? <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" /> : <span className="h-4 w-4 shrink-0" aria-hidden="true" />}{item.title}</p>
             <p className="mt-0.5 text-xs text-slate-400">{item.detail}</p>
           </div>
-          <button type="button" onClick={() => onNavigate(item.target)} className="shrink-0 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200">{item.action}</button>
+          <div className="flex shrink-0 items-center gap-2">
+            {!FIXED_KEYS.includes(item.key) && <button type="button" onClick={() => dismiss(item.key)} aria-label={`Not for me: ${item.title}`} className="rounded-lg px-2 py-2 text-xs text-slate-400 hover:text-slate-200">Not for me</button>}
+            <button type="button" onClick={() => (item.key === 'scan' ? onScan() : onNavigate(item.target))} className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200">{item.action}</button>
+          </div>
         </li>)}
-      </ul> : <p className="mt-3 flex items-center gap-2 text-sm text-emerald-200"><CheckCircle2 className="h-4 w-4" />Nothing needs your attention right now.</p>}
+      </ul> : isScanning && !snapshot ? <p className="mt-3 text-sm text-slate-400">Scanning this PC…</p> : <p className="mt-3 flex items-center gap-2 text-sm text-emerald-200"><CheckCircle2 className="h-4 w-4" />Nothing needs your attention right now.</p>}
+      {dismissed.size > 0 && <p className="mt-2 text-xs text-slate-500">{dismissed.size} hidden as not for you. <button type="button" onClick={() => dismiss(null)} className="text-slate-300 underline underline-offset-2">Show again</button></p>}
       {suggestionCount > shownSuggestions && <button type="button" onClick={onOpenSuggestions} className="mt-2 text-xs text-cyan-300 underline underline-offset-2">See all {suggestionCount} suggestions</button>}
     </section>
 

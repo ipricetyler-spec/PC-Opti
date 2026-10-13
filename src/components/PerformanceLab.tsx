@@ -144,12 +144,12 @@ export function PerformanceLab({ items, errors, loading, activeActionId, status,
     </section>
 
     <section className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-4 text-xs leading-relaxed text-amber-100/90">
-      <div className="flex gap-2"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><p>Boot Configuration Data affects Windows startup. Dialed must be running as administrator; it exports and hashes the BCD store before a write, verifies only the configured value, and reports the runtime effect and performance outcome as unverified until reboot and matched testing.</p></div>
+      <div className="flex gap-2"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><p>These are Windows boot settings. Dialed saves a backup copy of the boot settings before changing one, and checks the new value afterwards. It takes effect after a restart, and only your own before/after test shows whether it helped.</p></div>
     </section>
 
     {status && <p className="rounded-lg border border-cyan-500/25 bg-cyan-950/20 p-3 text-xs text-cyan-100">{status}</p>}
     {error && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-200"><ErrorText text={error} /></p>}
-    {errors.length > 0 && <section className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-4"><h3 className="text-xs font-semibold text-amber-200">Read limits</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-100/75">{errors.map((item) => <li key={`${item.component}-${item.message}`}>{item.component}: {item.message}</li>)}</ul></section>}
+    {errors.length > 0 && <section className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-4"><h3 className="text-xs font-semibold text-amber-200">Could not be read</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-100/75">{errors.map((item) => <li key={`${item.component}-${item.message}`}><ErrorText text={item.message} /></li>)}</ul></section>}
 
     {filteredItems.length === 0 ? (
       <section className="rounded-2xl border border-violet-500/30 bg-violet-950/20 p-6 text-sm text-slate-300">
@@ -178,16 +178,16 @@ export function PerformanceLab({ items, errors, loading, activeActionId, status,
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">Action: {item.actionLabel}</span>
             {item.requiresReboot && <span className="rounded border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] text-amber-200">Requires reboot</span>}
-            {item.requiresElevation && <span className="rounded border border-rose-400/25 bg-rose-400/10 px-2 py-0.5 text-[11px] text-rose-200">Requires elevation</span>}
+            {item.requiresElevation && <span className="rounded border border-rose-400/25 bg-rose-400/10 px-2 py-0.5 text-[11px] text-rose-200">Needs administrator rights</span>}
             <span data-technical-detail className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">Actionable: {item.actionId ? 'Yes' : 'No'}</span>
           </div>
           <h3 className="mt-3 font-semibold text-slate-100">{item.title}</h3>
           <p className="mt-2 text-xs leading-relaxed text-cyan-100/80">{item.framing}</p>
           <dl className="mt-4 space-y-3 text-xs">
-            <LabDetail label="Current configured state" value={item.currentState} />
+            <LabDetail label="Now" value={item.currentState} />
             <LabDetail technical label="Testable hypothesis" value={item.hypothesis} />
             <LabDetail label="Limits" value={item.limitations} />
-            <LabDetail label="Rollback" value={item.rollback} />
+            <LabDetail label="Undo" value={item.rollback} />
           </dl>
           <div className="mt-4 rounded-lg border border-violet-500/20 bg-violet-950/15 p-3 text-[11px] leading-relaxed text-violet-100/80"><span className="font-semibold text-violet-300">How to verify: </span>{item.ongoingTesting.replace(/^Ongoing verification:\s*/i, '')}</div>
           <div data-technical-detail className="mt-3 flex flex-wrap gap-2">{item.sources.map((source) => <a key={source} href={source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 underline decoration-slate-700 underline-offset-2 hover:text-cyan-300">Microsoft guidance <ExternalLink className="h-3 w-3" /></a>)}</div>

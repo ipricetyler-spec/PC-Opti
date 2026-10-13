@@ -64,7 +64,7 @@ export function ProcessBalancer({ items, errors, loading, activeProcessId, actio
             </div>
             <h2 className="mt-3 text-2xl font-bold text-white">Slow down background apps</h2>
             <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-400">
-              Efficiency mode (EcoQoS) asks Windows to run an app on slower, low-power processor cores, leaving more room for your game. The app itself may run slower. It lasts until the app closes, and Dialed never closes, pauses or reprioritises anything.
+              Efficiency mode (EcoQoS) asks Windows to run an app on slower, low-power processor cores, leaving more room for your game. The app itself may run slower. It lasts until the app closes. Efficiency mode never closes or pauses an app.
             </p>
           </div>
           <button onClick={onRefresh} disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-60">

@@ -16,12 +16,15 @@ function targetPanel(input) {
     return { id: 'startup', label: 'Review startup apps', sectionId: null };
   }
   if (input.actionId === 'clear-temp-files' || String(input.actionId || '').startsWith('retrim-drive:')) {
-    return { id: 'maintenance', label: 'Open maintenance', sectionId: null };
+    return { id: 'maintenance', label: 'Open Upkeep', sectionId: null };
   }
   if (String(input.id || '').startsWith('low-storage-')) {
     return { id: 'overview', label: 'See drives', sectionId: 'storage-volumes' };
   }
-  return { id: 'overview', label: 'See details', sectionId: 'expanded-diagnostics' };
+  if (input.id === 'game-dvr-review') return { id: 'tweaks', label: 'Open the setting', sectionId: 'tweak-background-recording' };
+  if (input.id === 'secure-boot-disabled' || input.id === 'tpm-not-ready') return { id: 'bios', label: 'Open the BIOS guide', sectionId: null };
+  // The detailed diagnostics block is hidden unless technical details are on, so nothing points into it.
+  return { id: 'overview', label: 'See scan details', sectionId: null };
 }
 
 // A recommendation's target panel is only reachable if the tab it points to is
@@ -37,8 +40,10 @@ const PANEL_REQUIRED_CAPABILITY = {
   // maintenance is reachable via either maintenance capability; both share the
   // same profile list today, so checking one is equivalent.
   maintenance: 'maintenance:clear-temp-files',
+  tweaks: 'gaming:background-recording',
+  bios: 'bios:hardware-guidance',
 };
-const FALLBACK_PANEL = { id: 'overview', label: 'See details', sectionId: 'expanded-diagnostics' };
+const FALLBACK_PANEL = { id: 'overview', label: 'See scan details', sectionId: null };
 
 function reachableTargetPanel(panel, profile) {
   const requiredCapabilityId = PANEL_REQUIRED_CAPABILITY[panel.id];

@@ -181,7 +181,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
 
   const writeSessions = (next: ExperimentSession[]): boolean => {
     if (sessionState.blocked) {
-      setError('Your saved tests could not be read, so nothing new is saved over them. Open Recordings & results › Saved tests to export and recover them first.');
+      setError('Your saved tests could not be read, so nothing new is saved over them. Open Notes, export and import under Finished tests to export and recover them first.');
       return false;
     }
     try {
@@ -259,7 +259,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
       : manualTitle.trim() ? { kind: 'MANUAL', title: manualTitle.trim().slice(0, 120), fromText: manualFrom.trim().slice(0, 80), toText: manualTo.trim().slice(0, 80), displayBaselineId } : null;
     if (!source) { setError(kind === 'TWEAK' ? 'Choose a tweak to test.' : 'Say which setting you will change.'); return; }
     if (!game.trim()) { setError('Say which game you will test in.'); return; }
-    if (sessionLimitReached(sessionState.sessions)) { setError('You have 20 saved tests, the most Dialed keeps. Delete one in Recordings & results › Saved tests to start another.'); return; }
+    if (sessionLimitReached(sessionState.sessions)) { setError('You have 20 saved tests, the most Dialed keeps. Delete one under Notes, export and import to start another.'); return; }
     const created = newChangeTest({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), game, source });
     if (!writeSessions([created.session, ...sessionState.sessions])) return;
     if (!writeTests(upsertChangeTest(tests, created.test))) return;

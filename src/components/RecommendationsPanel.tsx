@@ -38,7 +38,7 @@ export function RecommendationsPanel({ recommendations, error, onNavigate }: Rec
     const confidenceOrder: Record<string, number> = { Low: 0, Medium: 1, High: 2 };
     if (sortMode === 'risk') rows.sort((left, right) => riskOrder[left.risk] - riskOrder[right.risk] || left.title.localeCompare(right.title));
     else if (sortMode === 'confidence') rows.sort((left, right) => confidenceOrder[left.confidence] - confidenceOrder[right.confidence] || left.title.localeCompare(right.title));
-    else rows.sort((left, right) => left.actionStatus.localeCompare(right.actionStatus) || left.title.localeCompare(right.title));
+    // Otherwise keep the order the scan produced, which is the order Home shows.
     return rows;
   }, [query, recommendations, riskFilter, sortMode, statusFilter]);
 

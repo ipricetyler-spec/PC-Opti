@@ -56,7 +56,7 @@ export function DashboardOverview({
         <ShieldCheck className="mx-auto h-10 w-10 text-cyan-400" />
         <h2 className="mt-4 text-xl font-bold text-slate-100">Start by scanning this PC</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
-          Dialed reads Windows telemetry in the Electron main process. It does not invent temperatures, performance scores, installed games, or maintenance results.
+          Dialed reads this straight from Windows. It never makes up temperatures, scores, installed games or results.
         </p>
         {scanError && <p className="mx-auto mt-4 max-w-xl rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-200"><ErrorText text={scanError} /></p>}
         <button onClick={onScan} disabled={isScanning} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-60">
@@ -100,8 +100,8 @@ export function DashboardOverview({
       <ChangesSinceBaseline report={driftReport} onOpenChanges={onOpenChanges} />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Cpu className="h-4 w-4 text-cyan-400" />} label="Processor" value={cpu?.name ?? snapshot.metrics.cpu.status.replaceAll('_', ' ')} detail={snapshot.metrics.cpu.status === 'AVAILABLE' ? `${snapshot.metrics.cpu.value.cores} cores · ${snapshot.metrics.cpu.value.logicalProcessors} logical processors` : snapshot.metrics.cpu.reason} />
-        <Metric icon={<Database className="h-4 w-4 text-emerald-400" />} label="Memory" value={memory ? `${memory.loadPercentage}% in use` : snapshot.metrics.memory.status.replaceAll('_', ' ')} detail={snapshot.metrics.memory.status === 'AVAILABLE' && memoryUsed !== null ? `${formatBytes(memoryUsed)} used of ${formatBytes(snapshot.metrics.memory.value.totalBytes)}` : snapshot.metrics.memory.status !== 'AVAILABLE' ? snapshot.metrics.memory.reason : 'Memory use was not calculated.'} />
+        <Metric icon={<Cpu className="h-4 w-4 text-cyan-400" />} label="Processor" value={cpu?.name ?? plainLabel(snapshot.metrics.cpu.status)} detail={snapshot.metrics.cpu.status === 'AVAILABLE' ? `${snapshot.metrics.cpu.value.cores} cores · ${snapshot.metrics.cpu.value.logicalProcessors} logical processors` : snapshot.metrics.cpu.reason} />
+        <Metric icon={<Database className="h-4 w-4 text-emerald-400" />} label="Memory" value={memory ? `${memory.loadPercentage}% in use` : plainLabel(snapshot.metrics.memory.status)} detail={snapshot.metrics.memory.status === 'AVAILABLE' && memoryUsed !== null ? `${formatBytes(memoryUsed)} used of ${formatBytes(snapshot.metrics.memory.value.totalBytes)}` : snapshot.metrics.memory.status !== 'AVAILABLE' ? snapshot.metrics.memory.reason : 'Memory use was not calculated.'} />
         <Metric icon={<HardDrive className="h-4 w-4 text-violet-400" />} label="Startup items" value={`${snapshot.metrics.startupItems.length} detected`} detail="Programs set to start with Windows" onOpen={onOpenStartup} openLabel="Review startup apps" />
         <Metric icon={<Database className="h-4 w-4 text-amber-400" />} label="Temporary files" value={formatBytes(snapshot.metrics.tempFiles.totalSizeBytes)} detail={`${snapshot.metrics.tempFiles.pathCount.toLocaleString()} files in Windows temp locations`} onOpen={onOpenTempFiles} openLabel="Review temporary files" />
       </section>
@@ -123,7 +123,7 @@ export function DashboardOverview({
               </div>;
             })}
             {storage?.length === 0 && <p className="text-sm text-slate-500">No drives were found.</p>}
-            {snapshot.metrics.storage.status !== 'AVAILABLE' && <p className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-3 text-sm text-amber-100/80">{snapshot.metrics.storage.status.replaceAll('_', ' ')}: {snapshot.metrics.storage.reason}</p>}
+            {snapshot.metrics.storage.status !== 'AVAILABLE' && <p className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-3 text-sm text-amber-100/80">{plainLabel(snapshot.metrics.storage.status)}: {snapshot.metrics.storage.reason}</p>}
           </div>
         </div>
         <div data-technical-detail className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 xl:col-span-2">
@@ -134,7 +134,7 @@ export function DashboardOverview({
 
       <div data-technical-detail id="expanded-diagnostics" className="scroll-mt-5"><ExpandedDiagnostics diagnostics={snapshot.diagnostics} /></div>
 
-      <ShowDetails label={`All suggestions (${recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length})`} defaultOpen={Boolean(recommendationError) || suggestionsOpen}><RecommendationsPanel recommendations={recommendations} error={recommendationError} onNavigate={onNavigateRecommendation} /></ShowDetails>
+      <ShowDetails label={`All suggestions (${recommendations.filter((item) => item.actionStatus !== 'NO_ACTION').length})`} defaultOpen={Boolean(recommendationError) || suggestionsOpen}><RecommendationsPanel recommendations={recommendations.filter((item) => item.actionStatus !== 'NO_ACTION')} error={recommendationError} onNavigate={onNavigateRecommendation} /></ShowDetails>
 
       {snapshot.metadata.errors.length > 0 && <section className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5"><div className="flex gap-2 text-sm font-semibold text-amber-300"><AlertTriangle className="h-4 w-4" /> Items that could not be read</div><ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-100/80">{snapshot.metadata.errors.map((error) => <li key={`${error.component}-${error.message}`}>{partName(error.component)}: <ErrorText text={error.message} /></li>)}</ul></section>}
     </div>
@@ -151,7 +151,7 @@ function ChangesSinceBaseline({ report, onOpenChanges }: { report: DriftReport |
         <h3 className="text-sm font-semibold text-slate-100">What changed since your snapshot</h3>
         <p className="mt-1 text-xs text-slate-400">{!since ? 'No snapshot saved yet. Save one to spot new startup apps, driver updates and changed settings after Windows or game updates.' : changes.length === 0 ? `Nothing has changed since ${since}.` : `${changes.length} change${changes.length === 1 ? '' : 's'} since ${since}.`}</p>
       </div>
-      {onOpenChanges && <button type="button" onClick={onOpenChanges} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">{since ? 'Review changes' : 'Save snapshot'}</button>}
+      {onOpenChanges && <button type="button" onClick={onOpenChanges} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">{since ? 'Review changes' : 'Open snapshots'}</button>}
     </div>
     {/* The list itself is in Restore > Outside changes; this is the count and the way there. */}
   </section>;

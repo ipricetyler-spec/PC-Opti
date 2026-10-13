@@ -130,9 +130,9 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       return;
     }
     const confirmed = isRecordingApproved(preview.target) || await confirm({
-      title: `Start a ${preview.durationSeconds}-second frame-time capture?`,
+      title: `Record ${preview.target.name} for ${preview.durationSeconds} seconds?`,
       description: preview.consequence,
-      details: `Target: ${preview.target.name} (PID ${preview.target.pid})\nWindow: ${preview.target.windowTitle}\nPresentMon ${preview.toolVersion}\nHardware readings: ${preview.hardwareReadings ? 'on — CPU, memory and GPU counters once per second' : 'off'}`,
+      details: `Game: ${preview.target.name}\nWindow: ${preview.target.windowTitle}\nRecorded with PresentMon ${preview.toolVersion}\nHardware readings: ${preview.hardwareReadings ? 'on — CPU, memory and GPU counters once per second' : 'off'}`,
       notice: 'Play the same scene the same way each time while it records. Recording changes nothing on this PC, so Dialed will not ask again for this game.',
       confirmLabel: 'Start recording',
     });
@@ -265,7 +265,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     </div>}
 
     <div className={`${compact ? '' : 'mt-4 '}grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end`}>
-      <label className="text-xs text-slate-400"><span className="mb-1 block">Game</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={Boolean(captureState.active)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value="">Choose a running game</option>{targets.map((target) => <option key={target.targetId} value={target.targetId}>{target.name} · PID {target.pid} · {target.windowTitle}</option>)}</select></label>
+      <label className="text-xs text-slate-400"><span className="mb-1 block">Game</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={Boolean(captureState.active)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value="">Choose a running game</option>{targets.map((target) => <option key={target.targetId} value={target.targetId}>{target.name} · {target.windowTitle}</option>)}</select></label>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Duration</span><select value={duration} onChange={(event) => setDuration(Number(event.target.value) as 10 | 20 | 30)} disabled={Boolean(captureState.active)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={10}>10 seconds</option><option value={20}>20 seconds</option><option value={30}>30 seconds</option></select></label>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Start</span><select value={startDelay} onChange={(event) => setStartDelay(Number(event.target.value) as 0 | 5 | 10)} disabled={Boolean(captureState.active) || busy} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={0}>Right away</option><option value={5}>After 5 seconds</option><option value={10}>After 10 seconds</option></select></label>
       {countdown !== null ? <p role="status" className="self-center text-xs text-cyan-200">Recording starts in {countdown} s. Switch to the game. <button type="button" onClick={() => { cancelCountdown.current = true; }} className="ml-1 underline">Cancel</button></p> : null}
@@ -283,7 +283,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       <span>Also record CPU and graphics card load, temperature and clock speeds while measuring (temperature and power need an NVIDIA card).</span>
     </label>
     <p data-technical-detail className="mt-2 text-[11px] leading-relaxed text-slate-600">{targetLimitations || 'Looking for running games…'}</p>
-    {captureState.active ? <p className="mt-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 p-3 text-xs text-cyan-100">Recording {captureState.active.target.name} · PID {captureState.active.target.pid} · {captureState.active.durationSeconds}s maximum · {plainLabel(captureState.active.status)}</p> : null}
+    {captureState.active ? <p className="mt-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 p-3 text-xs text-cyan-100">Recording {captureState.active.target.name} · up to {captureState.active.durationSeconds} seconds · {plainLabel(captureState.active.status)}</p> : null}
     {error ? <p role="alert" className="mt-3 rounded-lg border border-rose-500/25 bg-rose-950/20 p-3 text-xs text-rose-200"><ErrorText text={error} /></p> : null}
     {status ? <p className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-950/10 p-3 text-xs text-cyan-100">{status}</p> : null}
 
@@ -294,7 +294,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       return <article key={entry.captureId} className={`rounded-xl border p-4 ${selected ? 'border-violet-400/50 bg-violet-950/20' : selectable ? 'border-slate-700 bg-slate-950/45' : 'border-amber-500/20 bg-amber-950/10'}`}>
         <button type="button" onClick={() => selectable && toggleCapture(entry.captureId)} disabled={!selectable} aria-pressed={selected} className="w-full text-left disabled:cursor-not-allowed disabled:opacity-80">
           <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-100">{entry.target.name} · {entry.durationSeconds}s</p><span className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400">{plainLabel(entry.status)}</span></div>
-          <p data-technical-detail className="mt-2 text-[11px] text-slate-500">{new Date(entry.startedAt).toLocaleString()} · PID {entry.target.pid}</p>
+          <p data-technical-detail className="mt-2 text-[11px] text-slate-500">{new Date(entry.startedAt).toLocaleString()}</p>
           {entry.output ? <p data-technical-detail className="mt-2 text-[11px] text-slate-400">{entry.output.metricColumn} · {bytes(entry.output.bytes)} · {entry.applications.reduce((total, app) => total + app.sampleCount, 0)} parsed frames</p> : null}
           {entry.stopReason ? <p className="mt-2 text-xs text-slate-400">Stopped: {plainLabel(entry.stopReason)} · recorded {entry.observedDurationSeconds?.toFixed(1) ?? 'unknown'}s / {entry.durationSeconds}s asked. {entry.protocolComplete ? 'Ready to compare.' : 'Incomplete, so it cannot be compared.'}</p> : null}
           {entry.error ? <p className="mt-2 text-[11px] leading-relaxed text-amber-200"><ErrorText text={entry.error} /></p> : null}

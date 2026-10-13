@@ -215,7 +215,7 @@ export interface LocalRecommendation {
   actionId: string | null;
   capabilityId: string;
   targetPanel: {
-    id: 'overview' | 'startup' | 'balancer' | 'maintenance' | 'readiness' | 'workload-profiles' | 'plan-composer' | 'performance-lab' | 'network-quality' | 'clean-room-parity' | 'drift' | 'game-settings' | 'benchmarks' | 'history';
+    id: 'overview' | 'startup' | 'balancer' | 'maintenance' | 'readiness' | 'workload-profiles' | 'plan-composer' | 'performance-lab' | 'network-quality' | 'clean-room-parity' | 'drift' | 'game-settings' | 'benchmarks' | 'history' | 'tweaks' | 'bios';
     label: string;
     sectionId: string | null;
     evidenceId?: string;

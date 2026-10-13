@@ -228,9 +228,15 @@ select option {
 /* Preserve semantic status colors while making the original cyan primary
    interaction accent follow the selected appearance theme. */
 :root .text-cyan-100,
+:root .text-cyan-100\/80,
 :root .text-cyan-200,
+:root .text-cyan-200\/70,
 :root .text-cyan-300,
 :root .text-cyan-400 { color: var(--app-accent-soft) !important; }
+:root .border-cyan-400 { border-color: var(--app-accent) !important; }
+:root .decoration-cyan-800 { text-decoration-color: rgb(var(--app-accent-rgb) / 0.5) !important; }
+/* A bare checkbox would render browser blue on every theme. */
+:root input[type='checkbox']:not([class*='accent-']) { accent-color: var(--app-accent); }
 :root .accent-cyan-400 { accent-color: var(--app-accent); }
 :root .bg-cyan-300,
 :root .bg-cyan-400,
@@ -276,11 +282,14 @@ select option {
 /* Violet is Dialed's secondary-information accent. Giving it a theme token
    makes palettes read as designed systems instead of simple primary recolors. */
 :root .text-violet-100,
+:root .text-violet-100\/80,
 :root .text-violet-200,
+:root .text-violet-200\/90,
 :root .text-violet-300,
 :root .text-violet-400 { color: color-mix(in srgb, var(--app-secondary) 80%, white) !important; }
 :root .bg-violet-400 { background-color: color-mix(in srgb, var(--app-secondary) 80%, white) !important; }
 :root .bg-violet-400\/10,
+:root .bg-violet-950\/10,
 :root .bg-violet-400\/15,
 :root .bg-violet-500\/10,
 :root .bg-violet-950\/15,
@@ -291,6 +300,8 @@ select option {
 :root .border-violet-400\/25,
 :root .border-violet-400\/30,
 :root .border-violet-400\/40,
+:root .border-violet-400\/50,
+:root .border-violet-500\/30,
 :root .border-violet-500\/20,
 :root .border-violet-500\/25 { border-color: rgb(var(--app-secondary-rgb) / 0.42) !important; }
 

@@ -61,3 +61,15 @@ test('the changes line counts what is still in effect and names what Windows set
   assert.equal(changesLine(10, 1, true), '9 changes in effect, each can be undone · 1 set back by Windows since');
   assert.equal(changesLine(1, 0, true), '1 change in effect, which can be undone.');
 });
+
+test('Home leads with the Tweaks recommendation, hides dismissed suggestions, and does not ask for a scan that is already running', () => {
+  const recommendations = [rec('a', 'OPTIONAL_ACTION'), rec('b', 'OPTIONAL_ACTION')];
+  const items = homeItems({ snapshot, history: [], historyRecovery: null, recommendations, benchmarkEvidence: empty, recommendedCount: 2, dismissed: new Set(['a']) });
+  assert.deepEqual(items.map((item) => item.key), ['recommended', 'b']);
+  assert.equal(items[0].title, "2 settings differ from Dialed's recommendation");
+  assert.deepEqual(items[0].target, { id: 'tweaks', label: 'Review', sectionId: null });
+  assert.equal(homeItems({ snapshot, history: [], historyRecovery: null, recommendations: [], benchmarkEvidence: empty, recommendedCount: 1 })[0].title, "1 setting differs from Dialed's recommendation");
+  // No snapshot yet: ask for a scan, unless the first one is already running.
+  assert.equal(homeItems({ snapshot: null, history: [], historyRecovery: null, recommendations: [], benchmarkEvidence: empty })[0].key, 'scan');
+  assert.deepEqual(homeItems({ snapshot: null, history: [], historyRecovery: null, recommendations: [], benchmarkEvidence: empty, scanning: true }), []);
+});

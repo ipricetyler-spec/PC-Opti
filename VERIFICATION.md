@@ -962,3 +962,24 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - CORRECTION to the 2026-10-10 entry: the claim that \Microsoft\Windows\ scheduled tasks 'are no longer listed' is false. The filter added in 5f81ed8 sits in a JavaScript template literal with single backslashes, so PowerShell receives -notlike 'MicrosoftWindows*' and excludes nothing (reproduced by printing STARTUP_INVENTORY_SCRIPT). It was recorded as fixed without being run. Not yet fixed; the fix also needs old drift baselines filtered the same way.
 - Windows systems reviewer and product experience reviewer both ran read-only on 2026-10-13 with the owner's confirmation. Reproduced so far: product M1-M7 all confirmed (M5 includes a regression from the redundancy pass: the 'Windows suggested apps' policy can no longer be turned on for Enterprise/Education, because the removed panel was the only control that did it). Systems 1, 3, 4, 6, 8, 10 confirmed by reading or printing; 2, 7, 9, 11 confirmed as described. One reviewer concern was wrong: Riot's TPM page does itself say not to disable fTPM for stutter and to update the BIOS.
 - No fixes made yet.
+
+## 2026-10-13 — Reviewer findings fixed; Tweaks restructured; one recommendation system
+
+Systems reviewer (each reproduced first):
+- Close before a game: paths now come from Win32_Process (no process is opened for memory reads); a program still showing a window after 5 seconds is left open, never ended; exclusions widened (more anti-cheat names, security/VPN/password software by description and publisher, folders registered in Windows Security Center); closing and reopening refuse when Dialed runs as a different account; after reopening, each program's administrator rights are read and reported; what was closed is written to History. Wording no longer says "never listed".
+- Startup-task filter: FIXED AND RUN THIS TIME. Printed script shows -notlike '\Microsoft\Windows\*'; a live read-only scan on the owner's PC returned 20 startup items, 9 scheduled tasks, 0 under \Microsoft\Windows (was 59 with the inert filter). Old drift baselines are filtered the same way when read.
+- Network adapter: values written with -NoRestart, then one restart per adapter, 120 s limit; undo is per setting; Gigabit Lite is never offered.
+- Grouped review describes one-way cards by their own state; the recording start tone plays after the recording starts; BIOS security check reports "no TPM" and Legacy boot; the X3D entry is limited to single-CCD chips; Secure Boot key advice says update the BIOS first; a previous DWORD value Dialed could not restore exactly is refused before overwriting; NVIDIA notes say only what was read.
+- Reviewer concern that was wrong: the fTPM/stutter advice is Riot's own (re-read on their page).
+- Known remaining limitation: a network change that fails mid-way is still recorded as needing review with no undo; running "Turn power saving off" again completes it.
+
+Product reviewer (M1-M7 all reproduced and fixed):
+- Home suggestion buttons land on something visible; "See all N suggestions" opens the same N in the same order; Measure's tabs are keyboard-reachable in the saved-tests view; developer wording removed from Scan details, the header pill, boot timing, the update card and the recording dialog (no more PID); "Dialed never closes" removed from beside the Close button.
+- Regression from the 2026-10-07 redundancy pass fixed: the "Windows suggested apps" policy can be turned on again on Enterprise and Education, from a folded panel under its group.
+
+Design changes the owner approved:
+- All tweaks: cards that only open a tab are link rows; settings with nothing to do and settings this Windows edition ignores fold into one line each per group; each folded tool sits under the group whose card opens it; the recommended / Apply selected bar stays in view; filter chips (Differ from recommended, Changed by Dialed, Need a restart); a card Dialed changed shows Undo without a duplicate toggle. Rendered and inspected in a browser against a fixture shaped like the owner's PC.
+- One recommendation system: Home shows "N settings differ from Dialed's recommendation -> Review" from the same computation as the Tweaks page; Home suggestions have "Not for me".
+
+Checks: npm test 881 of 882 (the one failure is native-policy-key's Set-Acl step, which needs an elevated shell; this session's shell is not elevated); test:ts 148/148; lint; test:ui:fixtures all pass, including the new check-tweaks-layout-ui.
+Not verified: anything in the installed app (installed is 8a62f8e); a real close/end/reopen; reopen under a second Windows account; a real adapter change; the elevated reads (Secure Boot, TPM) from this non-elevated session.

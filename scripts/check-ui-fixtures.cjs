@@ -20,6 +20,7 @@ const checks = [
   'check-theme-default-ui.cjs',
   'check-tweak-tools-ui.cjs',
   'check-close-before-game-ui.cjs',
+  'check-tweaks-layout-ui.cjs',
 ];
 
 function waitForPreview(deadline = Date.now() + 15_000) {

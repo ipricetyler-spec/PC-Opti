@@ -27,7 +27,7 @@ async function main() {
         listBenchmarkEvidence: no, getReleaseStatus: no, listPowerPlans: no, readUserSettings: async () => ({}),
         listClosablePrograms: async () => programs.filter((item) => !window.__close.closed.includes(item.path)),
         closePrograms: async (paths) => { window.__close.closed.push(...paths); return { results: paths.map((path) => ({ path, name: programs.find((item) => item.path === path).name, outcome: 'CLOSED' })) }; },
-        reopenPrograms: async (paths) => { window.__close.reopened.push(...paths); window.__close.closed = []; return { reopened: paths }; } };
+        reopenPrograms: async (paths) => { window.__close.reopened.push(...paths); window.__close.closed = []; return { reopened: paths, elevated: paths, notStarted: [] }; } };
     }, { capabilities: listCapabilities('public') });
     const page = await context.newPage();
     page.setDefaultTimeout(10000);
@@ -55,7 +55,9 @@ async function main() {
     await section.getByText('✓ Google Chrome: closed').waitFor();
     assert.deepEqual(await page.evaluate(() => window.__close.closed), ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe']);
     await section.getByRole('button', { name: 'Reopen them' }).click();
-    await section.getByText(/Reopened 1 of 1/).waitFor();
+    await section.getByText(/1 of 1 running again/).waitFor();
+    // A program that came back with administrator rights is called out by name.
+    await section.getByText(/Running with administrator rights: Google Chrome/).waitFor();
     assert.deepEqual(errors, []);
     console.log('Close before a game checks passed: picks remembered, review names each program, cancel closes nothing, reopen.');
   } finally { await browser.close(); }

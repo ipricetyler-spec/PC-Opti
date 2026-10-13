@@ -17,6 +17,7 @@ export type TweakDestination =
   | { tab: 'startup'; view: 'startup' | 'background' | 'timing' | 'maintenance' | 'bios' }
   | { tab: 'power-plan' }
   | { tab: 'built-in-apps' }
+  | { tab: 'policies' }
   | { tab: 'game-settings'; view: 'profiles' }
   | { tab: 'gpu' }
   | { tab: 'nvidia' };
@@ -144,7 +145,7 @@ export const TWEAKS: TweakDefinition[] = [
     whenItHelps: 'Keeps unwanted apps from appearing and running in the background. This is a tidiness and privacy setting, not an FPS setting.',
     leaveItIf: 'You like Windows suggestions. Microsoft documents this policy for Enterprise and Education only; Home and Pro ignore it.',
     undo: 'Undo restores the exact previous policy value, or removes it if it was not set.',
-    measureFirst: false, destination: null, actionLabel: 'Turn on', userSettingId: 'consumer-features',
+    measureFirst: false, destination: { tab: 'policies' }, actionLabel: 'Review policy', userSettingId: 'consumer-features',
   },
   {
     id: 'game-mode', group: 'Windows & privacy', title: 'Game Mode', capabilityIds: ['gaming:game-mode'], perItem: false,
@@ -354,7 +355,7 @@ export const TWEAKS: TweakDefinition[] = [
     measureFirst: true, destination: null, actionLabel: 'Turn on', userSettingId: 'global-timer-resolution', suggested: 'off', requiresAdmin: true, requiresRestart: true,
   },
   {
-    id: 'bios', group: 'Experiments', title: 'BIOS settings guide', capabilityIds: [], perItem: false,
+    id: 'bios', group: 'Power', title: 'BIOS settings guide', capabilityIds: [], perItem: false,
     summary: 'What to check in your BIOS, like memory profiles. Dialed never changes BIOS settings.',
     whatChanges: 'Nothing. A guide to settings you change yourself in the BIOS.',
     whenItHelps: 'Memory running below its rated speed (XMP/EXPO off) is a common, real loss.',

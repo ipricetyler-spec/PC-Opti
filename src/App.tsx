@@ -138,6 +138,7 @@ async function readBootNotice(): Promise<string | null> {
 }
 const StartupCenter = lazy(() => loadTweaks().then((module) => ({ default: module.StartupCenter })));
 const ProcessBalancer = lazy(() => loadTweaks().then((module) => ({ default: module.ProcessBalancer })));
+const SafePolicies = lazy(() => loadTweaks().then((module) => ({ default: module.SafePolicies })));
 const WindowsControlsCenter = lazy(() => import('./components/WindowsControlsCenter').then((module) => ({ default: module.WindowsControlsCenter })));
 const GameSessionMode = lazy(() => loadTweaks().then((module) => ({ default: module.GameSessionMode })));
 const PowerPlanCard = lazy(() => loadTweaks().then((module) => ({ default: module.PowerPlanCard })));
@@ -160,8 +161,8 @@ export default function App() {
   const [optimizeView, setOptimizeView] = useState<'all' | 'startup' | 'background' | 'maintenance' | 'bios'>('all');
   // Boot timing and per-program graphics live at the end of All tweaks, folded until opened.
   // Each folded section loads its data only once opened: both read Windows state that the rest of All tweaks does not need.
-  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean; 'nvidia-settings': boolean; 'power-plan': boolean; 'built-in-apps': boolean }>({ 'boot-timing': false, 'per-program-graphics': false, 'nvidia-settings': false, 'power-plan': false, 'built-in-apps': false });
-  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings' | 'power-plan' | 'built-in-apps') => {
+  const [tweakToolsOpen, setTweakToolsOpen] = useState<{ 'boot-timing': boolean; 'per-program-graphics': boolean; 'nvidia-settings': boolean; 'power-plan': boolean; 'built-in-apps': boolean; 'windows-policies': boolean }>({ 'boot-timing': false, 'per-program-graphics': false, 'nvidia-settings': false, 'power-plan': false, 'built-in-apps': false, 'windows-policies': false });
+  const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings' | 'power-plan' | 'built-in-apps' | 'windows-policies') => {
     setOptimizeView('all'); setActiveTab('startup'); setTweakToolsOpen((current) => ({ ...current, [section]: true }));
     // After the section opens and lays out; a smooth scroll started earlier was cancelled by that layout.
     window.setTimeout(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })), 120);
@@ -727,6 +728,7 @@ export default function App() {
     if (destination.tab === 'nvidia') { openTweakTools('nvidia-settings'); return; }
     if (destination.tab === 'power-plan') { openTweakTools('power-plan'); return; }
     if (destination.tab === 'built-in-apps') { openTweakTools('built-in-apps'); return; }
+    if (destination.tab === 'policies') { openTweakTools('windows-policies'); return; }
     if (destination.tab === 'game-settings') { setGameView(destination.view); setActiveTab('game-settings'); return; }
     if (destination.view === 'timing') { openTweakTools('boot-timing'); return; }
     setOptimizeView(destination.view); setActiveTab('startup');
@@ -739,8 +741,8 @@ export default function App() {
     const confirmed = await confirmAction({
       title: card.definition.oneWay ? `${card.definition.actionLabel}: ${card.definition.title}?` : `Turn ${enable ? 'on' : 'off'} ${card.definition.title}?`,
       description: card.definition.whatChanges,
-      details: card.definition.oneWay ? `${card.definition.title}: ${userSettings[settingId]?.detail ?? 'current state'} → ${card.definition.actionLabel.toLowerCase()}\nUndo: ${card.definition.undo}` : `${card.definition.title}: ${userSettings[settingId]?.enabled === null ? 'Windows default' : enable ? 'off' : 'on'} → ${enable ? 'on' : 'off'}\nUndo: ${card.definition.undo}`,
-      warning: planNotice ?? null, notice: `Dialed records the previous value first, checks the new value after writing it, and keeps the change in Restore so you can undo it. ${card.definition.requiresRestart ? 'Restart Windows for it to take effect.' : 'Restart a running game for it to take effect.'}${card.definition.requiresAdmin ? ' This machine-wide setting needs Dialed running as administrator.' : ''}`,
+      details: card.definition.oneWay ? `${card.definition.title}: ${userSettings[settingId]?.detail ?? 'current state'} → ${card.definition.actionLabel.charAt(0).toLowerCase()}${card.definition.actionLabel.slice(1)}\nUndo: ${card.definition.undo}` : `${card.definition.title}: ${userSettings[settingId]?.enabled === null ? 'Windows default' : enable ? 'off' : 'on'} → ${enable ? 'on' : 'off'}\nUndo: ${card.definition.undo}`,
+      warning: planNotice ?? null, notice: `Dialed records the previous value first, checks the new value after writing it, and keeps the change in Restore so you can undo it. ${card.definition.requiresRestart ? 'Restart Windows for it to take effect.' : card.definition.group === 'Graphics' || settingId === 'game-mode' || settingId === 'background-recording' ? 'Restart a running game for it to take effect.' : ''}${card.definition.requiresAdmin ? ' This machine-wide setting needs Dialed running as administrator.' : ''}`,
       confirmLabel: card.definition.oneWay ? card.definition.actionLabel : `Turn ${enable ? 'on' : 'off'}`,
     });
     if (!confirmed) return;
@@ -757,6 +759,10 @@ export default function App() {
       await loadUserSettings();
     }
   };
+  // The NVIDIA check is read-only and needs no capability; it is hidden once a scan shows no NVIDIA card.
+  const nvidiaPresent = Boolean(window.pcOptiNative?.readNvidiaSettings) && (!snapshot || graphicsAdapters(snapshot).some((adapter) => /nvidia/i.test(adapter.name)));
+  // Windows reports the policy as unsupported on Home and Pro; where it is supported there is no state entry for it.
+  const policyEditionSupported = Object.keys(userSettings).length > 0 && !userSettings['consumer-features'];
   const tweakCards = useMemo(() => {
     const timing = (actionId: string) => timingExperiments.find((experiment) => experiment.actionId === actionId)?.currentState ?? null;
     const maintenance = (kind: MaintenanceAction['kind']) => (snapshot ? (queue.some((action) => action.kind === kind) ? 'Something to review' : 'Nothing to do right now') : null);
@@ -790,14 +796,16 @@ export default function App() {
       retrim: maintenance('retrim-drive'),
     };
     // A card appears only when this build can act on it (the BIOS guide needs its guide).
-    // The NVIDIA check is read-only and needs no capability; it is hidden once a scan shows no NVIDIA card.
     const available = (definition: (typeof TWEAKS)[number]) => definition.id === 'bios'
       ? capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative
       : definition.id === 'nvidia-settings'
-        ? Boolean(window.pcOptiNative?.readNvidiaSettings) && (!snapshot || graphicsAdapters(snapshot).some((adapter) => /nvidia/i.test(adapter.name)))
-        : definition.capabilityIds.some((id) => capabilityIds.has(id));
+        ? nvidiaPresent
+        // Choosing a graphics processor only means something with more than one; the card stays if Dialed has a change to undo.
+        : definition.id === 'gpu-preference' && snapshot && graphicsAdapters(snapshot).length < 2 && !history.some((entry) => entry.capabilityId === 'graphics:per-app-gpu-preference' && entry.rollback.available && !entry.rollback.completedAt)
+          ? false
+          : definition.capabilityIds.some((id) => capabilityIds.has(id));
     return buildTweakCards(TWEAKS, history, states, available);
-  }, [capabilityIds, history, policies, powerPlanName, processes, queue, snapshot, startupItems, timingExperiments, userSettings]);
+  }, [capabilityIds, history, nvidiaPresent, policies, powerPlanName, processes, queue, snapshot, startupItems, timingExperiments, userSettings]);
 
   const runMaintenance = async (action: MaintenanceAction) => {
     if (!window.pcOptiNative || activeActionId) return;
@@ -914,7 +922,7 @@ export default function App() {
       description: 'Dialed applies them one at a time. Each is recorded separately, so you can undo any one of them later, or all of them with "Undo this run".',
       details: plan.map(({ card, action }) => `${card.definition.title}: ${action.from} → ${action.to}`).join('\n'),
       detailsLabel: 'Changes',
-      notice: `Dialed records each previous value first and checks each new value after writing it. If one fails, the others still run and the failure is shown.${restart.length ? ` Restart Windows afterwards for: ${restart.join(', ')}.` : ' Restart a running game for the changes to apply.'}`,
+      notice: `Dialed records each previous value first and checks each new value after writing it. If one fails, the others still run and the failure is shown.${restart.length ? ` Restart Windows afterwards for: ${restart.join(', ')}.` : ''}`,
       warning: batchRestorePoint ? 'Dialed asks Windows for a restore point first and stops if it cannot confirm one. A restore point rolls back system settings and programs together and does not back up your files; to reverse one tweak, use its own Undo.' : null,
       confirmLabel: `Apply ${plan.length}`,
     });
@@ -1419,31 +1427,32 @@ export default function App() {
     {activeTab === 'startup' && <TabRow<typeof optimizeView> ariaLabel="Optimize categories" items={([['all', 'All tweaks'], ['startup', 'Startup'], ['background', 'Background apps'], ['maintenance', 'Upkeep'], ['bios', 'BIOS']] as const).map(([id, label]) => ({ id, label }))} value={optimizeView} onChange={setOptimizeView} className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-800" />}
     {activeTab === 'startup' && <TabPanel ariaLabel="Optimize categories" value={optimizeView}>
     {activeTab === 'startup' && optimizeView === 'bios' && (capabilityIds.has('bios:hardware-guidance') || !window.pcOptiNative) && <Suspense fallback={<p className="text-sm text-slate-400">Loading BIOS guide…</p>}><BiosGuidanceCenter /></Suspense>}
-    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: (ids) => void applySelectedTweaks(ids), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined, restorePoint: window.pcOptiNative?.createRestorePoint && capabilityIds.has('recovery:restore-point') ? { checked: batchRestorePoint, onChange: setBatchRestorePoint } : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
-    {/* Two tools that work on one program or one boot setting at a time, kept with the tweaks they belong to (2026-10-06: the
-        GPU section and the Boot timing tab repeated cards already on All tweaks). */}
-    {activeTab === 'startup' && optimizeView === 'all' && <div className="mt-8 space-y-4">
-      {(capabilityIds.has('graphics:per-app-gpu-preference') || capabilityIds.has('graphics:fullscreen-optimizations')) && <details id="per-program-graphics" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['per-program-graphics'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'per-program-graphics': open })); }}>
-        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Graphics settings for one program</summary>
-        {tweakToolsOpen['per-program-graphics'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><div className="mt-4 space-y-6">{graphicsAdapters(snapshot).length > 1 && capabilityIds.has('graphics:per-app-gpu-preference') && <GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} />}{capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}</div></Suspense>}
-      </details>}
-      {capabilityIds.has('power:switch-plan') && <details id="power-plan" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['power-plan'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'power-plan': open })); }}>
+    {activeTab === 'startup' && optimizeView === 'all' && <TweaksOverview tools={{
+      Power: <>{capabilityIds.has('power:switch-plan') && <details id="power-plan" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['power-plan'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'power-plan': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Power plan</summary>
         {tweakToolsOpen['power-plan'] && <div className="mt-4"><PowerPlanCard onChanged={() => void loadHistory()} /></div>}
-      </details>}
-      {capabilityIds.has('windows:optional-app-remove-current-user') && <details id="built-in-apps" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['built-in-apps'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'built-in-apps': open })); }}>
+      </details>}</>,
+      'Windows & privacy': <>{capabilityIds.has('windows:optional-app-remove-current-user') && <details id="built-in-apps" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['built-in-apps'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'built-in-apps': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Remove built-in apps</summary>
         {tweakToolsOpen['built-in-apps'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><WindowsControlsCenter snapshot={snapshot} show="removal" /></Suspense>}
       </details>}
-      {window.pcOptiNative?.readNvidiaSettings && <details id="nvidia-settings" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['nvidia-settings'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'nvidia-settings': open })); }}>
+      {policyEditionSupported && capabilityIds.has('policy:disable-windows-consumer-features') && <details id="windows-policies" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['windows-policies'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'windows-policies': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Windows suggested apps policy</summary>
+        {tweakToolsOpen['windows-policies'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><div className="mt-4"><SafePolicies policies={policies} errors={policyErrors} loading={isPolicyLoading} activePolicyId={activePolicyId} actionError={policyActionError} onRefresh={loadPolicies} onEnable={enableConsumerFeaturesPolicy} /></div></Suspense>}
+      </details>}</>,
+      Graphics: <>{(capabilityIds.has('graphics:per-app-gpu-preference') || capabilityIds.has('graphics:fullscreen-optimizations')) && <details id="per-program-graphics" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['per-program-graphics'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'per-program-graphics': open })); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-100">Graphics settings for one program</summary>
+        {tweakToolsOpen['per-program-graphics'] && <Suspense fallback={<p className="mt-4 text-sm text-slate-400">Loading…</p>}><div className="mt-4 space-y-6">{graphicsAdapters(snapshot).length > 1 && capabilityIds.has('graphics:per-app-gpu-preference') && <GpuPreferenceCenter onChanged={() => void loadHistory()} graphicsCards={graphicsAdapters(snapshot).map((adapter) => adapter.name)} />}{capabilityIds.has('graphics:fullscreen-optimizations') && <FullscreenOptimizationsCenter onChanged={() => void loadHistory()} />}</div></Suspense>}
+      </details>}
+      {nvidiaPresent && <details id="nvidia-settings" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['nvidia-settings'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'nvidia-settings': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">NVIDIA driver settings</summary>
         {tweakToolsOpen['nvidia-settings'] && <NvidiaSettingsCheck />}
-      </details>}
-      <details id="boot-timing" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['boot-timing'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'boot-timing': open })); }}>
+      </details>}</>,
+      Experiments: <>{<details id="boot-timing" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={tweakToolsOpen['boot-timing'] || undefined} onToggle={(event) => { const open = event.currentTarget.open; setTweakToolsOpen((current) => ({ ...current, 'boot-timing': open })); }}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-100">Boot timing experiments</summary>
         {tweakToolsOpen['boot-timing'] && <div className="mt-4"><Suspense fallback={<p className="text-sm text-slate-400">Loading boot timing controls…</p>}><PerformanceLab items={timingExperiments} errors={timingErrors} loading={isTimingLoading} activeActionId={activeTimingActionId} status={timingStatus} error={timingActionError} onRefresh={loadTimingExperiments} onExecute={executeTimingExperiment} /></Suspense></div>}
-      </details>
-    </div>}
+      </details>}</>,
+    }} focusId={focusTweakId} outsideChanges={outsideChanges} batch={{ actions: batchActions, selected: batchSelected, onSelect: (id, value) => setBatchSelected((current) => { const next = new Set(current); if (value) next.add(id); else next.delete(id); return next; }), onApply: (ids) => void applySelectedTweaks(ids), onClear: () => setBatchSelected(new Set()), running: batchRunning, results: batchResults, resultsVerb: batchResultsVerb, onUndoRun: batchEntryIds.length ? () => void undoTweakRun() : undefined, restorePoint: window.pcOptiNative?.createRestorePoint && capabilityIds.has('recovery:restore-point') ? { checked: batchRestorePoint, onChange: setBatchRestorePoint } : undefined }} cards={tweakCards} restoringId={rollingBackId} userSettings={userSettings} busySettingId={busySettingId} error={tweakError} onToggle={(card, enable) => void toggleUserSetting(card, enable)} onOpen={openTweakDestination} onUndo={(entry) => void rollbackAuditEntry(entry, { stay: true })} onReviewChanges={() => { setVerifyView('history'); setFocusedAuditId(null); setActiveTab('drift'); }} testableIds={testableIds} onTest={(tweakId) => openTest({ tweakId })} />}
     {activeTab === 'startup' && optimizeView === 'startup' && <StartupCenter items={startupItems} errors={startupErrors} loading={isStartupLoading} activeItemId={activeStartupItemId} actionError={startupActionError} onRefresh={loadStartupItems} onDisable={disableStartupItem} history={history} restoringId={rollingBackId} onRestore={(entry) => void rollbackAuditEntry(entry, { stay: true })} />}
     {activeTab === 'startup' && optimizeView === 'background' && <div className="space-y-6"><CloseBeforeGame /><ProcessBalancer items={processes} errors={processErrors} loading={isProcessLoading} activeProcessId={activeProcessId} actionError={processActionError} onRefresh={loadProcesses} onEnable={enableProcessEcoQos} /><details className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5" open={gameSession.session.status !== 'idle' || undefined}><summary className="cursor-pointer text-sm font-semibold text-slate-100">Slow them down only while a game is open</summary><div className="mt-4"><GameSessionMode processes={processes} session={gameSession.session} onStart={(game, apps) => void gameSession.start(game, apps)} onEnd={(reason) => void gameSession.end(reason)} /></div></details></div>}
     {activeTab === 'startup' && optimizeView === 'maintenance' && (snapshot ? <div id="maintenance-queue" className="scroll-mt-6"><MaintenanceQueue actions={queue} activeActionId={activeActionId} error={maintenanceError} onExecute={runMaintenance} /></div> : <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-400"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-300" />Scan this PC first, then the upkeep tasks appear here.</div><button onClick={() => setActiveTab('overview')} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950"><CheckCircle2 className="h-3.5 w-3.5" />Open Scan</button></section>)}

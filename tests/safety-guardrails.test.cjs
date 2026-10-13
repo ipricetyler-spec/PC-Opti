@@ -891,13 +891,13 @@ test('local recommendations cite evidence and capability metadata without automa
   const pageFile = recommendations.find((item) => item.id === 'page-file-disabled');
   assert.equal(cleanup.actionStatus, 'OPTIONAL_ACTION');
   assert.equal(cleanup.capabilityId, 'maintenance:clear-temp-files');
-  assert.deepEqual(cleanup.targetPanel, { id: 'maintenance', label: 'Open maintenance', sectionId: null });
+  assert.deepEqual(cleanup.targetPanel, { id: 'maintenance', label: 'Open Upkeep', sectionId: null });
   assert.ok(cleanup.evidence.paths.length > 0);
   assert.ok(cleanup.rollback.method);
   assert.equal(pageFile.actionStatus, 'GUIDANCE_ONLY');
   assert.equal(pageFile.actionId, null);
   assert.equal(pageFile.capabilityId, 'guidance:observed-system-state');
-  assert.deepEqual(pageFile.targetPanel, { id: 'overview', label: 'See details', sectionId: 'expanded-diagnostics' });
+  assert.deepEqual(pageFile.targetPanel, { id: 'overview', label: 'See scan details', sectionId: null });
 });
 
 test('local recommendation thresholds and panel targets remain fixed', () => {

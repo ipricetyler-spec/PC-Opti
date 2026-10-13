@@ -952,3 +952,7 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 - The plan now reads Secure Boot state, TPM state and BIOS version for Observed lines. Built against the owner's PC (read-only): 12 entries, Secure Boot on, TPM on 2.0, BIOS 1686 dated 2026-06-24.
 - A regression the tests caught and fixed: the new entry's id contained 'memory' and silenced the 'no matching memory profile' warning.
 - Checks: npm test 877/877, test:ts 147/147, lint. NOT yet run: test:ui:fixtures (held while a game was running). Not in the installed app.
+
+## 2026-10-12 — Browser checks for 5f81ed8 and 38c7c48
+
+- test:ui:fixtures: all pass. npm test 877/877, test:ts 147/147, lint clean. Not in the installed app (installed is 8a62f8e).

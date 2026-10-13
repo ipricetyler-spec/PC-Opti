@@ -955,4 +955,4 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 
 ## 2026-10-12 — Browser checks for 5f81ed8 and 38c7c48
 
-- test:ui:fixtures: all pass. npm test 877/877, test:ts 147/147, lint clean. Not in the installed app (installed is 8a62f8e).
+- test:ui:fixtures: all pass. test:ts 147/147, lint clean. npm test 876 of 877 in this session: `native-policy-key` (owner-only DPAPI custody) fails at its Set-Acl step with "does not possess the SeSecurityPrivilege privilege" because this session's shell is not elevated (checked: IsInRole(Administrator) = False). It passed 877/877 on 2026-10-10 in an elevated shell and its code is unchanged; rerun elevated to confirm. Not in the installed app (installed is 8a62f8e).

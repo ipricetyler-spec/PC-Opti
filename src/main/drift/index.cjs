@@ -33,6 +33,12 @@ function stableMetric(evidence, select = (value) => value) {
   return { status: String(evidence?.status || 'UNKNOWN') };
 }
 
+// Windows' own scheduled tasks are no longer part of the startup inventory. Baselines saved before
+// that still contain them, so they are dropped from both sides rather than reported as a change.
+function withoutWindowsTasks(items) {
+  return Array.isArray(items) ? items.filter((item) => !(item?.source === 'TaskScheduler' && /^\\Microsoft\\Windows\\/i.test(String(item.taskPath || item.name || '')))) : items;
+}
+
 function normalizeSnapshot(inputSnapshot) {
   const snapshot = migrateSystemScanSnapshot(inputSnapshot);
   validateSystemScanSnapshot(snapshot);
@@ -45,7 +51,7 @@ function normalizeSnapshot(inputSnapshot) {
       label: 'Storage inventory',
       value: stableMetric(snapshot.metrics.storage, (volumes) => volumes.map(({ driveLetter, label, totalBytes, isSSD, trimEnabled }) => ({ driveLetter, label, totalBytes, isSSD, trimEnabled }))),
     },
-    { path: 'metrics.startupItems', label: 'Startup inventory', value: snapshot.metrics.startupItems },
+    { path: 'metrics.startupItems', label: 'Startup inventory', value: withoutWindowsTasks(snapshot.metrics.startupItems) },
     { path: 'diagnostics.graphics', label: 'Graphics adapters', value: stableDiagnostic(snapshot.diagnostics.graphics) },
     { path: 'diagnostics.motherboard', label: 'Motherboard', value: stableDiagnostic(snapshot.diagnostics.motherboard) },
     { path: 'diagnostics.powerScheme', label: 'Active power scheme', value: stableDiagnostic(snapshot.diagnostics.powerScheme) },
@@ -112,7 +118,7 @@ function validateBaseline(value) {
     createdAt: new Date(value.createdAt).toISOString(),
     snapshotTimestamp: new Date(value.snapshotTimestamp).toISOString(),
     deviceHash: value.deviceHash,
-    observations: value.observations.map((item) => ({ path: item.path, label: item.label, value: canonicalize(item.value) })),
+    observations: value.observations.map((item) => ({ path: item.path, label: item.label, value: canonicalize(item.path === 'metrics.startupItems' ? withoutWindowsTasks(item.value) : item.value) })),
   };
 }
 
@@ -187,6 +193,7 @@ function setDriftBaseline(userDataPath, inputSnapshot, now = new Date()) {
 }
 
 module.exports = {
+  withoutWindowsTasks,
   BASELINE_FILE_NAME,
   BASELINE_SCHEMA_VERSION,
   buildDriftReport,

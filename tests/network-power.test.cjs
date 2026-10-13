@@ -47,17 +47,41 @@ test('turning power saving off changes only what is on, verifies it, and Undo tu
   assert.deepEqual(adapters.state.values, { eee: '1', green: '1' });
 });
 
-test('Undo is refused when a setting was turned back on elsewhere; nothing runs without admin or when already off', async () => {
+test('Undo restores per setting: one turned back on elsewhere is left, a vanished one refuses; nothing runs without admin or when already off', async () => {
   const directory = tempDir('dialed-netpower-');
   const adapters = fakes({ eee: '1', green: '0' });
   const result = await journal.setNetworkPowerSavingOff(directory, adapters);
   adapters.state.values.eee = '1';
-  await assert.rejects(() => journal.rollbackAuditEntry(directory, result.entry.id, adapters), /changed after Dialed set them, or the adapter is gone/);
+  await assert.rejects(() => journal.rollbackAuditEntry(directory, result.entry.id, adapters), /already back on\. Nothing was changed/);
+  // Two were turned off; one came back on elsewhere. Undo restores only the other.
+  const both = fakes({ eee: '1', green: '1' });
+  const partialDirectory = tempDir('dialed-netpower-');
+  const partial = await journal.setNetworkPowerSavingOff(partialDirectory, both);
+  both.state.values.green = '1'; both.state.writes.length = 0;
+  await journal.rollbackAuditEntry(partialDirectory, partial.entry.id, both);
+  assert.deepEqual(both.state.writes, [['*EEE=1']]);
+  // The adapter is gone: its values cannot be read, so nothing is written.
+  const goneDirectory = tempDir('dialed-netpower-');
+  const gone = fakes({ eee: '1', green: '0' });
+  const goneResult = await journal.setNetworkPowerSavingOff(goneDirectory, gone);
+  gone.readNetworkPower = async () => ({ adapters: [], on: [] }); gone.state.writes.length = 0;
+  await assert.rejects(() => journal.rollbackAuditEntry(goneDirectory, goneResult.entry.id, gone), /changed after Dialed set them, or the adapter is gone/);
+  assert.deepEqual(gone.state.writes, []);
   const off = fakes({ eee: '0', green: '0' });
   await assert.rejects(() => journal.setNetworkPowerSavingOff(tempDir('dialed-netpower-'), off), /already off/);
   const denied = fakes({ eee: '1', green: '0' }, false);
   await assert.rejects(() => journal.setNetworkPowerSavingOff(tempDir('dialed-netpower-'), denied), /administrator/);
   assert.deepEqual([...off.state.writes, ...denied.state.writes], []);
+});
+
+test('Gigabit Lite is never offered or turned off, and each adapter restarts once after every value is written', async () => {
+  const adapters = networkPower.normalizeAdapters([{ guid: GUID, name: 'Ethernet', settings: [{ keyword: 'GigaLite', value: '1', valid: ['0', '1'] }, { keyword: '*EEE', value: '1', valid: ['0', '1'] }] }]);
+  assert.deepEqual(networkPower.onSettings(adapters).map((item) => item.keyword), ['*EEE']);
+  let script = '';
+  await networkPower.writeNetworkPower([{ guid: GUID, keyword: '*EEE', value: '0' }, { guid: GUID, keyword: 'EnableGreenEthernet', value: '0' }], async (text) => { script = text; return { stdout: '{"written":true}', stderr: '', exitCode: 0 }; });
+  assert.equal(script.match(/-NoRestart -ErrorAction Stop/g).length, 2);
+  assert.equal(script.match(/Restart-NetAdapter/g).length, 1);
+  assert.ok(script.indexOf('Restart-NetAdapter') > script.lastIndexOf('Set-NetAdapterAdvancedProperty'));
 });
 
 test('the change maps to its own administrator capability and promises no latency number', async () => {

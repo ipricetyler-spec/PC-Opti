@@ -152,9 +152,12 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     if (cancelCountdown.current) { setBusy(false); return; }
     try {
       await window.pcOptiNative.startPresentMonCapture(preview.token);
+      // The rising tone means "started", so it plays only once the recording really has.
+      if (fromHotkey) playCue('START');
       await refreshState();
       setStatus('Recording. Keep playing the same scene; Dialed stops on its own when time is up.');
     } catch (reason) {
+      if (fromHotkey) playCue('REFUSE');
       setError(reason instanceof Error ? reason.message : 'PresentMon capture could not start safely.');
     } finally {
       setBusy(false);
@@ -195,10 +198,9 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
         recording: Boolean(now.captureState.active), busy: now.busy, toolReady: now.tool?.status === 'AVAILABLE', targetChosen: Boolean(now.selectedTarget),
         approved: Boolean(now.selectedTarget) && isRecordingApproved(now.selectedTarget!),
       });
-      playCue(action);
-      if (action === 'STOP') void now.stop();
+      if (action === 'STOP') { playCue('STOP'); void now.stop(); }
       else if (action === 'START') void now.start(true);
-      else setStatus('The hotkey did nothing: start this recording once with Start recording here, then the key repeats it from the game.');
+      else { playCue('REFUSE'); setStatus('The hotkey did nothing: start this recording once with Start recording here, then the key repeats it from the game.'); }
     });
   }, [hotkey]);
 

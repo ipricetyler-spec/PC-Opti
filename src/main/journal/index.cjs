@@ -2201,15 +2201,20 @@ async function rollbackAuditEntry(userDataPath, entryId, adapters = {}) {
     assertCurrentProcessAdministrator('network:adapter-power-saving', await readElevation(),
       'Restoring network adapter settings requires Dialed to be running as administrator. Nothing was changed; restart Dialed and accept the administrator prompt.');
     const current = await read();
-    if (networkPower.currentValues(current.adapters, changes).some((value) => value !== '0')) {
+    // Per setting: off is turned back on, already-on is left, anything else (adapter gone, value
+    // unreadable) refuses, so one unplugged adapter cannot be half-restored without saying so.
+    const values = networkPower.currentValues(current.adapters, changes);
+    if (values.some((value) => value !== '0' && value !== '1')) {
       throw new Error('The network adapter settings changed after Dialed set them, or the adapter is gone. Restore was refused to avoid overwriting that change.');
     }
+    const toRestore = changes.filter((_, index) => values[index] === '0');
+    if (!toRestore.length) throw new Error('These power-saving settings are already back on. Nothing was changed.');
     return runRestore(userDataPath, original, {
       actionId: `network:restore-adapter-power-saving:${original.id}`,
       title: 'Restore network adapter power saving',
       category: 'Network setting',
       restore: async () => {
-        const result = await write(changes.map((change) => ({ guid: change.guid, keyword: change.keyword, value: '1' })));
+        const result = await write(toRestore.map((change) => ({ guid: change.guid, keyword: change.keyword, value: '1' })));
         const verified = await read();
         if (networkPower.currentValues(verified.adapters, changes).some((value) => value !== '1')) throw new Error('Windows did not report the power-saving settings as back on after restore.');
         return { ...result, output: { verified } };
@@ -2749,6 +2754,9 @@ async function setUserSetting(userDataPath, settingId, enabled, adapters = {}) {
   }
   const before = await readSetting(settingId);
   if (before.exists && before.kind !== 'DWord') throw new Error(`The existing ${setting.title} value is not a DWORD. Dialed will not overwrite it.`);
+  // A value of 0x80000000 or more reads back as a negative number, which undo refuses to write.
+  // Refuse now, before overwriting something that could not be put back.
+  if (before.exists && (!Number.isInteger(before.value) || before.value < 0)) throw new Error(`The existing ${setting.title} value is outside the range Dialed can restore exactly, so Dialed will not overwrite it. Nothing was changed.`);
   const intendedValue = intendedValueFor(settingId, enabled);
   if (stateHasValue(before, intendedValue) || before.enabled === enabled) throw new Error(`${setting.title} is already ${enabled ? 'on' : 'off'}.`);
   const entry = createEntry(

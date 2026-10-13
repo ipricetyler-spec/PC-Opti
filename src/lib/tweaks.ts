@@ -430,11 +430,12 @@ export function batchActionFor(definition: TweakDefinition, state: BatchSettingS
     return state.leftover ? { settingId, enable: false, label: 'Remove leftover', from: 'set (ignored by this Windows edition)', to: 'removed' } : null;
   }
   if (!state.manageable) return null;
+  // One-way cards are not on/off settings, so they are described by their own state first.
+  if (definition.oneWay) {
+    return state.enabled === false ? { settingId, enable: true, label: definition.actionLabel, from: state.detail || 'current value', to: `${definition.actionLabel.charAt(0).toLowerCase()}${definition.actionLabel.slice(1)}` } : null;
+  }
   if (outsideDefault && typeof state.windowsDefault === 'boolean' && state.enabled !== null) {
     return { settingId, enable: state.windowsDefault, label: 'Return to Windows default', from: `${onOff(state.enabled)} (set outside Dialed)`, to: `${onOff(state.windowsDefault)} (Windows default)` };
-  }
-  if (definition.oneWay) {
-    return state.enabled === false ? { settingId, enable: true, label: definition.actionLabel, from: state.detail || 'current value', to: definition.actionLabel.toLowerCase() } : null;
   }
   if (state.enabled === null) return null;
   return { settingId, enable: !state.enabled, label: state.enabled ? 'Turn off' : 'Turn on', from: onOff(state.enabled), to: onOff(!state.enabled) };

@@ -10,7 +10,9 @@ const KEYWORDS = Object.freeze([
   Object.freeze({ keyword: 'AdvancedEEE', label: 'Advanced EEE' }),
   Object.freeze({ keyword: 'EnableGreenEthernet', label: 'Green Ethernet' }),
   Object.freeze({ keyword: 'PowerSavingMode', label: 'Power Saving Mode' }),
-  Object.freeze({ keyword: 'GigaLite', label: 'Gigabit Lite' }),
+  // Gigabit Lite is a link-speed fallback for damaged cable, not power saving: turning it off could
+  // drop such a link. It stays readable only so a change an older version recorded can be undone.
+  Object.freeze({ keyword: 'GigaLite', label: 'Gigabit Lite', restoreOnly: true }),
 ]);
 const GUID = /^\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}$/i;
 
@@ -29,7 +31,8 @@ function normalizeAdapters(raw) {
 }
 
 function onSettings(adapters) {
-  return adapters.flatMap((adapter) => adapter.settings.filter((item) => item.value === '1').map((item) => ({ guid: adapter.guid, keyword: item.keyword, label: item.label, adapter: adapter.name })));
+  const offered = (keyword) => !KEYWORDS.find((known) => known.keyword === keyword)?.restoreOnly;
+  return adapters.flatMap((adapter) => adapter.settings.filter((item) => item.value === '1' && offered(item.keyword)).map((item) => ({ guid: adapter.guid, keyword: item.keyword, label: item.label, adapter: adapter.name })));
 }
 
 /** Plain words for the card. */
@@ -65,9 +68,12 @@ async function writeNetworkPower(changes, run = runPowerShell) {
   const steps = changes.map((change) => `
     $adapter = @(Get-NetAdapter -Physical -ErrorAction Stop | Where-Object { ([string]$_.InterfaceGuid).ToUpper() -eq '${change.guid.toUpperCase()}' })
     if ($adapter.Count -ne 1) { throw 'The network adapter was not found.' }
-    Set-NetAdapterAdvancedProperty -Name $adapter[0].Name -RegistryKeyword '${change.keyword}' -RegistryValue '${change.value}' -NoRestart:$false -ErrorAction Stop`).join('\n');
-  const script = `& {${steps}\n    [pscustomobject]@{ written = $true } | ConvertTo-Json -Compress\n  }`;
-  const { stdout, stderr, exitCode } = await run(script);
+    Set-NetAdapterAdvancedProperty -Name $adapter[0].Name -RegistryKeyword '${change.keyword}' -RegistryValue '${change.value}' -NoRestart -ErrorAction Stop
+    $restart[$adapter[0].Name] = $true`).join('\n');
+  // Every value is written first, then each adapter restarts once: a restart per setting could be cut
+  // off by the time limit between its disable and enable halves.
+  const script = `& {\n    $restart = @{}\n${steps}\n    foreach ($name in $restart.Keys) { Restart-NetAdapter -Name $name -ErrorAction Stop }\n    [pscustomobject]@{ written = $true } | ConvertTo-Json -Compress\n  }`;
+  const { stdout, stderr, exitCode } = await run(script, 120000);
   return { output: JSON.parse(stdout), stdout, stderr, exitCode };
 }
 

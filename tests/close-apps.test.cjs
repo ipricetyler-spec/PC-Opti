@@ -99,3 +99,11 @@ test('the capability promises no FPS figure and does not claim more than it chec
   assert.equal(capability.riskLevel, 'Medium');
   assert.doesNotMatch(JSON.stringify(capability), /never listed|do not inherit administrator rights/);
 });
+
+test('the startup inventory leaves out Windows\' own scheduled tasks, and old snapshots compare without them', () => {
+  const scanner = require('../src/main/scanner/index.cjs');
+  assert.ok(scanner.STARTUP_INVENTORY_SCRIPT.includes("-notlike '\\Microsoft\\Windows\\*'"), 'the filter reaches PowerShell intact');
+  const drift = require('../src/main/drift/index.cjs');
+  const kept = { source: 'TaskScheduler', taskPath: '\\ASUS\\', name: '\\ASUS\\DriverHub' };
+  assert.deepEqual(drift.withoutWindowsTasks([kept, { source: 'TaskScheduler', taskPath: '\\Microsoft\\Windows\\DirectX\\', name: 'x' }, { source: 'Registry', name: 'Discord' }]), [kept, { source: 'Registry', name: 'Discord' }]);
+});

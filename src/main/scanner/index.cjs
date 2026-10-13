@@ -406,7 +406,7 @@ foreach ($target in $targets) {
   }
 }
 Get-ScheduledTask -ErrorAction SilentlyContinue |
-  Where-Object { $_.TaskPath -notlike '\Microsoft\Windows\*' -and $_.Settings.Enabled -and @($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count -gt 0 } |
+  Where-Object { $_.TaskPath -notlike '\\Microsoft\\Windows\\*' -and $_.Settings.Enabled -and @($_.Triggers | Where-Object { $_.CimClass.CimClassName -match 'Logon|Boot' }).Count -gt 0 } |
   Select-Object -First 100 |
   ForEach-Object {
     $action = @($_.Actions)[0]
@@ -1144,6 +1144,7 @@ async function createSystemScanSnapshot(adapters = {}) {
 }
 
 module.exports = {
+  STARTUP_INVENTORY_SCRIPT,
   ANTI_CHEAT_PROCESS_NAMES_BY_PRODUCT,
   ANTI_CHEAT_PRODUCTS,
   MANAGEABLE_STARTUP_REGISTRY_PATHS,

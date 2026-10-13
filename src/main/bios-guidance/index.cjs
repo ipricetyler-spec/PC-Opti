@@ -43,9 +43,13 @@ if (Test-Path -LiteralPath $smi) {
 }
 $secureBoot = $null
 try { $secureBoot = [bool](Confirm-SecureBootUEFI -ErrorAction Stop) } catch {}
+# 1 = Legacy BIOS, 2 = UEFI. Legacy boot is why Secure Boot cannot be read at all.
+$firmware = $null
+try { $firmware = [int](Get-ItemProperty -LiteralPath 'HKLM:\\SYSTEM\\CurrentControlSet\\Control' -Name PEFirmwareType -ErrorAction Stop).PEFirmwareType } catch {}
 $tpm = $null
-try { $t = Get-CimInstance -Namespace 'root\\cimv2\\Security\\MicrosoftTpm' -ClassName Win32_Tpm -OperationTimeoutSec 3 -ErrorAction Stop | Select-Object -First 1; if ($t) { $tpm = @{ enabled = [bool]$t.IsEnabled_InitialValue; specVersion = [string]$t.SpecVersion } } } catch {}
-@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; secureBoot = $secureBoot; tpm = $tpm; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
+$tpmAnswered = $false
+try { $t = Get-CimInstance -Namespace 'root\\cimv2\\Security\\MicrosoftTpm' -ClassName Win32_Tpm -OperationTimeoutSec 3 -ErrorAction Stop | Select-Object -First 1; $tpmAnswered = $true; if ($t) { $tpm = @{ enabled = [bool]$t.IsEnabled_InitialValue; specVersion = [string]$t.SpecVersion } } } catch {}
+@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; secureBoot = $secureBoot; firmware = $firmware; tpm = $tpm; tpmAnswered = $tpmAnswered; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
 `;
 
 const list = (value) => Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [];
@@ -81,9 +85,11 @@ function observedFor(profile, hardware) {
     return `Windows reports the memory running at ${running} MT/s, the modules' standard speed. No memory profile appears to be active.`;
   }
   if (profile.kind === 'firmware' && hardware.bios.version) return `This PC reports BIOS version ${hardware.bios.version}${hardware.bios.date ? `, dated ${hardware.bios.date}` : ''}. Dialed does not check whether a newer one exists.`;
-  if (profile.kind === 'security' && (hardware.secureBoot !== null || hardware.tpm)) {
+  if (profile.kind === 'security' && (hardware.secureBoot !== null || hardware.tpm || hardware.tpmMissing || hardware.legacyBoot)) {
     const parts = [];
-    if (hardware.secureBoot !== null) parts.push(`Secure Boot is ${hardware.secureBoot ? 'on' : 'off'}`);
+    if (hardware.legacyBoot) parts.push('Windows started in Legacy mode, so Secure Boot cannot be on; do not switch boot mode before following the conversion steps');
+    else if (hardware.secureBoot !== null) parts.push(`Secure Boot is ${hardware.secureBoot ? 'on' : 'off'}`);
+    if (hardware.tpmMissing) parts.push('Windows finds no TPM, which usually means the firmware TPM is switched off');
     if (hardware.tpm) parts.push(`the TPM is ${hardware.tpm.enabled ? 'on' : 'off'}${hardware.tpm.version ? `, version ${hardware.tpm.version}` : ''}`);
     return `Windows reports that ${parts.join(' and ')}. IOMMU is not visible from here.`;
   }
@@ -123,6 +129,9 @@ function normalizeInventory(raw = {}) {
     tpm: raw.tpm && typeof raw.tpm === 'object' && typeof raw.tpm.enabled === 'boolean'
       ? { enabled: raw.tpm.enabled, version: /^\d\.\d/.test(text(raw.tpm.specVersion)) ? text(raw.tpm.specVersion).slice(0, 3) : '' }
       : null,
+    // Windows answered and has no TPM device: the firmware TPM is off or absent.
+    tpmMissing: raw.tpmAnswered === true && !raw.tpm,
+    legacyBoot: raw.firmware === 1,
     errors: list(raw.errors).map(text).filter(Boolean).slice(0, 16),
   };
 }

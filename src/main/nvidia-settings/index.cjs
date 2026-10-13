@@ -6,7 +6,7 @@ const { runPowerShell } = require('../scanner/index.cjs');
 // A setting the driver reports as not set means the driver uses its own default.
 const SETTINGS = Object.freeze([
   Object.freeze({ id: 'gsync', nvId: 0x1194F158, label: 'G-SYNC', values: { 0: 'Off', 1: 'On for full screen', 2: 'On for full screen and windowed' }, unset: 'Not set (the driver decides with your monitor)' }),
-  Object.freeze({ id: 'vsync', nvId: 0x00A879CF, label: 'Vertical sync', values: { 0x60925292: 'Use the 3D application setting', 0x08416747: 'Off', 0x47814940: 'On', 0x18888888: 'Fast' }, defaultValue: 0x60925292 }),
+  Object.freeze({ id: 'vsync', nvId: 0x00A879CF, label: 'Vertical sync', values: { 0x60925292: 'Use the 3D application setting', 0x08416747: 'Off', 0x47814940: 'On (or Adaptive)', 0x18888888: 'Fast' }, defaultValue: 0x60925292 }),
   Object.freeze({ id: 'frame-cap', nvId: 0x10835002, label: 'Max frame rate', format: (value) => (value === 0 ? 'Off' : `${value} FPS`), defaultValue: 0 }),
   Object.freeze({ id: 'low-latency', nvId: 0x007BA09E, label: 'Low latency mode (pre-rendered frames)', format: (value) => (value === 0 ? 'Off (the game decides)' : value === 1 ? 'On or Ultra (1 frame)' : `${value} frames`), defaultValue: 0 }),
   Object.freeze({ id: 'power', nvId: 0x1057EB71, label: 'Power management mode', values: { 0: 'Adaptive', 1: 'Prefer maximum performance', 2: 'Driver controlled', 3: 'Prefer consistent performance', 5: 'Normal' }, defaultValue: 5 }),
@@ -87,9 +87,9 @@ function describeNvidiaSettings(raw) {
 function notesFor(values) {
   const notes = [];
   const gsyncOn = values.gsync === 1 || values.gsync === 2;
-  if (gsyncOn && values.vsync === 0x08416747) notes.push('G-SYNC is on but vertical sync is forced off. When the frame rate reaches the refresh rate, G-SYNC stops working and tearing can return. Blur Busters testing recommends vertical sync On in NVIDIA Control Panel with G-SYNC.');
-  if (gsyncOn && (values['frame-cap'] === null || values['frame-cap'] === 0)) notes.push('G-SYNC is on with no frame-rate cap here. A cap a few FPS below your refresh rate (in the game, or Max frame rate here) keeps G-SYNC active; many competitive games with NVIDIA Reflex cap automatically.');
-  if (values.gsync === 0) notes.push('G-SYNC is off in the driver. Off is a common choice for competitive play at frame rates well above the refresh rate: lowest delay, with some tearing. On a G-SYNC monitor, turning it on in NVIDIA Control Panel › Set up G-SYNC trades a little delay for no tearing. Dialed does not read what your monitor supports.');
+  if (gsyncOn && values.vsync === 0x08416747) notes.push('G-SYNC is enabled in the driver’s global settings but vertical sync is forced off. (G-SYNC only takes effect on a display enabled under Set up G-SYNC, which Dialed does not read.) When the frame rate reaches the refresh rate, G-SYNC stops working and tearing can return. Blur Busters testing recommends vertical sync On in NVIDIA Control Panel with G-SYNC.');
+  if (gsyncOn && (values['frame-cap'] === null || values['frame-cap'] === 0)) notes.push('G-SYNC is enabled in the driver’s global settings with no frame-rate cap here. A cap a few FPS below your refresh rate (in the game, or Max frame rate here) keeps G-SYNC active; many competitive games with NVIDIA Reflex cap automatically.');
+  if (values.gsync === 0) notes.push('G-SYNC is off in the driver’s global settings. Off is a common choice for competitive play at frame rates well above the refresh rate: lowest delay, with some tearing. On a G-SYNC monitor, turning it on in NVIDIA Control Panel › Set up G-SYNC trades a little delay for no tearing. Dialed does not read what your monitor supports.');
   if (values['shader-cache'] === 0) notes.push('The shader cache is off, so games compile shaders again each time, which can cause stutter.');
   return notes;
 }

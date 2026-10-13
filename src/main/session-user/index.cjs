@@ -57,6 +57,9 @@ const PER_USER_CAPABILITIES = Object.freeze(new Set([
   'maintenance:clear-temp-files',
   'maintenance:clear-shader-caches',
   'maintenance:clear-crash-dumps',
+  // Closing and reopening act on the signed-in person's programs; under another account there is
+  // no Explorer of that account to hand a reopened program to, so it could start with admin rights.
+  'process:close-chosen-programs',
 ]));
 
 function accountMismatchMessage(identity) {

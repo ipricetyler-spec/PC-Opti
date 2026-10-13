@@ -113,6 +113,7 @@ const {
   disableStartupItem,
   enableConsumerFeaturesPolicy,
   createRestorePointBeforeChanges,
+  recordClosedPrograms,
   enableProcessEcoQos,
   executeMaintenanceAction,
   executeOptionalAppRemoval,
@@ -1055,7 +1056,9 @@ ipcMain.handle('pc-opti:close-programs', async (_event, paths) => {
   assertCapabilityAvailable('process:close-chosen-programs');
   return serializeMutation(async () => {
     const result = await closeApps.closePrograms(paths, path.dirname(process.execPath));
-    for (const item of result.results) if (item.outcome !== 'STILL_RUNNING') closedThisSession.add(item.path);
+    for (const item of result.results) if (item.outcome === 'CLOSED' || item.outcome === 'ENDED') closedThisSession.add(item.path);
+    // A full history must not hide what was closed; the outcome is still returned.
+    try { recordClosedPrograms(app.getPath('userData'), result.results); } catch { /* shown in the page instead */ }
     return result;
   });
 });

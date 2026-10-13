@@ -1408,6 +1408,18 @@ async function createRestorePointBeforeChanges(userDataPath, adapters = {}) {
   }
 }
 
+/** A History record of programs Dialed closed. Nothing here can be undone; Reopen starts them fresh. */
+function recordClosedPrograms(userDataPath, results) {
+  const words = { CLOSED: 'closed', ENDED: 'ended', STILL_OPEN: 'left open', STILL_RUNNING: 'still running' };
+  const programs = (Array.isArray(results) ? results : []).slice(0, 40).map((item) => ({ name: String(item.name).slice(0, 120), path: String(item.path).slice(0, 400), outcome: item.outcome }));
+  if (!programs.length) return null;
+  const entry = createEntry('process:close-chosen-programs', `Close before a game: ${programs.map((item) => `${item.name} (${words[item.outcome] || 'unknown'})`).join(', ')}`.slice(0, 300), { programs },
+    { category: 'Programs', rollback: { available: false, reason: 'Closing a program is not undone by Dialed. Reopen starts it again fresh; anything unsaved in a program that was ended is lost.' } });
+  entry.status = 'SUCCESS'; entry.exitCode = 0; entry.resultingState = { programs };
+  appendEntry(userDataPath, entry);
+  return entry;
+}
+
 async function writeConsumerFeaturesPolicy() {
   const { registryPath, valueName } = CONSUMER_FEATURES_POLICY;
   const key = encodePowerShellValue(registryPath);
@@ -2971,6 +2983,7 @@ module.exports = {
   createJournalDeletionPreview,
   createSafetyCheckpointPowerShellScript,
   createRestorePointBeforeChanges,
+  recordClosedPrograms,
   disableStartupItem,
   enableConsumerFeaturesPolicy,
   enableProcessEcoQos,

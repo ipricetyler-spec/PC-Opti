@@ -122,7 +122,7 @@ export const TWEAKS: TweakDefinition[] = [
   {
     id: 'close-before-game', group: 'Startup & background', title: 'Close before a game', capabilityIds: ['process:close-chosen-programs'], perItem: true,
     summary: 'Close the programs you picked, together, before you play, and reopen them afterwards.',
-    whatChanges: 'Asks each chosen program to close; any still open after 5 seconds are ended like End task in Task Manager. Windows, security software, anti-cheat and Dialed are never listed.',
+    whatChanges: 'Asks each chosen program to close; after 5 seconds one with no window left is ended like End task in Task Manager, and one still showing a window is left open. Programs in the Windows folder, Dialed, and the security and anti-cheat programs Dialed recognises are not listed.',
     whenItHelps: 'When launchers, browsers, RGB or updater programs use processor time or memory while you play.',
     leaveItIf: 'A program is one your game needs, such as its launcher, or one you use while playing, like voice chat.',
     undo: 'Not undoable like a setting: Reopen starts the programs fresh, and unsaved work in an ended program is lost.',

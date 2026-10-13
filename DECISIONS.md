@@ -326,3 +326,6 @@ ask for the G-SYNC set.
 
 ## BIOS guide sources widened (2026-10-10)
  BIOS guide may cite the maker of the thing a check is about (Riot for Vanguard's requirements) and independent testing publications (TechSpot for the X3D mode figures), not only CPU, board and Microsoft pages. Menu paths are stated only where the board maker documents them. BIOS stays guidance-only.
+
+## Tweaks shows only what can be acted on; one recommendation system (2026-10-13)
+ the product review, with the owner's approval: on All tweaks a card that only opens a tab is a link row; settings with nothing to do and settings this Windows edition ignores fold into one line per group; each folded tool sits under the group whose card opens it. Home's 'Worth doing' offers the Tweaks page's own recommendation count first, and its scan suggestions can be dismissed with 'Not for me'. Close before a game never ends a program that still shows a window, and its wording claims only what it checks.

@@ -956,3 +956,9 @@ hotkey from inside a real game, and a real adapter change (both need a package).
 ## 2026-10-12 — Browser checks for 5f81ed8 and 38c7c48
 
 - test:ui:fixtures: all pass. test:ts 147/147, lint clean. npm test 876 of 877 in this session: `native-policy-key` (owner-only DPAPI custody) fails at its Set-Acl step with "does not possess the SeSecurityPrivilege privilege" because this session's shell is not elevated (checked: IsInRole(Administrator) = False). It passed 877/877 on 2026-10-10 in an elevated shell and its code is unchanged; rerun elevated to confirm. Not in the installed app (installed is 8a62f8e).
+
+## 2026-10-13 — Both reviewers run; one earlier record was wrong
+
+- CORRECTION to the 2026-10-10 entry: the claim that \Microsoft\Windows\ scheduled tasks 'are no longer listed' is false. The filter added in 5f81ed8 sits in a JavaScript template literal with single backslashes, so PowerShell receives -notlike 'MicrosoftWindows*' and excludes nothing (reproduced by printing STARTUP_INVENTORY_SCRIPT). It was recorded as fixed without being run. Not yet fixed; the fix also needs old drift baselines filtered the same way.
+- Windows systems reviewer and product experience reviewer both ran read-only on 2026-10-13 with the owner's confirmation. Reproduced so far: product M1-M7 all confirmed (M5 includes a regression from the redundancy pass: the 'Windows suggested apps' policy can no longer be turned on for Enterprise/Education, because the removed panel was the only control that did it). Systems 1, 3, 4, 6, 8, 10 confirmed by reading or printing; 2, 7, 9, 11 confirmed as described. One reviewer concern was wrong: Riot's TPM page does itself say not to disable fTPM for stutter and to update the BIOS.
+- No fixes made yet.

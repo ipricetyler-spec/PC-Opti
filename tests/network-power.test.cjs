@@ -91,3 +91,23 @@ test('the change maps to its own administrator capability and promises no latenc
   assert.match(capability.expectedBenefit, /No latency figure is promised/);
   await assert.rejects(() => networkPower.writeNetworkPower([{ guid: GUID, keyword: 'NetworkAddress', value: '0' }], async () => { throw new Error('must not run'); }), /not valid/);
 });
+
+test('a change that fails part-way keeps an undo for exactly the settings that did change', async () => {
+  const directory = tempDir('dialed-netpower-');
+  const adapters = fakes({ eee: '1', green: '1' });
+  // The first setting is written, then Windows fails.
+  adapters.writeNetworkPower = async (changes) => { adapters.state.values.eee = changes.find((item) => item.keyword === '*EEE').value; adapters.state.writes.push(['partial']); if (adapters.state.writes.length === 1) throw new Error('The adapter did not answer.'); return { output: { written: true }, stdout: '', stderr: '', exitCode: 0 }; };
+  const result = await journal.setNetworkPowerSavingOff(directory, adapters);
+  assert.equal(result.success, false);
+  assert.match(result.error, /Only some settings were turned off/);
+  assert.equal(result.entry.title, 'Network adapter power saving: partly turned off (Energy-Efficient Ethernet)');
+  assert.deepEqual(result.entry.preAction.changes.map((item) => item.keyword), ['*EEE']);
+  await journal.rollbackAuditEntry(directory, result.entry.id, adapters);
+  assert.deepEqual(adapters.state.values, { eee: '1', green: '1' });
+  // Nothing changed before the failure: no undo is offered, and the record says why.
+  const none = fakes({ eee: '1', green: '0' });
+  none.writeNetworkPower = async () => { throw new Error('refused'); };
+  const untouched = await journal.setNetworkPowerSavingOff(tempDir('dialed-netpower-'), none);
+  assert.equal(untouched.entry.rollback.available, false);
+  assert.match(untouched.entry.rollback.reason, /Nothing was changed/);
+});

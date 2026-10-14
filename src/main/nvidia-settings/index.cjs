@@ -15,6 +15,9 @@ const SETTINGS = Object.freeze([
   Object.freeze({ id: 'threaded', nvId: 0x20C1221E, label: 'Threaded optimization', values: { 0: 'Auto', 1: 'On', 2: 'Off' }, defaultValue: 0 }),
 ]);
 
+// "Shader Cache" on/off, a separate setting from its size (name confirmed by the driver).
+const SHADER_CACHE_SWITCH = 0x00198FFF;
+
 const READER = `
 using System;
 using System.Runtime.InteropServices;
@@ -39,25 +42,33 @@ public static class DialedNvidiaRead {
       if (F<GetProfile>(0xDA8466A0)(session, out profile) != 0) throw new InvalidOperationException("NVAPI global profile unavailable.");
       GetSetting get = F<GetSetting>(0x73BF8338);
       var parts = new System.Collections.Generic.List<string>();
+      var defaults = new System.Collections.Generic.List<string>();
       foreach (uint id in ids) {
         for (int offset = 0; offset < Size; offset += 4) Marshal.WriteInt32(buffer, offset, 0);
         Marshal.WriteInt32(buffer, 0, 0x13020);
         int status = get(session, profile, id, buffer);
+        // Offset 4116 says whether the driver supplied its own default; 4120 is that default.
+        if (status == 0 && Marshal.ReadInt32(buffer, 4116) != 0) defaults.Add("\\"" + id + "\\":" + (uint)Marshal.ReadInt32(buffer, 4120));
         if (status == 0) parts.Add("\\"" + id + "\\":" + (uint)Marshal.ReadInt32(buffer, Current));
         else if (status == NotFound) parts.Add("\\"" + id + "\\":null");
         else throw new InvalidOperationException("NVAPI read failed: " + status);
       }
-      return "{\\"available\\":true,\\"settings\\":{" + string.Join(",", parts) + "}}";
+      return "{\\"available\\":true,\\"settings\\":{" + string.Join(",", parts) + "},\\"defaults\\":{" + string.Join(",", defaults) + "}}";
     } finally { Marshal.FreeHGlobal(buffer); F<SessionOnly>(0xDAD9CFF8)(session); }
   }
 }`;
 
 function readerScript() {
   const source = Buffer.from(READER, 'utf8').toString('base64');
-  const ids = SETTINGS.map((setting) => setting.nvId).join(',');
+  const ids = [...SETTINGS.map((setting) => setting.nvId), SHADER_CACHE_SWITCH].join(',');
   // No nvapi64.dll means no NVIDIA driver: reported as unavailable, not as an error.
   return `& {
-    if (-not (Test-Path -LiteralPath (Join-Path $env:WINDIR 'System32\\nvapi64.dll'))) { '{"available":false}'; return }
+    $library = Join-Path $env:WINDIR 'System32\\nvapi64.dll'
+    if (-not (Test-Path -LiteralPath $library)) { '{"available":false}'; return }
+    # Only a validly signed driver file is loaded: NVIDIA's own signature, or Microsoft's hardware
+    # compatibility signature that driver packages carry.
+    $signature = Get-AuthenticodeSignature -LiteralPath $library
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'NVIDIA|Microsoft Windows Hardware Compatibility Publisher') { '{"available":false}'; return }
     Add-Type -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${source}'))) -ErrorAction Stop
     [DialedNvidiaRead]::Read([uint32[]]@(${ids}))
   }`;
@@ -77,9 +88,13 @@ function describeNvidiaSettings(raw) {
     const stored = raw.settings?.[String(setting.nvId)];
     const value = Number.isInteger(stored) && stored >= 0 && stored <= 0xFFFFFFFF ? stored : null;
     values[setting.id] = value;
-    const differs = value !== null && setting.defaultValue !== undefined && value !== setting.defaultValue;
-    return { id: setting.id, label: setting.label, value: describeValue(setting, value), differs, defaultText: setting.defaultValue === undefined ? null : describeValue(setting, setting.defaultValue) };
+    // The driver's own default wins over the one written here, when the driver reports one.
+    const reported = raw.defaults?.[String(setting.nvId)];
+    const defaultValue = Number.isInteger(reported) && reported >= 0 && reported <= 0xFFFFFFFF ? reported : setting.defaultValue;
+    const differs = value !== null && defaultValue !== undefined && value !== defaultValue;
+    return { id: setting.id, label: setting.label, value: describeValue(setting, value), differs, defaultText: defaultValue === undefined ? null : describeValue(setting, defaultValue) };
   });
+  values['shader-cache-switch'] = Number.isInteger(raw.settings?.[String(SHADER_CACHE_SWITCH)]) ? raw.settings[String(SHADER_CACHE_SWITCH)] : null;
   return { available: true, rows, notes: notesFor(values) };
 }
 
@@ -90,7 +105,7 @@ function notesFor(values) {
   if (gsyncOn && values.vsync === 0x08416747) notes.push('G-SYNC is enabled in the driver’s global settings but vertical sync is forced off. (G-SYNC only takes effect on a display enabled under Set up G-SYNC, which Dialed does not read.) When the frame rate reaches the refresh rate, G-SYNC stops working and tearing can return. Blur Busters testing recommends vertical sync On in NVIDIA Control Panel with G-SYNC.');
   if (gsyncOn && (values['frame-cap'] === null || values['frame-cap'] === 0)) notes.push('G-SYNC is enabled in the driver’s global settings with no frame-rate cap here. A cap a few FPS below your refresh rate (in the game, or Max frame rate here) keeps G-SYNC active; many competitive games with NVIDIA Reflex cap automatically.');
   if (values.gsync === 0) notes.push('G-SYNC is off in the driver’s global settings. Off is a common choice for competitive play at frame rates well above the refresh rate: lowest delay, with some tearing. On a G-SYNC monitor, turning it on in NVIDIA Control Panel › Set up G-SYNC trades a little delay for no tearing. Dialed does not read what your monitor supports.');
-  if (values['shader-cache'] === 0) notes.push('The shader cache is off, so games compile shaders again each time, which can cause stutter.');
+  if (values['shader-cache'] === 0 || values['shader-cache-switch'] === 0) notes.push('The shader cache is off, so games compile shaders again each time, which can cause stutter.');
   return notes;
 }
 

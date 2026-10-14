@@ -38,3 +38,11 @@ test('the reader is read-only and reports a PC without the NVIDIA driver as unav
   assert.deepEqual(await nvidia.readNvidiaSettings(async () => ({ stdout: '{"available":false}' })), { available: false, rows: [], notes: [] });
   await assert.rejects(() => nvidia.readNvidiaSettings(async () => ({ stdout: 'garbage' })), /could not read the NVIDIA driver settings/);
 });
+
+test('the driver file must be validly signed, the driver reports its own default, and a switched-off shader cache is noticed', () => {
+  assert.match(nvidia.readerScript(), /Get-AuthenticodeSignature[\s\S]*Status -ne 'Valid'/);
+  // The driver reports 2 ("driver controlled") as its default for power management on this fake.
+  const withDefault = nvidia.describeNvidiaSettings({ ...raw({ [0x1057EB71]: 2 }), defaults: { [0x1057EB71]: 2 } });
+  assert.deepEqual([withDefault.rows.find((item) => item.id === 'power').differs, withDefault.rows.find((item) => item.id === 'power').defaultText], [false, 'Driver controlled']);
+  assert.ok(nvidia.describeNvidiaSettings(raw({ [0x00198FFF]: 0 })).notes.some((note) => /shader cache is off/.test(note)));
+});

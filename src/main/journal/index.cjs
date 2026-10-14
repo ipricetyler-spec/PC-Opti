@@ -2690,7 +2690,24 @@ async function setNetworkPowerSavingOff(userDataPath, adapters = {}) {
     replaceEntry(userDataPath, entry);
     return { success: true, entry, result: entry.resultingState };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Some settings may have been written before the failure. If Windows can still be read, the
+    // record is narrowed to exactly the ones now off, so those can be undone; otherwise it is
+    // left for review as before.
+    let after = null;
+    try { after = await read(); } catch { /* unreadable: fall through to review */ }
+    const values = after ? networkPower.currentValues(after.adapters, changes) : null;
+    const applied = values ? changes.filter((_, index) => values[index] === '0') : [];
+    if (values && values.every((value) => value === '0' || value === '1') && applied.length) {
+      entry.preAction = { changes: applied.map(({ guid, keyword, label, adapter }) => ({ guid, keyword, label, adapter, previous: '1' })) };
+      entry.title = `Network adapter power saving: partly turned off (${[...new Set(applied.map((item) => item.label))].join(', ')})`;
+      entry.status = 'SUCCESS'; entry.exitCode = null; entry.stderr = message;
+      entry.resultingState = { verified: after, effectiveState: 'PARTLY_APPLIED', performanceOutcome: 'UNVERIFIED' };
+      replaceEntry(userDataPath, entry);
+      return { success: false, entry, error: `Only some settings were turned off before Windows reported an error: ${message} The ones that changed are recorded and can be undone.` };
+    }
     markUnverifiedMutation(entry, error);
+    if (values && values.every((value) => value === '1')) entry.rollback.reason = 'Nothing was changed: every setting still reads on.';
     replaceEntry(userDataPath, entry);
     return { success: false, entry, error: entry.stderr };
   }

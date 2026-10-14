@@ -250,3 +250,15 @@ test('new checks report what Windows shows and stay off hardware they do not fit
   assert.ok(!ids(plain).includes('am5-x3d-game-mode'));
   for (const entry of plan.recommendations) assert.doesNotMatch(`${entry.benefit} ${entry.target}`, /guarantee|will increase|always faster/i);
 });
+
+test('an encrypted Windows drive is called out where a lock-out is possible, from protection status alone', () => {
+  const { INVENTORY_SCRIPT } = require('../src/main/bios-guidance/index.cjs');
+  assert.doesNotMatch(INVENTORY_SCRIPT, /KeyProtector|RecoveryPassword|GetKeyProtector/i);
+  const on = build(fixture({ encryption: 1, secureBoot: true, tpm: { enabled: true, specVersion: '2.0' } }));
+  for (const id of ['firmware-update-review', 'anti-cheat-security']) assert.match(on.recommendations.find((entry) => entry.id === id).observed, /have the recovery key on another device/);
+  const off = build(fixture({ encryption: 0 }));
+  assert.doesNotMatch(String(off.recommendations.find((entry) => entry.id === 'firmware-update-review').observed), /recovery key/);
+  // Firmware TPM off and Legacy boot are the two cases the security check exists for.
+  const risky = build(fixture({ firmware: 1, tpmAnswered: true, tpm: null }));
+  assert.match(risky.recommendations.find((entry) => entry.id === 'anti-cheat-security').observed, /Legacy mode[\s\S]*finds no TPM/);
+});

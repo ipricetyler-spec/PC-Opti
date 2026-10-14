@@ -46,10 +46,13 @@ try { $secureBoot = [bool](Confirm-SecureBootUEFI -ErrorAction Stop) } catch {}
 # 1 = Legacy BIOS, 2 = UEFI. Legacy boot is why Secure Boot cannot be read at all.
 $firmware = $null
 try { $firmware = [int](Get-ItemProperty -LiteralPath 'HKLM:\\SYSTEM\\CurrentControlSet\\Control' -Name PEFirmwareType -ErrorAction Stop).PEFirmwareType } catch {}
+# Protection status only (0 off, 1 on). No key protector or recovery password is read.
+$encryption = $null
+try { $v = Get-CimInstance -Namespace 'root\\cimv2\\Security\\MicrosoftVolumeEncryption' -ClassName Win32_EncryptableVolume -OperationTimeoutSec 3 -ErrorAction Stop | Where-Object { $_.DriveLetter -eq $env:SystemDrive } | Select-Object -First 1; if ($v) { $encryption = [int]$v.ProtectionStatus } } catch {}
 $tpm = $null
 $tpmAnswered = $false
 try { $t = Get-CimInstance -Namespace 'root\\cimv2\\Security\\MicrosoftTpm' -ClassName Win32_Tpm -OperationTimeoutSec 3 -ErrorAction Stop | Select-Object -First 1; $tpmAnswered = $true; if ($t) { $tpm = @{ enabled = [bool]$t.IsEnabled_InitialValue; specVersion = [string]$t.SpecVersion } } } catch {}
-@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; secureBoot = $secureBoot; firmware = $firmware; tpm = $tpm; tpmAnswered = $tpmAnswered; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
+@{ cpu = $cpu; board = $board; bios = $bios; system = $system; chassis = $chassis; memory = $memory; gpus = $gpus; nvidia = $nvidia; secureBoot = $secureBoot; firmware = $firmware; tpm = $tpm; tpmAnswered = $tpmAnswered; encryption = $encryption; errors = @($errors) } | ConvertTo-Json -Depth 6 -Compress
 `;
 
 const list = (value) => Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [];
@@ -84,14 +87,17 @@ function observedFor(profile, hardware) {
     if (running > standard) return `Windows reports the memory running at ${running} MT/s, above the modules' standard ${standard} MT/s. A memory profile or a manual setting appears to be active; Windows cannot tell which.`;
     return `Windows reports the memory running at ${running} MT/s, the modules' standard speed. No memory profile appears to be active.`;
   }
-  if (profile.kind === 'firmware' && hardware.bios.version) return `This PC reports BIOS version ${hardware.bios.version}${hardware.bios.date ? `, dated ${hardware.bios.date}` : ''}. Dialed does not check whether a newer one exists.`;
+  // The worst outcome of a firmware or TPM change is being locked out of an encrypted drive.
+  const encryptionNote = hardware.encrypted === true ? ' BitLocker or device encryption is on for the Windows drive: have the recovery key on another device before changing anything here.' : '';
+  if (profile.kind === 'firmware' && hardware.bios.version) return `This PC reports BIOS version ${hardware.bios.version}${hardware.bios.date ? `, dated ${hardware.bios.date}` : ''}. Dialed does not check whether a newer one exists.${encryptionNote}`;
+  if (profile.kind === 'security' && !(hardware.secureBoot !== null || hardware.tpm || hardware.tpmMissing || hardware.legacyBoot) && encryptionNote) return encryptionNote.trim();
   if (profile.kind === 'security' && (hardware.secureBoot !== null || hardware.tpm || hardware.tpmMissing || hardware.legacyBoot)) {
     const parts = [];
     if (hardware.legacyBoot) parts.push('Windows started in Legacy mode, so Secure Boot cannot be on; do not switch boot mode before following the conversion steps');
     else if (hardware.secureBoot !== null) parts.push(`Secure Boot is ${hardware.secureBoot ? 'on' : 'off'}`);
     if (hardware.tpmMissing) parts.push('Windows finds no TPM, which usually means the firmware TPM is switched off');
     if (hardware.tpm) parts.push(`the TPM is ${hardware.tpm.enabled ? 'on' : 'off'}${hardware.tpm.version ? `, version ${hardware.tpm.version}` : ''}`);
-    return `Windows reports that ${parts.join(' and ')}. IOMMU is not visible from here.`;
+    return `Windows reports that ${parts.join(' and ')}. IOMMU is not visible from here.${encryptionNote}`;
   }
   const nvidia = hardware.nvidia;
   if (profile.kind === 'rebar' && profile.gpuVendor === 'nvidia' && nvidia?.bar1MiB && nvidia.memoryMiB) {
@@ -132,6 +138,8 @@ function normalizeInventory(raw = {}) {
     // Windows answered and has no TPM device: the firmware TPM is off or absent.
     tpmMissing: raw.tpmAnswered === true && !raw.tpm,
     legacyBoot: raw.firmware === 1,
+    // true on, false off, null when Windows did not say.
+    encrypted: raw.encryption === 1 ? true : raw.encryption === 0 ? false : null,
     errors: list(raw.errors).map(text).filter(Boolean).slice(0, 16),
   };
 }
@@ -219,7 +227,7 @@ function buildBiosPlan(raw, { now = new Date() } = {}) {
     hardware, match: { ...match, boardName: board?.name || null, supportUrl: model?.url || board?.supportUrl || null, supportMatch: model ? 'MODEL' : board ? 'VENDOR' : null },
     status: !match.supported ? 'NO_REVIEWED_MATCH' : 'GUIDANCE_AVAILABLE', reviewStatus,
     preparation: [...PREPARATION], preparationSources: [{ ...SOURCES.recovery, reviewedAt: REVIEWED_AT }], warnings,
-    limitations: 'Dialed does not read BIOS settings. "Observed" lines are what Windows reports (memory speed, BIOS version, Secure Boot and TPM state, the graphics card\'s BAR window and PCIe link), which can match a setting without proving it. CPU offsets, boot mode, encryption status and cooling limits are not visible. Recommendations are manual candidates, not a diagnosis. No hardware data is sent anywhere.',
+    limitations: 'Dialed does not read BIOS settings. "Observed" lines are what Windows reports (memory speed, BIOS version, Secure Boot and TPM state, the graphics card\'s BAR window and PCIe link), which can match a setting without proving it. CPU offsets and cooling limits are not visible. Recommendations are manual candidates, not a diagnosis. No hardware data is sent anywhere.',
     recommendations,
   };
 }

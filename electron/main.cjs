@@ -1281,10 +1281,22 @@ ipcMain.handle('pc-opti:set-fullscreen-optimizations', async (_event, targetId, 
 // while the recorder asks for it: it releases the key when it closes, and quitting releases all.
 const RECORDING_HOTKEYS = Object.freeze(['Control+Shift+F9', 'Control+Shift+F10', 'Control+Alt+F9', 'Control+Alt+F10']);
 let recordingHotkey = null;
-ipcMain.handle('pc-opti:set-recording-hotkey', async (_event, accelerator) => {
-  if (accelerator !== null && !RECORDING_HOTKEYS.includes(accelerator)) throw new Error('That key combination is not one Dialed offers.');
+// The window whose reload and crash events already release the key.
+let hotkeyWindow = null;
+function releaseRecordingHotkey() {
   if (recordingHotkey) { globalShortcut.unregister(recordingHotkey); recordingHotkey = null; }
+}
+ipcMain.handle('pc-opti:set-recording-hotkey', async (_event, accelerator) => {
+  if (accelerator !== null) assertCapabilityAvailable('benchmark:native-presentmon-capture');
+  if (accelerator !== null && !RECORDING_HOTKEYS.includes(accelerator)) throw new Error('That key combination is not one Dialed offers.');
+  releaseRecordingHotkey();
   if (accelerator === null) return { registered: false };
+  // A reloaded or crashed page can no longer hear the key, so the key is handed back.
+  if (mainWindow && !mainWindow.isDestroyed() && hotkeyWindow !== mainWindow) {
+    hotkeyWindow = mainWindow;
+    mainWindow.webContents.on('did-start-loading', releaseRecordingHotkey);
+    mainWindow.webContents.on('render-process-gone', releaseRecordingHotkey);
+  }
   const registered = globalShortcut.register(accelerator, () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('pc-opti:recording-hotkey');
   });

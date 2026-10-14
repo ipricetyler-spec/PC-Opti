@@ -165,7 +165,7 @@ export default function App() {
   const openTweakTools = useCallback((section: 'boot-timing' | 'per-program-graphics' | 'nvidia-settings' | 'power-plan' | 'built-in-apps' | 'windows-policies') => {
     setOptimizeView('all'); setActiveTab('startup'); setTweakToolsOpen((current) => ({ ...current, [section]: true }));
     // After the section opens and lays out; a smooth scroll started earlier was cancelled by that layout.
-    window.setTimeout(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })), 120);
+    window.setTimeout(() => requestAnimationFrame(() => { const tool = document.getElementById(section); tool?.scrollIntoView({ block: 'start' }); tool?.querySelector('summary')?.focus({ preventScroll: true }); }), 120);
   }, []);
   const [gameView, setGameView] = useState<'profiles' | 'guides' | 'backups'>('profiles');
   // Display setup moved to Measure (2026-10-06): it is a way to test a display or graphics-card setting.
@@ -658,7 +658,7 @@ export default function App() {
     // when deciding whether to ask for replace confirmation — otherwise a bad
     // baseline can never be replaced from the UI.
     const hasKnownBaseline = Boolean(driftReport?.baseline) || Boolean(driftError);
-    if (hasKnownBaseline && !(await confirmAction({ title: 'Replace the saved baseline?', description: 'Future change checks will compare against the latest verified scan instead.', details: 'Only Dialed’s saved baseline file is replaced.', notice: 'No Windows setting is changed.', confirmLabel: 'Replace baseline' }))) return;
+    if (hasKnownBaseline && !(await confirmAction({ title: 'Replace your saved snapshot?', description: 'Outside changes will be compared with the latest scan instead of the older snapshot.', details: 'Only Dialed’s saved snapshot file is replaced.', notice: 'No Windows setting is changed.', confirmLabel: 'Replace snapshot' }))) return;
     setIsDriftLoading(true);
     setDriftError(null);
     try {
@@ -720,7 +720,7 @@ export default function App() {
   const [tweakError, setTweakError] = useState<string | null>(null);
   const loadUserSettings = useCallback(async () => {
     if (!window.pcOptiNative) return;
-    try { setUserSettings(await window.pcOptiNative.readUserSettings()); } catch { setUserSettings({}); }
+    try { setUserSettings(await window.pcOptiNative.readUserSettings()); } catch (error) { setUserSettings({}); setTweakError(`Dialed could not read the current settings, so the cards below show no values. ${error instanceof Error ? error.message : ''}`); }
   }, []);
   useEffect(() => { if ((activeTab === 'startup' && optimizeView === 'all') || activeTab === 'performance-lab' || activeTab === 'readiness') void loadUserSettings(); }, [activeTab, optimizeView, loadUserSettings, history]);
   const openTweakDestination = (destination: TweakDestination) => {
@@ -739,7 +739,7 @@ export default function App() {
     // Modern Standby PCs only allow Balanced-based plans, so say so before adding Ultimate Performance.
     const planNotice = settingId === 'ultimate-plan' ? (await window.pcOptiNative.listPowerPlans().catch(() => null))?.planNotice ?? null : null;
     const confirmed = await confirmAction({
-      title: card.definition.oneWay ? `${card.definition.actionLabel}: ${card.definition.title}?` : `Turn ${enable ? 'on' : 'off'} ${card.definition.title}?`,
+      title: card.definition.oneWay ? `${card.definition.title}: ${card.definition.actionLabel.charAt(0).toLowerCase()}${card.definition.actionLabel.slice(1)}?` : `Turn ${enable ? 'on' : 'off'} ${card.definition.title}?`,
       description: card.definition.whatChanges,
       details: card.definition.oneWay ? `${card.definition.title}: ${userSettings[settingId]?.detail ?? 'current state'} → ${card.definition.actionLabel.charAt(0).toLowerCase()}${card.definition.actionLabel.slice(1)}\nUndo: ${card.definition.undo}` : `${card.definition.title}: ${userSettings[settingId]?.enabled === null ? 'Windows default' : enable ? 'off' : 'on'} → ${enable ? 'on' : 'off'}\nUndo: ${card.definition.undo}`,
       warning: planNotice ?? null, notice: `Dialed records the previous value first, checks the new value after writing it, and keeps the change in Restore so you can undo it. ${card.definition.requiresRestart ? 'Restart Windows for it to take effect.' : card.definition.group === 'Graphics' || settingId === 'game-mode' || settingId === 'background-recording' ? 'Restart a running game for it to take effect.' : ''}${card.definition.requiresAdmin ? ' This machine-wide setting needs Dialed running as administrator.' : ''}`,
@@ -1100,11 +1100,11 @@ export default function App() {
   const enableProcessEcoQos = async (process: ManageableProcess) => {
     if (!window.pcOptiNative || activeProcessId) return;
     const confirmed = await confirmAction({
-      title: `Use EcoQoS for ${process.name}?`,
-      description: 'Windows gives this one app a lower-power lane. It is not closed, suspended or pinned to specific cores.',
-      details: `${process.name} · PID ${process.pid} · ${process.cpuPercent === null ? 'unknown' : `${process.cpuPercent}%`} recent CPU`,
+      title: `Use efficiency mode for ${process.name}?`,
+      description: 'Windows runs this one app on slower, low-power processor cores. It is not closed or paused.',
+      details: `${process.name} · ${process.cpuPercent === null ? 'unknown' : `${process.cpuPercent}%`} recent processor use`,
       notice: 'Use this only for background work. If this is a game or launcher, cancel — slowing a game is usually backwards. Undo it from Restore › History while the app is still running.',
-      confirmLabel: 'Use EcoQoS',
+      confirmLabel: 'Use efficiency mode',
     });
     if (!confirmed) return;
 

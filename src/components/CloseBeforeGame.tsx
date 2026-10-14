@@ -76,7 +76,7 @@ export function CloseBeforeGame() {
   };
 
   return <section aria-labelledby="close-before-game" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-    <h3 id="close-before-game" className="text-sm font-semibold text-slate-100">Close before a game</h3>
+    <h2 id="close-before-game" className="text-sm font-semibold text-slate-100">Close before a game</h2>
     <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">Pick the programs you do not need while playing. Dialed remembers your picks, so before the next game it is one click. Programs in the Windows folder, Dialed, and the security and anti-cheat programs Dialed recognises are left out; check the list yourself before closing. No FPS figure is promised; how much it helps depends on what those programs were doing.</p>
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
       <button type="button" disabled={busy || !running.length} onClick={() => void close()} className="rounded-md bg-cyan-400 px-3 py-1.5 font-semibold text-slate-950 disabled:opacity-40">{busy ? 'Working…' : running.length ? `Close ${running.length} chosen` : 'None of your picks is running'}</button>

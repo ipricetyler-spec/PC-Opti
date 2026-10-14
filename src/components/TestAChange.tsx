@@ -491,7 +491,7 @@ export function TestAChange({ tweaks, history, snapshot, evidence, prefill, onPr
           {kind === 'MANUAL' && displayBaselineId && <p className="mt-2 text-xs text-slate-400">Linked to your Display setup baseline: Dialed will check your monitor and graphics card still match before showing the result.</p>}
         </fieldset>
         <label className="block text-sm font-semibold text-slate-100">2. Which game will you test in?
-          <input className={`${FIELD} max-w-md`} maxLength={80} value={game} placeholder="e.g. VALORANT" onChange={(event) => setGame(event.target.value)} />
+          <input className={`${FIELD} max-w-md`} maxLength={80} value={game} placeholder="e.g. VALORANT" list="test-game-names" onChange={(event) => setGame(event.target.value)} /><datalist id="test-game-names">{[...new Set(tests.map((item) => item.game).filter(Boolean))].slice(0, 20).map((name) => <option key={name} value={name} />)}</datalist>
         </label>
       </div>
       {tips}

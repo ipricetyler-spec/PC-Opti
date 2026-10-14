@@ -25,8 +25,8 @@ export function NvidiaSettingsCheck() {
     {reading && !reading.available && <p className="text-xs text-slate-300">No NVIDIA driver found on this PC.</p>}
     {reading?.available && <>
       <p role="status" className="text-xs text-slate-300">{differing ? `${differing} setting${differing === 1 ? ' differs' : 's differ'} from the driver default, set in NVIDIA Control Panel or by another tool.` : 'Every setting Dialed reads is at the driver default or not set.'}</p>
-      <table className="w-full text-left text-xs">
-        <thead><tr className="text-slate-500"><th className="py-1 pr-3 font-semibold">Setting</th><th className="py-1 pr-3 font-semibold">Now</th><th className="py-1 font-semibold">Driver default</th></tr></thead>
+      <table className="w-full text-left text-xs"><caption className="sr-only">NVIDIA global driver settings: current value and driver default</caption>
+        <thead><tr className="text-slate-500"><th scope="col" className="py-1 pr-3 font-semibold">Setting</th><th scope="col" className="py-1 pr-3 font-semibold">Now</th><th scope="col" className="py-1 font-semibold">Driver default</th></tr></thead>
         <tbody>{reading.rows.map((row) => <tr key={row.id} className="border-t border-slate-800">
           <td className="py-1.5 pr-3 text-slate-300">{row.label}</td>
           <td className={`py-1.5 pr-3 font-mono ${row.differs ? 'text-sky-200' : 'text-slate-200'}`}>{row.value}{row.differs ? ' · changed' : ''}</td>

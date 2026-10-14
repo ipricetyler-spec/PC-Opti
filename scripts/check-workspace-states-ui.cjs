@@ -107,10 +107,10 @@ async function main() {
     await navigate('Tweaks');
     await page.getByRole('tab', { name: 'Background apps', exact: true }).click();
     await page.getByText('Fixture unknown CPU', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Refresh first', exact: true }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Refresh the list first', exact: true }).isDisabled(), true);
     await layout('Optimize populated processes: known/unknown CPU and existing efficiency');
     await page.getByPlaceholder('Search apps').fill('no matching fixture');
-    await page.getByText('No background processes match the current filters.', { exact: true }).waitFor();
+    await page.getByText('No background apps to show.', { exact: true }).waitFor();
     report.checks.push({ state: 'Optimize populated filter has no matches', passed: true });
     await page.getByPlaceholder('Search apps').fill('');
     await page.evaluate(() => { window.__workspaceState.mode = 'loading'; });

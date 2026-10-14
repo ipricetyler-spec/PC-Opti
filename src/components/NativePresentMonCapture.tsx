@@ -104,7 +104,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
   useEffect(() => { void refreshAll(); }, []);
   useEffect(() => {
     if (!captureState.active || !window.pcOptiNative) return;
-    const timer = window.setInterval(() => { void refreshState().catch((reason) => setError(reason instanceof Error ? reason.message : 'Capture status refresh failed.')); }, 1000);
+    const timer = window.setInterval(() => { void refreshState().catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not refresh the recording status.')); }, 1000);
     return () => window.clearInterval(timer);
   }, [captureState.active?.captureId]);
 
@@ -125,7 +125,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     try {
       preview = await window.pcOptiNative.previewPresentMonCapture(selectedTarget.targetId, duration, hardwareReadings);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'PresentMon capture preview could not be created safely.');
+      setError(reason instanceof Error ? reason.message : 'The recording could not be prepared.');
       setBusy(false);
       return;
     }
@@ -158,7 +158,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       setStatus('Recording. Keep playing the same scene; Dialed stops on its own when time is up.');
     } catch (reason) {
       if (fromHotkey) playCue('REFUSE');
-      setError(reason instanceof Error ? reason.message : 'PresentMon capture could not start safely.');
+      setError(reason instanceof Error ? reason.message : 'The recording could not start.');
     } finally {
       setBusy(false);
     }
@@ -234,11 +234,11 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       const preview = await window.pcOptiNative.previewPresentMonCaptureDeletion(captureId);
       const fileSummary = preview.files.map((file) => `${file.fileName} (${bytes(file.bytes)})`).join('\n');
       const confirmed = await confirm({
-        title: 'Permanently delete this capture?',
+        title: 'Permanently delete this recording?',
         description: `${preview.targetName} · started ${new Date(preview.startedAt).toLocaleString()}`,
         details: fileSummary,
         notice: preview.consequence,
-        confirmLabel: 'Delete capture',
+        confirmLabel: 'Delete recording',
         tone: 'danger',
       });
       if (!confirmed) return;
@@ -247,7 +247,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       setSelectedCaptures((current) => current.filter((id) => id !== captureId));
       setStatus(`Deleted ${result.deletedFiles.length} local capture file(s). This cannot be undone.`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The capture could not be deleted safely.');
+      setError(reason instanceof Error ? reason.message : 'The recording could not be deleted.');
     } finally {
       setBusy(false);
     }
@@ -267,7 +267,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
     <div className={`${compact ? '' : 'mt-4 '}grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end`}>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Game</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={Boolean(captureState.active)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value="">Choose a running game</option>{targets.map((target) => <option key={target.targetId} value={target.targetId}>{target.name} · {target.windowTitle}</option>)}</select></label>
       <label className="text-xs text-slate-400"><span className="mb-1 block">Duration</span><select value={duration} onChange={(event) => setDuration(Number(event.target.value) as 10 | 20 | 30)} disabled={Boolean(captureState.active)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={10}>10 seconds</option><option value={20}>20 seconds</option><option value={30}>30 seconds</option></select></label>
-      <label className="text-xs text-slate-400"><span className="mb-1 block">Start</span><select value={startDelay} onChange={(event) => setStartDelay(Number(event.target.value) as 0 | 5 | 10)} disabled={Boolean(captureState.active) || busy} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={0}>Right away</option><option value={5}>After 5 seconds</option><option value={10}>After 10 seconds</option></select></label>
+      <label className="text-xs text-slate-400"><span className="mb-1 block">Delay</span><select value={startDelay} onChange={(event) => setStartDelay(Number(event.target.value) as 0 | 5 | 10)} disabled={Boolean(captureState.active) || busy} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200"><option value={0}>Right away</option><option value={5}>After 5 seconds</option><option value={10}>After 10 seconds</option></select></label>
       {countdown !== null ? <p role="status" className="self-center text-xs text-cyan-200">Recording starts in {countdown} s. Switch to the game. <button type="button" onClick={() => { cancelCountdown.current = true; }} className="ml-1 underline">Cancel</button></p> : null}
       {captureState.active ? <button type="button" onClick={stop} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40"><CircleStop className="h-4 w-4" />Stop</button> : <button type="button" onClick={() => void start()} disabled={busy || !selectedTarget || tool?.status !== 'AVAILABLE'} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-40">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}Start recording</button>}
       {compact && <button type="button" onClick={refreshAll} disabled={busy || Boolean(captureState.active)} title="Look for running games again" className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />Refresh</button>}
@@ -276,7 +276,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       <label className="inline-flex items-center gap-2">Hotkey from the game
         <select aria-label="Recording hotkey" value={hotkey ?? ''} onChange={(event) => { const next = (event.target.value || null) as RecordingHotkey | null; saveRecordingHotkey(next); setHotkey(next); }} className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"><option value="">Off</option>{RECORDING_HOTKEYS.map((value) => <option key={value} value={value}>{hotkeyLabel(value)}</option>)}</select>
       </label>
-      {hotkey && <span className={hotkeyHeld === false ? 'text-amber-200' : 'text-slate-400'}>{hotkeyHeld === false ? 'Another program is using this key. Choose a different one.' : `After the first recording here, ${hotkeyLabel(hotkey)} starts the same recording from the game, or stops it early (an early stop does not count as a run). A rising tone means started, falling means stopped. Keep Dialed open on this page.`}</span>}
+      {hotkey && <span className={hotkeyHeld === false ? 'text-amber-200' : 'text-slate-400'}>{hotkeyHeld === false ? 'Another program is using this key. Choose a different one.' : `Press ${hotkeyLabel(hotkey)} in the game to start or stop. Rising tone: started. Falling: stopped. Record once here first, and keep Dialed on this page.`}</span>}
     </div>
     <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-slate-300">
       <input type="checkbox" checked={hardwareReadings} onChange={(event) => setHardwareReadings(event.target.checked)} disabled={Boolean(captureState.active)} className="mt-0.5 h-4 w-4 accent-cyan-400" />
@@ -293,7 +293,7 @@ export function NativePresentMonCapture({ onImportPreview, compact = false, onSt
       const selected = selectedCaptures.includes(entry.captureId);
       return <article key={entry.captureId} className={`rounded-xl border p-4 ${selected ? 'border-violet-400/50 bg-violet-950/20' : selectable ? 'border-slate-700 bg-slate-950/45' : 'border-amber-500/20 bg-amber-950/10'}`}>
         <button type="button" onClick={() => selectable && toggleCapture(entry.captureId)} disabled={!selectable} aria-pressed={selected} className="w-full text-left disabled:cursor-not-allowed disabled:opacity-80">
-          <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-100">{entry.target.name} · {entry.durationSeconds}s</p><span className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400">{plainLabel(entry.status)}</span></div>
+          <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-100">{entry.target.name} · {entry.durationSeconds}s</p><span className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400">{selected ? 'Picked · ' : ''}{plainLabel(entry.status)}</span></div>
           <p data-technical-detail className="mt-2 text-[11px] text-slate-500">{new Date(entry.startedAt).toLocaleString()}</p>
           {entry.output ? <p data-technical-detail className="mt-2 text-[11px] text-slate-400">{entry.output.metricColumn} · {bytes(entry.output.bytes)} · {entry.applications.reduce((total, app) => total + app.sampleCount, 0)} parsed frames</p> : null}
           {entry.stopReason ? <p className="mt-2 text-xs text-slate-400">Stopped: {plainLabel(entry.stopReason)} · recorded {entry.observedDurationSeconds?.toFixed(1) ?? 'unknown'}s / {entry.durationSeconds}s asked. {entry.protocolComplete ? 'Ready to compare.' : 'Incomplete, so it cannot be compared.'}</p> : null}

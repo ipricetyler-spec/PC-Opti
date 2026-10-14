@@ -124,14 +124,14 @@ export function ProcessBalancer({ items, errors, loading, activeProcessId, actio
           const active = activeProcessId === process.pid;
           return <div key={process.pid} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold text-slate-100">{process.name}</span><span data-technical-detail className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-slate-400">PID {process.pid}</span>{process.efficiencyMode && <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300"><Leaf className="h-3 w-3" />Efficiency Mode active</span>}</div>
-              <p className="mt-1 text-xs text-slate-500">{process.cpuPercent === null ? 'Unknown CPU' : `${process.cpuPercent}% recent CPU`} · {formatBytes(process.workingSetBytes)} working set</p>
+              <div className="flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold text-slate-100">{process.name}</span><span data-technical-detail className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-slate-400">PID {process.pid}</span>{process.efficiencyMode && <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300"><Leaf className="h-3 w-3" />In efficiency mode</span>}</div>
+              <p className="mt-1 text-xs text-slate-500">{process.cpuPercent === null ? 'Unknown CPU' : `${process.cpuPercent}% recent CPU`} · {formatBytes(process.workingSetBytes)} memory</p>
             </div>
-            <button onClick={() => onEnable(process)} disabled={active || process.efficiencyMode || !process.creationTime} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50">
-              <Leaf className="h-3.5 w-3.5" /> {active ? 'Applying…' : process.efficiencyMode ? 'Already enabled' : !process.creationTime ? 'Refresh first' : 'Use efficiency mode'}
+            <button onClick={() => onEnable(process)} disabled={active || process.efficiencyMode || !process.creationTime} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">
+              <Leaf className="h-3.5 w-3.5" /> {active ? 'Applying…' : process.efficiencyMode ? 'Already enabled' : !process.creationTime ? 'Refresh the list first' : 'Use efficiency mode'}
             </button>
           </div>;
-        })}</div> : <div className="p-6 text-sm text-slate-500">{loading ? '' : filteredItems.length === 0 ? 'No background processes match the current filters.' : 'No apps to show. Open an app, then refresh.'}</div>}
+        })}</div> : <div className="p-6 text-sm text-slate-500">{loading ? '' : filteredItems.length === 0 ? 'No background apps to show.' : 'No apps to show. Open an app, then refresh.'}</div>}
       </section>
     </div>
   );

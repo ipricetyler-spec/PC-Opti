@@ -70,7 +70,7 @@ async function main() {
     assert.match(await page.evaluate(() => localStorage.getItem('dialed-recording-approved-games:v1')), /valorant-win64-shipping\.exe/);
     // A start delay counts down and can be canceled before anything is recorded.
     await page.getByLabel('Duration').selectOption('20');
-    await page.getByLabel('Start').selectOption('5');
+    await page.getByLabel('Delay').selectOption('5');
     await startButton.click();
     await page.getByText(/Recording starts in \d s/).waitFor();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -80,15 +80,15 @@ async function main() {
     await startButton.click();
     await page.waitForFunction(() => window.__recording.starts === 4, null, { timeout: 15000 });
     // After a canceled countdown, an immediate recording still starts.
-    await page.getByLabel('Start').selectOption('5');
+    await page.getByLabel('Delay').selectOption('5');
     await startButton.click();
     await page.getByText(/Recording starts in \d s/).waitFor();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.getByLabel('Start').selectOption('0');
+    await page.getByLabel('Delay').selectOption('0');
     await startButton.click();
     await page.waitForFunction(() => window.__recording.starts === 5);
     // Confirmed once, the hotkey starts the same recording from the game at once, without the delay.
-    await page.getByLabel('Start').selectOption('5');
+    await page.getByLabel('Delay').selectOption('5');
     await page.evaluate(() => window.__fireHotkey());
     await page.waitForFunction(() => window.__recording.starts === 6, null, { timeout: 3000 });
     assert.equal(await page.getByText(/Recording starts in \d s/).count(), 0, 'The hotkey waited for the start delay.');
@@ -96,7 +96,7 @@ async function main() {
     await page.getByLabel('Recording hotkey').selectOption('');
     await page.waitForFunction(() => window.__recording.hotkeys.at(-1) === null && window.__fireHotkey === null);
     // Stopping the test during a countdown records nothing (Codex review R4).
-    await page.getByLabel('Start').selectOption('5');
+    await page.getByLabel('Delay').selectOption('5');
     await startButton.click();
     await page.getByText(/Recording starts in \d s/).waitFor();
     await page.getByRole('button', { name: 'Stop this test' }).click();

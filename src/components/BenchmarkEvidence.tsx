@@ -354,8 +354,8 @@ function PresentMonImportForm({
     <p className="mt-1 text-xs leading-relaxed text-slate-400">Say which recordings are before and which are after, and what you changed. Every run should be the same game and scene.</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       <TextField label="Test name" value={metadata.experimentId} onChange={(value) => setMetadata({ ...metadata, experimentId: value })} placeholder="game-scene-change-01" />
-      <TextField label="Workload" value={metadata.workload} onChange={(value) => setMetadata({ ...metadata, workload: value })} placeholder="Scene (for example: Range, bot drill)" />
-      <TextField label="PresentMon version" value={metadata.toolVersion} onChange={(value) => setMetadata({ ...metadata, toolVersion: value })} placeholder="Filled in from the capture tool when known" />
+      <TextField label="Game and scene" value={metadata.workload} onChange={(value) => setMetadata({ ...metadata, workload: value })} placeholder="Scene (for example: Range, bot drill)" />
+      <TextField label="PresentMon version" value={metadata.toolVersion} onChange={(value) => setMetadata({ ...metadata, toolVersion: value })} placeholder="Filled in from the recording when known" />
       <TextField label="What you changed" value={metadata.changeDescription} onChange={(value) => setMetadata({ ...metadata, changeDescription: value })} placeholder="One change only, e.g. Multithreaded rendering on" />
     </div>
     <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -363,13 +363,13 @@ function PresentMonImportForm({
         const run = metadata.runs[index];
         const selectedApplication = source.applications.find((item) => item.application === run.application);
         return <fieldset key={source.sourceId} className="rounded-xl border border-slate-700 bg-slate-950/50 p-4">
-          <legend className="px-1 text-xs font-semibold text-slate-200">{`Capture ${index + 1} · ${run.phase.toLowerCase()}`}</legend>
+          <legend className="px-1 text-xs font-semibold text-slate-200">{`Recording ${index + 1} · ${run.phase === 'BASELINE' ? 'before' : 'after'}`}</legend>
           <p data-technical-detail className="break-all text-[11px] text-slate-400">{source.fileName}</p>
           <p data-technical-detail className="mt-1 text-[11px] text-slate-500">{source.metricColumn} ({source.unit}) · {selectedApplication?.sampleCount ?? 0} samples · {source.unavailableFrameCount} unavailable rows skipped</p>
-          <label className="mt-3 block text-[11px] font-medium text-slate-400">Phase<select className={INPUT_CLASS} value={run.phase} onChange={(event) => updateRun(index, { phase: event.target.value as 'BASELINE' | 'CANDIDATE' })}><option value="BASELINE">BASELINE</option><option value="CANDIDATE">CANDIDATE</option></select></label>
+          <label className="mt-3 block text-[11px] font-medium text-slate-400">Before or after<select className={INPUT_CLASS} value={run.phase} onChange={(event) => updateRun(index, { phase: event.target.value as 'BASELINE' | 'CANDIDATE' })}><option value="BASELINE">Before the change</option><option value="CANDIDATE">After the change</option></select></label>
           <label className="mt-3 block text-[11px] font-medium text-slate-400">Application<select className={INPUT_CLASS} value={run.application} onChange={(event) => updateRun(index, { application: event.target.value })}>{source.applications.map((application) => <option key={application.application} value={application.application}>{application.application} · {application.sampleCount} samples</option>)}</select></label>
           <TextField label="Variant" value={run.variant} onChange={(value) => updateRun(index, { variant: value })} />
-          <TextField label="Captured at (ISO timestamp)" value={run.capturedAt} onChange={(value) => updateRun(index, { capturedAt: value })} />
+          <TextField label="When it was recorded" value={run.capturedAt} onChange={(value) => updateRun(index, { capturedAt: value })} />
           <TextField label="Run notes (optional)" value={run.notes} onChange={(value) => updateRun(index, { notes: value })} required={false} />
         </fieldset>;
       })}

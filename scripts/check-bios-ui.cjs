@@ -64,10 +64,10 @@ async function main() {
     await page.getByRole('heading', { name: 'Use your RAM kit’s supported EXPO profile' }).waitFor();
     assert.equal(await sectionButtons(page).count(), 7);
     assert.equal(await page.getByRole('heading', { name: /Explore PBO/ }).count(), 0);
-    await page.getByRole('checkbox', { name: 'Include advanced CPU tuning' }).check();
+    await page.getByRole('checkbox', { name: /^Show \d+ advanced options? / }).check();
     await page.getByRole('heading', { name: /Explore PBO/ }).waitFor();
-    await page.getByRole('checkbox', { name: 'Include advanced CPU tuning' }).uncheck();
-    await page.getByText('Steps, compatibility and recovery', { exact: true }).first().click();
+    await page.getByRole('checkbox', { name: /^Show \d+ advanced options? / }).uncheck();
+    await page.getByText('Steps, recovery and your notes', { exact: true }).first().click();
     await page.getByLabel('Previous setting: Use your RAM kit’s supported EXPO profile', { exact: true }).fill('Fixture previous value: Auto; test pending.');
     await page.getByLabel('Progress: Use your RAM kit’s supported EXPO profile', { exact: true }).selectOption('Changed — needs testing');
     await page.getByRole('tab', { name: 'All tweaks', exact: true }).click();
@@ -89,7 +89,7 @@ async function main() {
     assert.match(content, /https:\/\//);
 
     const layouts = [];
-    await page.getByText('Steps, compatibility and recovery', { exact: true }).first().click();
+    await page.getByText('Steps, recovery and your notes', { exact: true }).first().click();
     for (const theme of themes) {
       await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
       for (const width of [960, 1280]) {

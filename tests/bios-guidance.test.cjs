@@ -73,7 +73,7 @@ test('thermal specifications match exact CPU models without spreading an X3D tem
     assert.equal(thermal.length, expected === null ? 0 : 1);
     if (expected !== null) {
       assert.match(thermal[0].target, new RegExp(`${expected}°C`));
-      assert.match(thermal[0].target, /not a recommended new BIOS setting/);
+      assert.match(thermal[0].target, /a limit to stay under, not a setting to change/);
       assert.equal(thermal[0].currentState, 'Not read from BIOS');
     }
   }

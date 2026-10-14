@@ -216,7 +216,6 @@ async function main() {
     await openSection(page, 'Home');
     await page.getByRole('tab', { name: 'Scan details', exact: true }).click();
     await page.getByRole('heading', { name: 'What Dialed found on this PC' }).waitFor();
-    await page.getByRole('tab', { name: 'Windows controls' }).click();
     // Home keeps only the Windows Settings shortcuts; built-in app removal lives in Tweaks.
     await page.getByRole('heading', { name: 'Shortcuts to the matching Windows Settings pages' }).waitFor();
     assert.equal(await page.getByText('Only a short list of optional Microsoft Store apps').count(), 0);

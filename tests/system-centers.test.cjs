@@ -11,11 +11,11 @@ test('read-only system centers stay inside Scan and expose the intended evidence
   // The centers sit in the Scan details panel, which renders only for the overview tab.
   assert.match(appSource, /activeTab === 'overview' && <TabPanel ariaLabel="Home views"[^\n]*\n\s*<SystemInsightCenters /);
   assert.equal(appSource.split('<SystemInsightCenters').length - 1, 1);
-  for (const label of ['Storage & apps', 'System status', 'Security', 'Power & hardware']) assert.match(componentSource, new RegExp(label.replace('/', '\\/')));
+  for (const label of ['Installed apps', 'System status', 'Security', 'Power & hardware']) assert.match(componentSource, new RegExp(label.replace('/', '\\/')));
   assert.match(componentSource, /Some apps do not report their size/);
   assert.match(componentSource, /does not run system repair tools or registry cleaners/);
-  for (const phrase of ['Complete with', 'drive', 'Windows managed', 'No automatic repairs', 'System board']) assert.match(componentSource, new RegExp(phrase));
-  assert.match(componentSource, /role="tablist" aria-label="System evidence views"/);
+  for (const phrase of ['could not be read', 'drive', 'Windows managed', 'No automatic repairs', 'System board']) assert.match(componentSource, new RegExp(phrase));
+  assert.match(componentSource, /role="tablist" aria-label="Scan detail views"/);
   assert.match(componentSource, /role="tab" aria-selected=/);
   assert.match(componentSource, /role="tabpanel" aria-labelledby=/);
   for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End']) assert.match(componentSource, new RegExp(`event\\.key === '${key}'`));

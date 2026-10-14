@@ -61,9 +61,10 @@ test('Local Audit filters use a consistent responsive grid and full-width contro
   const source = read('src/components/LocalAuditHistory.tsx');
 
   assert.ok(source.includes('grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]'));
-  assert.match(source, /<span className="mb-1 block">Show<\/span>/);
+  // The result chips are the filter; a second "Show" list was removed as a duplicate.
+  assert.doesNotMatch(source, /<span className="mb-1 block">Show<\/span>/);
   assert.match(source, /<span className="mb-1 block">Sort<\/span>/);
-  assert.equal([...source.matchAll(/className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2/g)].length, 3);
+  assert.equal([...source.matchAll(/className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2/g)].length, 2);
   assert.match(source, /<button type="button" onClick=\{\(\) => \{ showAll\(\); setHistorySort\('newest'\); \}\}/);
   // Opening one entry filters by id without hiding it in the search box, and says how to see the rest.
   assert.match(source, /if \(focusedEntry\) return entry\.id === focusedEntry\.id;/);

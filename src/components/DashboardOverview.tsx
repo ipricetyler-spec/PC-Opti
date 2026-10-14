@@ -106,9 +106,9 @@ export function DashboardOverview({
         <Metric icon={<Database className="h-4 w-4 text-amber-400" />} label="Temporary files" value={formatBytes(snapshot.metrics.tempFiles.totalSizeBytes)} detail={`${snapshot.metrics.tempFiles.pathCount.toLocaleString()} files in Windows temp locations`} onOpen={onOpenTempFiles} openLabel="Review temporary files" />
       </section>
 
-      <section className={`rounded-2xl border p-5 ${memoryPressure === 'critical' ? 'border-rose-500/30 bg-rose-950/20' : memoryPressure === 'normal' ? 'border-emerald-500/20 bg-emerald-950/10' : 'border-amber-500/30 bg-amber-950/20'}`}>
+      {(memoryPressure as string) !== 'normal' && <section className={`rounded-2xl border p-5 ${memoryPressure === 'critical' ? 'border-rose-500/30 bg-rose-950/20' : memoryPressure === 'normal' ? 'border-emerald-500/20 bg-emerald-950/10' : 'border-amber-500/30 bg-amber-950/20'}`}>
         <div className="flex gap-3"><AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${memoryPressure === 'critical' ? 'text-rose-300' : memoryPressure === 'normal' ? 'text-emerald-300' : 'text-amber-300'}`} /><div><h3 className="text-sm font-semibold text-slate-100">{memoryPressure === 'critical' ? 'Memory is almost full' : memoryPressure === 'elevated' ? 'Memory use is high' : memoryPressure === 'normal' ? 'Memory use is normal' : 'Memory use could not be read'}</h3><p className="mt-1 text-xs leading-relaxed text-slate-400">{memoryPressure === 'critical' ? `${memory?.loadPercentage}% of memory is in use. Close background apps you do not need before playing, or put them in efficiency mode. Dialed does not "clear RAM"; Windows uses spare memory as a cache on purpose.` : memoryPressure === 'elevated' ? `${memory?.loadPercentage}% of memory is in use. If games stutter, check which background apps are running.` : memoryPressure === 'normal' && memory ? `${formatBytes(memory.freeBytes)} free. Nothing to do.` : snapshot.metrics.memory.status !== 'AVAILABLE' ? snapshot.metrics.memory.reason : 'Windows did not report memory use.'}</p></div></div>
-      </section>
+      </section>}
 
       <section id="storage-volumes" className="grid scroll-mt-5 grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 xl:col-span-3">
@@ -168,3 +168,4 @@ function Metric({ icon, label, value, detail, onOpen, openLabel }: { icon: React
 function Detail({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between gap-4"><dt className="text-slate-500">{label}</dt><dd className="max-w-[65%] text-right text-slate-300">{value}</dd></div>;
 }
+

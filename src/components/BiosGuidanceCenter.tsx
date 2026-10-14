@@ -139,10 +139,10 @@ export function BiosGuidanceCenter() {
 
       {plan.status === 'GUIDANCE_AVAILABLE' && <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold text-white">{items.length} relevant checks <span className="text-xs font-normal text-slate-400">· not a list of detected faults</span></h3>
-        {advancedCount > 0 && <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={advanced} onChange={(event) => setAdvanced(event.target.checked)} />Include advanced CPU tuning</label>}
+        {advancedCount > 0 && <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={advanced} onChange={(event) => setAdvanced(event.target.checked)} className="accent-cyan-400" />Show {advancedCount} advanced option{advancedCount === 1 ? '' : 's'} (measure before and after)</label>}
       </div>}
       {items.map((item) => <section key={item.id} className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-white">{item.title}</h3><span className="text-xs text-amber-200">{item.risk} · Manual</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-white">{item.title}</h3><span className={`text-xs ${item.risk === 'Low' ? 'text-slate-400' : 'text-amber-200'}`}>{item.risk} risk · you change it yourself</span></div>
         <p className="mt-2 text-sm text-slate-300">{item.benefit}</p>
         <p className="mt-2 flex flex-wrap items-baseline gap-2 text-xs">
           {item.observed
@@ -152,8 +152,8 @@ export function BiosGuidanceCenter() {
         </p>
         <p className="mt-2 text-xs text-cyan-200"><strong>Target:</strong> {item.target}</p>
         <p className="mt-2 flex gap-2 text-xs leading-relaxed text-amber-200/90"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{item.tradeoff}</p>
-        <details className="mt-3">
-          <summary className="cursor-pointer rounded py-2 text-sm font-semibold text-cyan-300">Steps, compatibility and recovery</summary>
+        <details className="mt-3" open={Boolean(notes[item.id]?.previousValue || (notes[item.id]?.status && notes[item.id]?.status !== 'Not reviewed')) || undefined}>
+          <summary className="cursor-pointer rounded py-2 text-sm font-semibold text-cyan-300">Steps, recovery and your notes</summary>
           <div className="mt-2 space-y-4 text-xs leading-relaxed text-slate-300">
             <p>{item.matchReason}</p>
             <div><h4 className="font-semibold text-white">Check first</h4><ul className="mt-1 list-disc space-y-1 pl-5">{item.checks.map((step) => <li key={step}>{step}</li>)}</ul></div>
@@ -162,17 +162,17 @@ export function BiosGuidanceCenter() {
             <p><strong className="text-white">After reboot:</strong> {item.verify}</p>
             <p><strong className="text-white">If it does not work:</strong> {item.undo}</p>
             <div className="flex flex-wrap gap-3">{item.sources.map((source) => <button key={source.url} onClick={() => void openSource(source.url)} className="text-left text-cyan-300 hover:underline">{source.title} ↗</button>)}</div>
+              <div className="mt-4 grid gap-3 border-t border-slate-800 pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <label className="min-w-0 text-xs text-slate-400">Your progress (Dialed cannot check this)
+                <select aria-label={`Progress: ${item.title}`} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-200" value={notes[item.id]?.status || 'Not reviewed'} onChange={(event) => updateNote(item.id, { status: event.target.value })}>{BIOS_NOTE_STATUSES.map((status) => <option key={status}>{status}</option>)}</select>
+              </label>
+              <label className="min-w-0 text-xs text-slate-400">Previous setting / test notes (saved on this device)
+                <textarea aria-label={`Previous setting: ${item.title}`} rows={2} maxLength={1000} value={notes[item.id]?.previousValue || ''} onChange={(event) => updateNote(item.id, { previousValue: event.target.value })} placeholder="Example: previous profile = Auto; record your result after testing. No passwords or recovery keys." className="mt-1 block w-full min-w-0 resize-y rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-200" />
+              </label>
+            </div>
           </div>
         </details>
-        <div className="mt-4 grid gap-3 border-t border-slate-800 pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <label className="min-w-0 text-xs text-slate-400">Your progress (Dialed cannot check this)
-            <select aria-label={`Progress: ${item.title}`} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-200" value={notes[item.id]?.status || 'Not reviewed'} onChange={(event) => updateNote(item.id, { status: event.target.value })}>{BIOS_NOTE_STATUSES.map((status) => <option key={status}>{status}</option>)}</select>
-          </label>
-          <label className="min-w-0 text-xs text-slate-400">Previous setting / test notes (saved on this device)
-            <textarea aria-label={`Previous setting: ${item.title}`} rows={2} maxLength={1000} value={notes[item.id]?.previousValue || ''} onChange={(event) => updateNote(item.id, { previousValue: event.target.value })} placeholder="Example: previous profile = Auto; record your result after testing. No passwords or recovery keys." className="mt-1 block w-full min-w-0 resize-y rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-200" />
-          </label>
-        </div>
-      </section>)}
+    </section>)}
     </>}
   </div>;
 }

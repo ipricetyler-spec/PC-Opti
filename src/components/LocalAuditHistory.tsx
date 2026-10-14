@@ -264,9 +264,7 @@ export function LocalAuditHistory({
     <section aria-label="Filter by result" className="flex flex-wrap gap-2">
       <LedgerStat active={!focusedEntry && historyFilter === 'all'} onClick={() => pickFilter('all')} label="Total" value={`${entries.length}`} detail="All recorded changes." />
       <LedgerStat active={!focusedEntry && historyFilter === 'success'} onClick={() => pickFilter('success')} label="Success" value={`${counts.completed}`} detail="Finished and confirmed." />
-      <LedgerStat active={!focusedEntry && historyFilter === 'needs-review'} onClick={() => pickFilter('needs-review')} label="Needs review" value={`${counts.needsReview}`} detail="Could not be confirmed; worth a look." />
       <LedgerStat active={!focusedEntry && historyFilter === 'failed'} onClick={() => pickFilter('failed')} label="Failed" value={`${counts.failed}`} detail="Windows refused or the change failed." />
-      <LedgerStat active={!focusedEntry && historyFilter === 'pending'} onClick={() => pickFilter('pending')} label="Not finished" value={`${counts.pending}`} detail="Started, but Dialed could not see it finish." />
       <LedgerStat active={!focusedEntry && historyFilter === 'rollback'} onClick={() => pickFilter('rollback')} label="Can be undone" value={`${counts.rollbackAvailable}`} detail="Have an Undo button." />
       <LedgerStat active={!focusedEntry && historyFilter === 'unresolved'} onClick={() => pickFilter('unresolved')} label="To check" value={`${counts.protected}`} detail="Not finished or not confirmed. Kept until checked." />
     </section>
@@ -274,23 +272,12 @@ export function LocalAuditHistory({
     <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
       <div className="grid min-w-0 gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] items-end">
         <div className="min-w-0 space-y-1 text-xs text-slate-400">
-          <p>Pick a result above, or filter here.</p>
+          <p>Pick a result above, or search here.</p>
           <p role="status" aria-live="polite" aria-atomic="true" className="text-[11px]">Showing {displayedEntries.length} of {entries.length} records</p>
         </div>
         <label className="block min-w-0 text-[11px] font-medium text-slate-300">
           <span className="mb-1 block"><Search className="mr-1 inline h-3.5 w-3.5" />Find</span>
           <input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 outline-none focus:border-violet-400" placeholder="Search changes" />
-        </label>
-        <label className="block min-w-0 text-[11px] font-medium text-slate-300">
-          <span className="mb-1 block">Show</span>
-          <select
-            value={historyFilter}
-            onChange={(event) => setHistoryFilter(event.target.value as HistoryFilterValue)}
-            disabled={controlsDisabled}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300 disabled:opacity-60"
-          >
-            {HISTORY_FILTERS.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
-          </select>
         </label>
         <label className="block min-w-0 text-[11px] font-medium text-slate-300">
           <span className="mb-1 block">Sort</span>
